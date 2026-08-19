@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "label": "New Feature",
+  "initialStep": "requirement",
+  "steps": {
+    "requirement": {
+      "stepType": "task",
+      "interactive": true,
+      "taskType": "CollectRequirement",
+      "documentation": "Paste the acceptance criteria for the feature exactly as they are written in JIRA, plus anything said in refinement that is not written down. Where the two disagree, say so here rather than deciding quietly — that disagreement is the most valuable thing you can give the analysis.",
+      "nextStep": "gitClone"
+    },
+    "gitClone": {
+      "stepType": "commandExecution",
+      "taskType": "gitClone",
+      "documentation": "Lists the git commands to put each microservice you selected on your chosen base branch, ready to copy or send to a terminal. Repositories already cloned get a fetch rather than a clone. Nothing runs on its own — you run them yourself. Mark the step done once you have.",
+      "nextStep": "aiHandoff"
+    },
+    "aiHandoff": {
+      "stepType": "aiHandoff",
+      "taskType": "invokeCopilot",
+      "documentation": "Sends the composed prompt to Copilot, which reads the code and writes an implementation plan before anything is changed. The prompt is recorded in full in the session log before it is sent. Mark this step done once the plan file has been written.",
+      "nextStep": "reviewAnalysis"
+    },
+    "reviewAnalysis": {
+      "stepType": "manual",
+      "taskType": "manualReview",
+      "documentation": "The plan opens in an editor tab. Read it before any code is written — this is the cheapest point at which to catch a wrong approach. Edit it if you want to, then approve it. If it is not good enough, send it back for another pass and Copilot will run again with your edits included.",
+      "nextStep": "CodeImplementation"
+    },
+    "CodeImplementation": {
+      "stepType": "aiHandoff",
+      "taskType": "invokeCopilotCoding",
+      "documentation": "Copilot implements the approved plan in the repositories in scope. This step produces edits rather than a document, so nothing is watched for on disk: it completes when you say it does. Read the diff before you do.",
+      "nextStep": "CodeReview"
+    },
+    "CodeReview": {
+      "stepType": "aiHandoff",
+      "taskType": "invokeCopilotCodeReview",
+      "documentation": "Copilot reviews its own changes against the acceptance criteria and fixes what it finds. A second pass catches a surprising amount, but it is not a substitute for your review — nothing here is pushed, so the last judgement is still yours."
+    }
+  }
+}

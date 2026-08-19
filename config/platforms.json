@@ -1,0 +1,9 @@
+{
+  "comment": "Platform is recorded context only. It does not filter the microservice list.",
+  "platforms": [
+    { "id": "canada-assisted", "label": "Canada Assisted Platform" },
+    { "id": "canada-self-serve", "label": "Canada Self-serve Platform" },
+    { "id": "us-assisted", "label": "US Assisted Platform" },
+    { "id": "us-self-serve", "label": "US Self-serve Platform" }
+  ]
+}

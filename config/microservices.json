@@ -1,0 +1,22 @@
+[
+  {
+    "microserviceName": "reference-data-service",
+    "shortCode": "ris",
+    "purpose": "stores and return reference data",
+    "gitLocation": "https://github.com/kumartj/reference-data-service",
+    "category": "backend-service"
+  },
+  {
+    "microserviceName": "party-service",
+    "shortCode": "pis",
+    "purpose": "stores and return party data",
+    "gitLocation": "https://github.com/kumartj/party-service",
+    "category": "backend-service"
+  },{
+    "microserviceName": "application-onboarding",
+    "shortCode": "aos",
+    "purpose": "helps party/customer to apply fo a product",
+    "gitLocation": "https://github.com/kumartj/application-onboarding",
+    "category": "backend-service"
+  }
+]

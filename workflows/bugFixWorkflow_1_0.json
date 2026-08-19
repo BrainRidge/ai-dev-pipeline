@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "label": "Bug Fix",
+  "initialStep": "requirement",
+  "steps": {
+    "requirement": {
+      "stepType": "task",
+      "interactive": true,
+      "taskType": "CollectRequirement",
+      "documentation": "Paste the defect as it is written in JIRA, then add what the ticket leaves out: the exact steps that reproduce it, what you expected, what actually happened, and where it was seen. A bug report that cannot be reproduced from what is written here will be diagnosed by guesswork.",
+      "nextStep": "gitClone"
+    },
+    "gitClone": {
+      "stepType": "commandExecution",
+      "taskType": "gitClone",
+      "documentation": "Lists the git commands to put each microservice you selected on your chosen base branch, ready to copy or send to a terminal. Fix the bug on the branch it was reported against — diagnosing against the wrong branch is the most common way this step goes wrong. Nothing runs on its own; mark the step done once you have run them.",
+      "nextStep": "diagnosis"
+    },
+    "diagnosis": {
+      "stepType": "aiHandoff",
+      "taskType": "invokeCopilot",
+      "documentation": "Copilot reads the code and finds the cause of the defect. It is told not to fix anything in this step — a fix written before the cause is understood usually moves the symptom rather than removing it. Mark this step done once the root-cause file has been written.",
+      "nextStep": "reviewDiagnosis"
+    },
+    "reviewDiagnosis": {
+      "stepType": "manual",
+      "taskType": "manualReview",
+      "documentation": "Read the diagnosis before any code changes. A confident but wrong root cause is the expensive failure here: it produces a plausible fix that leaves the real defect in place. If the evidence does not convince you, send it back rather than proceeding.",
+      "nextStep": "CodeFix"
+    },
+    "CodeFix": {
+      "stepType": "aiHandoff",
+      "taskType": "invokeCopilotCoding",
+      "documentation": "Copilot makes the smallest change that removes the cause you approved, and adds a regression test that fails without the fix. This step produces edits rather than a document, so nothing is watched for on disk: it completes when you say it does. Read the diff and run the new test first.",
+      "nextStep": "CodeReview"
+    },
+    "CodeReview": {
+      "stepType": "aiHandoff",
+      "taskType": "invokeCopilotCodeReview",
+      "documentation": "Copilot reviews its own fix against the diagnosis: does the change remove the cause rather than mask the symptom, and does the new test actually fail without it. Nothing here is pushed, so the last judgement is still yours."
+    }
+  }
+}

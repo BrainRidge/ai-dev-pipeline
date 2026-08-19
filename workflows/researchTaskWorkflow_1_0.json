@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "label": "Research Task",
+  "initialStep": "requirement",
+  "steps": {
+    "requirement": {
+      "stepType": "task",
+      "interactive": true,
+      "taskType": "CollectRequirement",
+      "documentation": "Describe what you need to find out. Be specific about the behaviour you are investigating rather than the fix you have in mind — the analysis is only as good as the question. Paste the JIRA story and any notes from calls; contradictions between them are often the most valuable finding.",
+      "nextStep": "gitClone"
+    },
+    "gitClone": {
+      "stepType": "commandExecution",
+      "taskType": "gitClone",
+      "documentation": "Lists the git commands for the microservices you selected, ready to copy or send to a terminal. Nothing runs on its own — you run them yourself, so you see exactly what happens to your repositories. Mark the step done once you have.",
+      "nextStep": "aiHandoff"
+    },
+    "aiHandoff": {
+      "stepType": "aiHandoff",
+      "taskType": "invokeCopilot",
+      "documentation": "Sends the composed prompt to Copilot. The prompt is assembled from your inputs, the repository paths and a required output contract — it is recorded in full in the session log before it is sent. Mark this step done once the analysis file has been written.",
+      "nextStep": "reviewAnalysis"
+    },
+    "reviewAnalysis": {
+      "stepType": "manual",
+      "taskType": "manualReview",
+      "documentation": "The analysis opens in an editor tab. Read it, edit it if you want to, then approve it. If it is not good enough, send it back for another pass and Copilot will run again with your edits included."
+    }
+  }
+}

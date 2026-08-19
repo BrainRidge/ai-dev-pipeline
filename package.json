@@ -1,0 +1,101 @@
+{
+  "name": "ai-dev-workflow",
+  "displayName": "AI Dev Workflow",
+  "description": "Interactive, standardised AI-assisted development workflows",
+  "version": "0.1.0",
+  "publisher": "internal",
+  "engines": {
+    "vscode": "^1.96.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./out/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "aiDevWorkflow",
+          "title": "AI Dev Pipeline",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "aiDevWorkflow": [
+        {
+          "id": "aiDevWorkflow.setup",
+          "name": "Task SetUp",
+          "type": "webview"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "aiDevWorkflow.startTask",
+        "title": "AI Dev Workflow: Start Task"
+      },
+      {
+        "command": "aiDevWorkflow.resumeTask",
+        "title": "AI Dev Workflow: Resume Task"
+      }
+    ],
+    "configuration": {
+      "title": "AI Dev Workflow",
+      "properties": {
+        "aiDevWorkflow.tasksRoot": {
+          "type": "string",
+          "default": "",
+          "description": "Where task folders are created. Defaults to ~/ai-dev-workflow/tasks."
+        },
+        "aiDevWorkflow.codeRoot": {
+          "type": "string",
+          "default": "",
+          "description": "Where repositories are cloned. Defaults to ~/ai-dev-workflow/code."
+        },
+        "aiDevWorkflow.updateManifestUrl": {
+          "type": "string",
+          "default": "",
+          "description": "URL of a JSON manifest stating the latest published version. Empty disables the check."
+        },
+        "aiDevWorkflow.taskId": {
+          "type": "string",
+          "default": "",
+          "description": "Set automatically in generated workspace files. Do not edit."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "verify": "npm run typecheck && npm run lint && npm test",
+    "compile:test": "tsc --outDir out --sourceMap false",
+    "pretest:integration": "npm run compile:test",
+    "test:integration": "vscode-test",
+    "lint": "eslint .",
+    "package": "vsce package"
+  },
+  "dependencies": {
+    "yaml": "^2.5.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/vscode": "^1.96.0",
+    "@vscode/test-cli": "^0.0.15",
+    "@vscode/test-electron": "^3.1.0",
+    "@vscode/vsce": "^3.0.0",
+    "esbuild": "^0.23.0",
+    "eslint": "^9.0.0",
+    "jsdom": "^25.0.0",
+    "typescript": "^5.5.0",
+    "typescript-eslint": "^8.0.0",
+    "vitest": "^2.0.0"
+  }
+}

@@ -1,0 +1,135 @@
+{
+  "protocolVersion": 2,
+  "task": {
+    "id": "",
+    "platform": "canada-assisted",
+    "epic": "",
+    "workflowLabel": "Task setup"
+  },
+  "progress": {
+    "index": 0,
+    "total": 0,
+    "steps": []
+  },
+  "step": {
+    "id": "setup",
+    "kind": "form",
+    "title": "Task setup",
+    "values": {
+      "platform": "canada-assisted",
+      "workflowId": "newFeatureWorkflow",
+      "epic": "PLAT-1234",
+      "featureStory": "",
+      "baseBranch": "develop",
+      "services": [
+        "pis"
+      ],
+      "workDir": "/Users/you/work"
+    },
+    "errors": {
+      "featureStory": "Enter a story key such as PLAT-1234"
+    },
+    "fields": [
+      {
+        "id": "platform",
+        "type": "select",
+        "label": "Platform",
+        "options": [
+          {
+            "value": "canada-assisted",
+            "label": "Canada Assisted Platform"
+          },
+          {
+            "value": "canada-self-serve",
+            "label": "Canada Self-serve Platform"
+          },
+          {
+            "value": "us-assisted",
+            "label": "US Assisted Platform"
+          },
+          {
+            "value": "us-self-serve",
+            "label": "US Self-serve Platform"
+          }
+        ]
+      },
+      {
+        "id": "epic",
+        "type": "text",
+        "label": "Epic",
+        "required": true
+      },
+      {
+        "id": "workflowId",
+        "type": "select",
+        "label": "Task type",
+        "options": [
+          {
+            "value": "researchTaskWorkflow",
+            "label": "Research Task"
+          },
+          {
+            "value": "newFeatureWorkflow",
+            "label": "New Feature Workflow"
+          }
+        ]
+      },
+      {
+        "id": "featureStory",
+        "type": "text",
+        "label": "Feature story",
+        "required": true
+      },
+      {
+        "id": "baseBranch",
+        "type": "text",
+        "label": "Base branch",
+        "required": true
+      },
+      {
+        "id": "services",
+        "type": "multiselect",
+        "label": "Microservices",
+        "required": true,
+        "options": [
+          {
+            "value": "ris",
+            "label": "reference-data-service (ris)"
+          },
+          {
+            "value": "pis",
+            "label": "party-service (pis)"
+          },
+          {
+            "value": "aos",
+            "label": "application-onboarding (aos)"
+          }
+        ]
+      }
+    ],
+    "actions": [
+      {
+        "id": "start",
+        "label": "Start task",
+        "primary": true
+      }
+    ]
+  },
+  "footer": {
+    "title": "Work directory",
+    "fields": [
+      {
+        "id": "workDir",
+        "type": "text",
+        "label": "Where repositories are cloned",
+        "required": true
+      }
+    ],
+    "actions": [
+      {
+        "id": "browse",
+        "label": "Browse\u2026"
+      }
+    ]
+  }
+}
