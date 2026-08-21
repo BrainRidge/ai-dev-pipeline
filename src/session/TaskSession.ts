@@ -56,12 +56,21 @@ export function contentSettings(): ContentSettings {
 }
 
 /**
- * Every content path a task needs. Config has no fallback, because the bundled
- * catalogue would name repositories belonging to somebody else and gitClone
- * would put them on this developer's disk. See spec Section 16.
+ * The layout that ships inside the .vsix for a team to copy, which is also what
+ * an unconfigured install falls back to. Its services point at
+ * `git.example.invalid`, so nothing in it can be cloned. See spec Section 16.
  */
-export function resolvedContent(): ResolvedContent {
-  return resolveAll(contentSettings())
+export function sampleRoot(context: vscode.ExtensionContext): string {
+  return join(context.extensionPath, 'examples', 'content-template')
+}
+
+/**
+ * Every content path a task needs. With nothing configured this resolves to the
+ * bundled sample rather than refusing — a misconfigured path is still an error.
+ * See spec Section 16.
+ */
+export function resolvedContent(context: vscode.ExtensionContext): ResolvedContent {
+  return resolveAll(contentSettings(), sampleRoot(context))
 }
 
 /** Just the content root, for the one thing that is keyed on it. */
@@ -270,7 +279,7 @@ export class TaskSession {
       label: state.platform,
     }
 
-    const resolved = resolvedContent()
+    const resolved = resolvedContent(context)
     const registry = buildTaskTypes({
       promptsDir: resolved.ok ? resolved.promptsDir : undefined,
       bundledPromptsDir: join(context.extensionPath, 'prompts'),
@@ -289,6 +298,12 @@ export class TaskSession {
       await new AuditLog(ws.dir).append({
         kind: 'content-resolved',
         data: {
+          // 'sample' means nothing was configured and the bundled placeholder
+          // catalogue was used, so the task's repositories are not real. The
+          // sidebar says so on screen; this is the durable record of it.
+          // See spec Section 16.
+          source: resolved.source,
+          sampled: resolved.sampled,
           promptsDir: resolved.promptsDir ?? null,
           files: await Promise.all(
             configuredFiles(resolved).map(async ([setting, path]) => ({
@@ -590,7 +605,7 @@ function workflowsDir(context: vscode.ExtensionContext): string {
 }
 
 function loadCatalog(context: vscode.ExtensionContext): Promise<WorkflowCatalog> {
-  const resolved = resolvedContent()
+  const resolved = resolvedContent(context)
   if (!resolved.ok) throw new Error(resolved.message)
   return WorkflowCatalog.load(workflowsDir(context), {
     platformConfig: resolved.platformConfig,

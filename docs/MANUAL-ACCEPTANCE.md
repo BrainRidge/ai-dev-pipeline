@@ -29,17 +29,25 @@ code --install-extension ai-dev-workflow-0.1.0.vsix
       Config, Platform Config, Custom Prompts, Tool Config — each saying what it
       expects.
 
-- [ ] **0b. Unset.** Clear all four and open the sidebar.
-      *Expected:* *"No microservice config configured. Set
-      aiDevWorkflow.microserviceConfig in Settings → Extensions → AI Dev
-      Workflow, or set Content Root to fill it in."*, an **Open Settings**
-      button landing on that key, and no form.
+- [ ] **0b. Unset — the sample runs.** Clear all five and open the sidebar.
+      *Expected:* a **working form**, with four platforms and two
+      `example-…` services, under a banner reading *"⚠ Using the bundled sample
+      catalogue — placeholder services that cannot be cloned. Set Content Root
+      to your team's folder to work on real repositories."* and an **Open
+      Settings** button beside Start task. This is a fresh install's first
+      experience, so read it as one.
 
-- [ ] **0c. Content Root fills the rest in.** Set Content Root to your copy of
-      the template.
+- [ ] **0b1. A task runs on the sample.** Start a Research Task against a
+      sample service and continue to Get the code, then run the commands.
+      *Expected:* everything works up to the clone, which fails with *could not
+      resolve host* against `git.example.invalid`. Nothing lands on your disk.
+      Check `.engine/audit.jsonl` for `"source": "sample"`.
+
+- [ ] **0c. Content Root fills the rest in, and the banner goes.** Set Content
+      Root to your copy of the template.
       *Expected:* Microservice Config, Platform Config, Custom Prompts and Tool
-      Config fill in with paths under it, and the sidebar redraws into a working
-      form without you touching anything else.
+      Config fill in with paths under it, the banner disappears, and the sidebar
+      redraws into a working form without you touching anything else.
 
 - [ ] **0d. Your own edit survives.** Change Custom Prompts to some other
       absolute path, then change Content Root to a different folder.

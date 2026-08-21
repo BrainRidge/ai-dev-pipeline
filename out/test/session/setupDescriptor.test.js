@@ -3,7 +3,24 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const vitest_1 = require("vitest");
 const setupDescriptor_1 = require("../../src/session/setupDescriptor");
 const StepDescriptor_1 = require("../../src/engine/StepDescriptor");
-(0, vitest_1.describe)('the sidebar with no usable content root', () => {
+/**
+ * Nothing configured now loads the bundled sample, so the wall below is only
+ * reached by a path configured wrongly. The banner is what keeps the fallback
+ * from being silent. See spec Section 16.
+ */
+(0, vitest_1.describe)('the sample-catalogue banner', () => {
+    (0, vitest_1.it)('says the services are placeholders that cannot be cloned', () => {
+        (0, vitest_1.expect)(setupDescriptor_1.SAMPLE_NOTICE).toMatch(/placeholder/i);
+        (0, vitest_1.expect)(setupDescriptor_1.SAMPLE_NOTICE).toMatch(/cannot be cloned/i);
+    });
+    (0, vitest_1.it)('names the setting that replaces it, not just the problem', () => {
+        (0, vitest_1.expect)(setupDescriptor_1.SAMPLE_NOTICE).toMatch(/Content Root/);
+    });
+    (0, vitest_1.it)('reads as a warning rather than an error, because the form still works', () => {
+        (0, vitest_1.expect)(setupDescriptor_1.SAMPLE_NOTICE.startsWith('\u26a0')).toBe(true);
+    });
+});
+(0, vitest_1.describe)('the sidebar with a badly configured content path', () => {
     (0, vitest_1.it)('shows the message it was given rather than one of its own', () => {
         const message = 'No microservice config configured. Set aiDevWorkflow.microserviceConfig in ' +
             'Settings → Extensions → AI Dev Workflow, or set Content Root to fill it in.';

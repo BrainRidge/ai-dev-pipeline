@@ -183,6 +183,84 @@ const PROMPTS = '/team/prompts';
         (0, vitest_1.expect)(await (0, ContentRoot_1.externalWorkflowsPresent)('/team', probeOf({ '/team/workflows': [] }))).toBe(true);
     });
 });
+/**
+ * Nothing configured falls back to the bundled sample rather than walling the
+ * developer off. The sample's services point at git.example.invalid, so there
+ * is no repository for anyone to clone by accident — which is what made the
+ * original refusal unnecessary. See spec Section 16.
+ */
+(0, vitest_1.describe)('falling back to the bundled sample', () => {
+    const SAMPLE = '/ext/examples/content-template';
+    (0, vitest_1.it)('uses the sample when nothing at all is configured', () => {
+        const r = (0, ContentRoot_1.resolveAll)(settings(), SAMPLE);
+        (0, vitest_1.expect)(r).toEqual({
+            ok: true,
+            source: 'sample',
+            sampled: ['microserviceConfig', 'platformConfig'],
+            microserviceConfig: '/ext/examples/content-template/config/microservices.json',
+            platformConfig: '/ext/examples/content-template/config/platforms.json',
+            promptsDir: undefined,
+            toolsConfig: undefined,
+        });
+    });
+    (0, vitest_1.it)('leaves prompts and the tool list unsampled, since both fall back on their own', () => {
+        const r = (0, ContentRoot_1.resolveAll)(settings(), SAMPLE);
+        (0, vitest_1.expect)(r.ok === true && r.promptsDir).toBeUndefined();
+        (0, vitest_1.expect)(r.ok === true && r.toolsConfig).toBeUndefined();
+    });
+    (0, vitest_1.it)('prefers what the team configured over the sample', () => {
+        const r = (0, ContentRoot_1.resolveAll)(settings({ contentRoot: '/team' }), SAMPLE);
+        (0, vitest_1.expect)(r).toMatchObject({
+            source: 'configured',
+            sampled: [],
+            microserviceConfig: '/team/config/microservices.json',
+        });
+    });
+    // Each piece has its own setting, so each falls back on its own. Platform
+    // labels are harmless context; the banner still tells the truth.
+    (0, vitest_1.it)('samples only the piece that has nothing configured', () => {
+        const r = (0, ContentRoot_1.resolveAll)(settings({ microserviceConfig: '/team/m.json' }), SAMPLE);
+        (0, vitest_1.expect)(r).toMatchObject({
+            source: 'sample',
+            sampled: ['platformConfig'],
+            microserviceConfig: '/team/m.json',
+            platformConfig: '/ext/examples/content-template/config/platforms.json',
+        });
+    });
+    // Silence falls back; a path that cannot be a path is still a mistake, and
+    // saying so is the whole point of Section 16's three states.
+    (0, vitest_1.it)('still refuses a relative path rather than quietly using the sample', () => {
+        const r = (0, ContentRoot_1.resolveAll)(settings({ microserviceConfig: './services.json' }), SAMPLE);
+        (0, vitest_1.expect)(r.ok).toBe(false);
+        (0, vitest_1.expect)(r.ok === false && r.message).toContain('must be an absolute path');
+    });
+    (0, vitest_1.it)('still refuses a relative content root', () => {
+        const r = (0, ContentRoot_1.resolveAll)(settings({ contentRoot: 'team' }), SAMPLE);
+        (0, vitest_1.expect)(r.ok).toBe(false);
+        (0, vitest_1.expect)(r.ok === false && r.message).toContain('aiDevWorkflow.contentRoot');
+    });
+    (0, vitest_1.it)('still refuses a broken prompts setting, which no sample covers', () => {
+        const r = (0, ContentRoot_1.resolveAll)(settings({ customPrompts: 'relative' }), SAMPLE);
+        (0, vitest_1.expect)(r.ok).toBe(false);
+        (0, vitest_1.expect)(r.ok === false && r.message).toContain('aiDevWorkflow.customPrompts');
+    });
+    (0, vitest_1.it)('walls the developer off only when there is no sample to offer', () => {
+        (0, vitest_1.expect)((0, ContentRoot_1.resolveAll)(settings()).ok).toBe(false);
+    });
+});
+(0, vitest_1.describe)('resolveConfigFile with a sample to fall back to', () => {
+    (0, vitest_1.it)('marks the result as sampled, so the caller can say so on screen', () => {
+        (0, vitest_1.expect)((0, ContentRoot_1.resolveConfigFile)('microserviceConfig', settings(), '/ext/sample')).toEqual({
+            ok: true,
+            path: '/ext/sample/config/microservices.json',
+            sampled: true,
+        });
+    });
+    (0, vitest_1.it)('does not mark a configured path as sampled', () => {
+        (0, vitest_1.expect)((0, ContentRoot_1.resolveConfigFile)('platformConfig', settings({ platformConfig: '/a/p.json' }), '/ext/sample'))
+            .toEqual({ ok: true, path: '/a/p.json' });
+    });
+});
 (0, vitest_1.describe)('templateNote', () => {
     (0, vitest_1.it)('marks a team template as external', () => {
         (0, vitest_1.expect)((0, ContentRoot_1.templateNote)({ path: '/team/prompts/w/s.md', source: 'external' })).toBe('Template: /team/prompts/w/s.md (external)');
@@ -192,9 +270,11 @@ const PROMPTS = '/team/prompts';
     });
 });
 (0, vitest_1.describe)('resolveAll', () => {
-    (0, vitest_1.it)('reports every path once all three are usable', () => {
+    (0, vitest_1.it)('reports every path once all four are usable', () => {
         (0, vitest_1.expect)((0, ContentRoot_1.resolveAll)(settings({ contentRoot: '/team' }))).toEqual({
             ok: true,
+            source: 'configured',
+            sampled: [],
             microserviceConfig: '/team/config/microservices.json',
             platformConfig: '/team/config/platforms.json',
             promptsDir: '/team/prompts',
@@ -205,6 +285,8 @@ const PROMPTS = '/team/prompts';
         const r = (0, ContentRoot_1.resolveAll)(settings({ microserviceConfig: '/a/m.json', platformConfig: '/a/p.json' }));
         (0, vitest_1.expect)(r.ok === true && r.promptsDir).toBeUndefined();
     });
+    // Only when there is no sample to fall back to — which in the extension there
+    // always is. Kept because the message is still what a bad path produces.
     (0, vitest_1.it)('reports the microservice config first, since it is the one that names repos', () => {
         const r = (0, ContentRoot_1.resolveAll)(settings());
         (0, vitest_1.expect)(r.ok === false && r.message).toContain('aiDevWorkflow.microserviceConfig');

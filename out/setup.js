@@ -121,6 +121,7 @@
       nav.append(li);
     }
     root2.append(nav);
+    if (d.notice) root2.append(el("div", "notice-box", d.notice));
     const body = el("div", "step-body");
     if (d.step.text) body.append(el("p", "step-text", d.step.text));
     for (const f of d.step.fields ?? []) {

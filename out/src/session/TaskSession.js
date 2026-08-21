@@ -36,6 +36,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.TaskSession = void 0;
 exports.tasksRoot = tasksRoot;
 exports.contentSettings = contentSettings;
+exports.sampleRoot = sampleRoot;
 exports.resolvedContent = resolvedContent;
 exports.contentRoot = contentRoot;
 exports.workflowFilename = workflowFilename;
@@ -75,12 +76,20 @@ function contentSettings() {
     };
 }
 /**
- * Every content path a task needs. Config has no fallback, because the bundled
- * catalogue would name repositories belonging to somebody else and gitClone
- * would put them on this developer's disk. See spec Section 16.
+ * The layout that ships inside the .vsix for a team to copy, which is also what
+ * an unconfigured install falls back to. Its services point at
+ * `git.example.invalid`, so nothing in it can be cloned. See spec Section 16.
  */
-function resolvedContent() {
-    return (0, ContentRoot_1.resolveAll)(contentSettings());
+function sampleRoot(context) {
+    return (0, node_path_1.join)(context.extensionPath, 'examples', 'content-template');
+}
+/**
+ * Every content path a task needs. With nothing configured this resolves to the
+ * bundled sample rather than refusing — a misconfigured path is still an error.
+ * See spec Section 16.
+ */
+function resolvedContent(context) {
+    return (0, ContentRoot_1.resolveAll)(contentSettings(), sampleRoot(context));
 }
 /** Just the content root, for the one thing that is keyed on it. */
 function contentRoot() {
@@ -249,7 +258,7 @@ class TaskSession {
             id: state.platform,
             label: state.platform,
         };
-        const resolved = resolvedContent();
+        const resolved = resolvedContent(context);
         const registry = (0, registry_1.buildTaskTypes)({
             promptsDir: resolved.ok ? resolved.promptsDir : undefined,
             bundledPromptsDir: (0, node_path_1.join)(context.extensionPath, 'prompts'),
@@ -267,6 +276,12 @@ class TaskSession {
             await new AuditLog_1.AuditLog(ws.dir).append({
                 kind: 'content-resolved',
                 data: {
+                    // 'sample' means nothing was configured and the bundled placeholder
+                    // catalogue was used, so the task's repositories are not real. The
+                    // sidebar says so on screen; this is the durable record of it.
+                    // See spec Section 16.
+                    source: resolved.source,
+                    sampled: resolved.sampled,
                     promptsDir: resolved.promptsDir ?? null,
                     files: await Promise.all(configuredFiles(resolved).map(async ([setting, path]) => ({
                         setting,
@@ -510,7 +525,7 @@ function workflowsDir(context) {
     return (0, node_path_1.join)(context.extensionPath, 'workflows');
 }
 function loadCatalog(context) {
-    const resolved = resolvedContent();
+    const resolved = resolvedContent(context);
     if (!resolved.ok)
         throw new Error(resolved.message);
     return WorkflowCatalog_1.WorkflowCatalog.load(workflowsDir(context), {

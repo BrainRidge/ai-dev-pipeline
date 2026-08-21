@@ -184,11 +184,15 @@ class SetupView {
     async render() {
         if (!this.bridge)
             return;
-        const resolved = (0, TaskSession_1.resolvedContent)();
+        // Nothing configured resolves to the bundled sample, so this branch is now
+        // only reached by a path that is configured *wrongly* — relative, missing,
+        // or unparseable. See spec Section 16.
+        const resolved = (0, TaskSession_1.resolvedContent)(this.context);
         if (!resolved.ok) {
             this.bridge.render((0, setupDescriptor_1.unconfiguredDescriptor)(resolved.message));
             return;
         }
+        const notice = resolved.source === 'sample' ? setupDescriptor_1.SAMPLE_NOTICE : undefined;
         let catalog;
         try {
             catalog = await WorkflowCatalog_1.WorkflowCatalog.load((0, node_path_1.join)(this.context.extensionPath, 'workflows'), {
@@ -212,8 +216,8 @@ class SetupView {
             ],
         };
         this.bridge.render(this.mode() === 'existing'
-            ? await this.existingDescriptor(catalog, modeField)
-            : this.newDescriptor(catalog, modeField));
+            ? await this.existingDescriptor(catalog, modeField, notice)
+            : this.newDescriptor(catalog, modeField, notice));
     }
     /**
      * The saved tasks that still have work in them. Finished tasks are left out:
@@ -221,7 +225,7 @@ class SetupView {
      * started answers nothing. They remain reachable through the Resume Task
      * command.
      */
-    async existingDescriptor(catalog, modeField) {
+    async existingDescriptor(catalog, modeField, notice) {
         const tasks = await (0, taskIndex_1.listUnfinishedTasks)((0, TaskSession_1.tasksRoot)());
         const labelOf = (id) => catalog.all().find((w) => w.id === id)?.label;
         const chosen = String(this.values.existingTask ?? '');
@@ -242,6 +246,7 @@ class SetupView {
             protocolVersion: StepDescriptor_1.PROTOCOL_VERSION,
             task: { id: '', platform: '', epic: '', workflowLabel: 'Task setup' },
             progress: { index: 0, total: 0, steps: [] },
+            notice,
             step: {
                 id: 'setup',
                 kind: 'form',
@@ -256,7 +261,7 @@ class SetupView {
             },
         };
     }
-    newDescriptor(catalog, modeField) {
+    newDescriptor(catalog, modeField, notice) {
         const platforms = catalog.platforms();
         const workflows = catalog.all();
         const selectedPlatform = String(this.values.platform ?? platforms[0]?.id ?? '');
@@ -303,6 +308,7 @@ class SetupView {
             protocolVersion: StepDescriptor_1.PROTOCOL_VERSION,
             task: { id: '', platform: selectedPlatform, epic: '', workflowLabel: 'Task setup' },
             progress: { index: 0, total: 0, steps: [] },
+            notice,
             step: {
                 id: 'setup',
                 kind: 'form',
@@ -316,7 +322,12 @@ class SetupView {
                     workDir,
                 },
                 errors: Object.keys(this.errors).length > 0 ? this.errors : undefined,
-                actions: [{ id: 'start', label: 'Start task', primary: true }],
+                actions: notice
+                    ? [
+                        { id: 'start', label: 'Start task', primary: true },
+                        { id: 'openSettings', label: 'Open Settings' },
+                    ]
+                    : [{ id: 'start', label: 'Start task', primary: true }],
             },
             footer: {
                 title: 'Work directory',
@@ -351,6 +362,10 @@ input[type=text],select,.option-filter{background:var(--vscode-input-background)
 .option-filter{margin-bottom:.25rem}
 .field-error{color:var(--vscode-inputValidation-errorForeground,#f88);font-size:.85em}
 .error-box{padding:.4rem;margin-bottom:.5rem;background:var(--vscode-inputValidation-errorBackground,#522)}
+/* A warning rather than an error: the form below it still works. The sidebar
+   carries its own stylesheet, so a rule added to webview/style.css would not
+   reach it — see spec Section 9. */
+.notice-box{padding:.5rem;margin:0 0 .75rem;font-size:.9em;line-height:1.4;background:var(--vscode-inputValidation-warningBackground,#4d3800);border-left:3px solid var(--vscode-inputValidation-warningBorder,#c93);color:var(--vscode-inputValidation-warningForeground,inherit)}
 .actions{margin-top:1rem;display:flex;gap:.4rem}
 .step-footer{margin-top:1.5rem;padding-top:.75rem;border-top:1px solid var(--vscode-panel-border,#333)}
 .step-footer-title{font-size:.9rem;margin:0;font-weight:600}

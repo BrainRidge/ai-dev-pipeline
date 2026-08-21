@@ -37,9 +37,10 @@ Additionally:
     `aiDevWorkflow.microserviceConfig` and `aiDevWorkflow.customPrompts` — or through
     `aiDevWorkflow.contentRoot`, which fills both in — with no change to the extension
     ([Section 16](16-external-content.md)).
-15. With a required setting unset, relative, missing on disk or invalid, the sidebar names
-    the setting at fault, says which of those it is, and offers to open Settings. No task can
-    be started until it is resolved.
+15. With a content path **relative, missing on disk or invalid**, the sidebar names the
+    setting at fault, says which of those it is, and offers to open Settings. No task can be
+    started until it is resolved. With a setting merely **unset**, the bundled sample is used
+    instead — see criterion 20.
 15a. Setting Content Root fills in Microservice Config, Platform Config and Custom Prompts,
     and never overwrites a value the developer changed themselves.
 16. A prompt template the team has not supplied falls back to the bundled one; one that
@@ -59,6 +60,13 @@ Additionally:
     working default, and the report and the audit log both say which list was
     used.
 
+20. Install the extension, configure **nothing**, and open the sidebar: a working form
+    appears with the four sample platforms and two sample services, above a banner saying the
+    sample catalogue is in play and naming Content Root as the way to replace it. A task can
+    be started and walked; its `gitClone` step fails when run, because the sample's git
+    locations are unresolvable by design. The `content-resolved` audit entry records
+    `source: "sample"` ([Section 16](16-external-content.md)).
+
 ## Status
 
 All of the above are implemented, and each is covered by tests.
@@ -74,7 +82,7 @@ prompt templates and the service catalogue, which a team owns
 ([Section 16](16-external-content.md)). What it still guarantees is the part the tool was
 built for: every developer on a team passes through the same steps in the same order.
 
-Criteria 14–19 are implemented and covered by tests. Criterion 18 was the second
+Criteria 14–20 are implemented and covered by tests. Criterion 18 was the second
 demonstration that adding a *kind* of step costs one class: `SystemCheck` needed
 no change to `render/fields.ts` at all, only a badge colour in the stylesheet.
 

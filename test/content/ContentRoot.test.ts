@@ -254,6 +254,95 @@ describe('externalWorkflowsPresent', () => {
   })
 })
 
+/**
+ * Nothing configured falls back to the bundled sample rather than walling the
+ * developer off. The sample's services point at git.example.invalid, so there
+ * is no repository for anyone to clone by accident — which is what made the
+ * original refusal unnecessary. See spec Section 16.
+ */
+describe('falling back to the bundled sample', () => {
+  const SAMPLE = '/ext/examples/content-template'
+
+  it('uses the sample when nothing at all is configured', () => {
+    const r = resolveAll(settings(), SAMPLE)
+    expect(r).toEqual({
+      ok: true,
+      source: 'sample',
+      sampled: ['microserviceConfig', 'platformConfig'],
+      microserviceConfig: '/ext/examples/content-template/config/microservices.json',
+      platformConfig: '/ext/examples/content-template/config/platforms.json',
+      promptsDir: undefined,
+      toolsConfig: undefined,
+    })
+  })
+
+  it('leaves prompts and the tool list unsampled, since both fall back on their own', () => {
+    const r = resolveAll(settings(), SAMPLE)
+    expect(r.ok === true && r.promptsDir).toBeUndefined()
+    expect(r.ok === true && r.toolsConfig).toBeUndefined()
+  })
+
+  it('prefers what the team configured over the sample', () => {
+    const r = resolveAll(settings({ contentRoot: '/team' }), SAMPLE)
+    expect(r).toMatchObject({
+      source: 'configured',
+      sampled: [],
+      microserviceConfig: '/team/config/microservices.json',
+    })
+  })
+
+  // Each piece has its own setting, so each falls back on its own. Platform
+  // labels are harmless context; the banner still tells the truth.
+  it('samples only the piece that has nothing configured', () => {
+    const r = resolveAll(settings({ microserviceConfig: '/team/m.json' }), SAMPLE)
+    expect(r).toMatchObject({
+      source: 'sample',
+      sampled: ['platformConfig'],
+      microserviceConfig: '/team/m.json',
+      platformConfig: '/ext/examples/content-template/config/platforms.json',
+    })
+  })
+
+  // Silence falls back; a path that cannot be a path is still a mistake, and
+  // saying so is the whole point of Section 16's three states.
+  it('still refuses a relative path rather than quietly using the sample', () => {
+    const r = resolveAll(settings({ microserviceConfig: './services.json' }), SAMPLE)
+    expect(r.ok).toBe(false)
+    expect(r.ok === false && r.message).toContain('must be an absolute path')
+  })
+
+  it('still refuses a relative content root', () => {
+    const r = resolveAll(settings({ contentRoot: 'team' }), SAMPLE)
+    expect(r.ok).toBe(false)
+    expect(r.ok === false && r.message).toContain('aiDevWorkflow.contentRoot')
+  })
+
+  it('still refuses a broken prompts setting, which no sample covers', () => {
+    const r = resolveAll(settings({ customPrompts: 'relative' }), SAMPLE)
+    expect(r.ok).toBe(false)
+    expect(r.ok === false && r.message).toContain('aiDevWorkflow.customPrompts')
+  })
+
+  it('walls the developer off only when there is no sample to offer', () => {
+    expect(resolveAll(settings()).ok).toBe(false)
+  })
+})
+
+describe('resolveConfigFile with a sample to fall back to', () => {
+  it('marks the result as sampled, so the caller can say so on screen', () => {
+    expect(resolveConfigFile('microserviceConfig', settings(), '/ext/sample')).toEqual({
+      ok: true,
+      path: '/ext/sample/config/microservices.json',
+      sampled: true,
+    })
+  })
+
+  it('does not mark a configured path as sampled', () => {
+    expect(resolveConfigFile('platformConfig', settings({ platformConfig: '/a/p.json' }), '/ext/sample'))
+      .toEqual({ ok: true, path: '/a/p.json' })
+  })
+})
+
 describe('templateNote', () => {
   it('marks a team template as external', () => {
     expect(templateNote({ path: '/team/prompts/w/s.md', source: 'external' })).toBe(
@@ -269,9 +358,11 @@ describe('templateNote', () => {
 })
 
 describe('resolveAll', () => {
-  it('reports every path once all three are usable', () => {
+  it('reports every path once all four are usable', () => {
     expect(resolveAll(settings({ contentRoot: '/team' }))).toEqual({
       ok: true,
+      source: 'configured',
+      sampled: [],
       microserviceConfig: '/team/config/microservices.json',
       platformConfig: '/team/config/platforms.json',
       promptsDir: '/team/prompts',
@@ -286,6 +377,8 @@ describe('resolveAll', () => {
     expect(r.ok === true && r.promptsDir).toBeUndefined()
   })
 
+  // Only when there is no sample to fall back to — which in the extension there
+  // always is. Kept because the message is still what a bad path produces.
   it('reports the microservice config first, since it is the one that names repos', () => {
     const r = resolveAll(settings())
     expect(r.ok === false && r.message).toContain('aiDevWorkflow.microserviceConfig')

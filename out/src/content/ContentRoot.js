@@ -67,14 +67,29 @@ function pathOf(piece, s) {
     return { ok: true, path: derivedFrom(root)[piece] };
 }
 /**
- * The two config files are required and do not fall back. The bundled catalogue
- * would name repositories belonging to another team, and gitClone would put
- * them on this developer's disk. See spec Section 16.
+ * A required config file: the team's if they have configured one, otherwise the
+ * bundled sample.
+ *
+ * Section 16 originally refused to fall back here at all, on the grounds that a
+ * bundled catalogue would name another team's repositories and `gitClone` would
+ * put them on this developer's disk. That reasoning was about the *real*
+ * catalogue that used to ship. What ships now is
+ * `examples/content-template/config/`, whose services point at
+ * `git.example.invalid` — a reserved TLD that cannot resolve — so there is no
+ * repository for anyone to clone by accident, and the wall it put in front of a
+ * first run bought nothing.
+ *
+ * `sampleRoot` is passed in rather than found here, because this module knows
+ * nothing about extension paths.
  */
-function resolveConfigFile(piece, s) {
+function resolveConfigFile(piece, s, sampleRoot) {
     const result = pathOf(piece, s);
     if (result)
         return result;
+    // Nothing configured. A misconfigured path is still an error — only silence
+    // falls back, which is the same line prompt templates draw.
+    if (sampleRoot)
+        return { ok: true, path: derivedFrom(sampleRoot)[piece], sampled: true };
     return {
         ok: false,
         message: `No ${LABEL[piece].noun} configured. Set ${LABEL[piece].setting} in ` +
@@ -111,11 +126,11 @@ function resolveToolsFile(s) {
  * alternative — carrying on with the bundled prompts — is the silent fallback
  * this design exists to avoid. See spec Section 16.
  */
-function resolveAll(s) {
-    const micro = resolveConfigFile('microserviceConfig', s);
+function resolveAll(s, sampleRoot) {
+    const micro = resolveConfigFile('microserviceConfig', s, sampleRoot);
     if (!micro.ok)
         return micro;
-    const platform = resolveConfigFile('platformConfig', s);
+    const platform = resolveConfigFile('platformConfig', s, sampleRoot);
     if (!platform.ok)
         return platform;
     const prompts = resolvePromptsDir(s);
@@ -124,8 +139,17 @@ function resolveAll(s) {
     const tools = resolveToolsFile(s);
     if (tools.kind === 'error')
         return { ok: false, message: tools.message };
+    // Prompts and the tool list are not sampled: both already fall back on their
+    // own, to the bundled templates and to DEFAULT_TOOLS. Only the two catalogues
+    // had nothing to fall back to. See spec Sections 16 and 17.
+    const sampled = [
+        ...(micro.sampled ? ['microserviceConfig'] : []),
+        ...(platform.sampled ? ['platformConfig'] : []),
+    ];
     return {
         ok: true,
+        source: sampled.length > 0 ? 'sample' : 'configured',
+        sampled,
         microserviceConfig: micro.path,
         platformConfig: platform.path,
         promptsDir: prompts.kind === 'dir' ? prompts.path : undefined,

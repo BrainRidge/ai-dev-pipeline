@@ -12148,9 +12148,10 @@ function pathOf(piece, s) {
   }
   return { ok: true, path: derivedFrom(root)[piece] };
 }
-function resolveConfigFile(piece, s) {
+function resolveConfigFile(piece, s, sampleRoot2) {
   const result = pathOf(piece, s);
   if (result) return result;
+  if (sampleRoot2) return { ok: true, path: derivedFrom(sampleRoot2)[piece], sampled: true };
   return {
     ok: false,
     message: `No ${LABEL[piece].noun} configured. Set ${LABEL[piece].setting} in Settings \u2192 Extensions \u2192 AI Dev Workflow, or set Content Root to fill it in.`
@@ -12166,17 +12167,23 @@ function resolveToolsFile(s) {
   if (!result) return { kind: "none" };
   return result.ok ? { kind: "dir", path: result.path } : { kind: "error", message: result.message };
 }
-function resolveAll(s) {
-  const micro = resolveConfigFile("microserviceConfig", s);
+function resolveAll(s, sampleRoot2) {
+  const micro = resolveConfigFile("microserviceConfig", s, sampleRoot2);
   if (!micro.ok) return micro;
-  const platform = resolveConfigFile("platformConfig", s);
+  const platform = resolveConfigFile("platformConfig", s, sampleRoot2);
   if (!platform.ok) return platform;
   const prompts = resolvePromptsDir(s);
   if (prompts.kind === "error") return { ok: false, message: prompts.message };
   const tools = resolveToolsFile(s);
   if (tools.kind === "error") return { ok: false, message: tools.message };
+  const sampled = [
+    ...micro.sampled ? ["microserviceConfig"] : [],
+    ...platform.sampled ? ["platformConfig"] : []
+  ];
   return {
     ok: true,
+    source: sampled.length > 0 ? "sample" : "configured",
+    sampled,
     microserviceConfig: micro.path,
     platformConfig: platform.path,
     promptsDir: prompts.kind === "dir" ? prompts.path : void 0,
@@ -13180,8 +13187,11 @@ function contentSettings() {
     toolsConfig: config("toolsConfig") ?? ""
   };
 }
-function resolvedContent() {
-  return resolveAll(contentSettings());
+function sampleRoot(context) {
+  return (0, import_node_path14.join)(context.extensionPath, "examples", "content-template");
+}
+function resolvedContent(context) {
+  return resolveAll(contentSettings(), sampleRoot(context));
 }
 function contentRoot() {
   return resolveContentRootSetting(config("contentRoot") ?? "");
@@ -13339,7 +13349,7 @@ var TaskSession = class _TaskSession {
       id: state.platform,
       label: state.platform
     };
-    const resolved = resolvedContent();
+    const resolved = resolvedContent(context);
     const registry = buildTaskTypes({
       promptsDir: resolved.ok ? resolved.promptsDir : void 0,
       bundledPromptsDir: (0, import_node_path14.join)(context.extensionPath, "prompts"),
@@ -13352,6 +13362,12 @@ var TaskSession = class _TaskSession {
       await new AuditLog(ws.dir).append({
         kind: "content-resolved",
         data: {
+          // 'sample' means nothing was configured and the bundled placeholder
+          // catalogue was used, so the task's repositories are not real. The
+          // sidebar says so on screen; this is the durable record of it.
+          // See spec Section 16.
+          source: resolved.source,
+          sampled: resolved.sampled,
           promptsDir: resolved.promptsDir ?? null,
           files: await Promise.all(
             configuredFiles(resolved).map(async ([setting, path]) => ({
@@ -13596,7 +13612,7 @@ function workflowsDir(context) {
   return (0, import_node_path14.join)(context.extensionPath, "workflows");
 }
 function loadCatalog(context) {
-  const resolved = resolvedContent();
+  const resolved = resolvedContent(context);
   if (!resolved.ok) throw new Error(resolved.message);
   return WorkflowCatalog.load(workflowsDir(context), {
     platformConfig: resolved.platformConfig,
@@ -13660,6 +13676,7 @@ var import_node_path16 = require("node:path");
 var vscode4 = __toESM(require("vscode"));
 
 // src/session/setupDescriptor.ts
+var SAMPLE_NOTICE = "\u26A0 Using the bundled sample catalogue \u2014 placeholder services that cannot be cloned. Set Content Root to your team's folder to work on real repositories.";
 function unconfiguredDescriptor(message) {
   return {
     protocolVersion: PROTOCOL_VERSION,
@@ -13833,11 +13850,12 @@ var SetupView = class {
   }
   async render() {
     if (!this.bridge) return;
-    const resolved = resolvedContent();
+    const resolved = resolvedContent(this.context);
     if (!resolved.ok) {
       this.bridge.render(unconfiguredDescriptor(resolved.message));
       return;
     }
+    const notice = resolved.source === "sample" ? SAMPLE_NOTICE : void 0;
     let catalog;
     try {
       catalog = await WorkflowCatalog.load((0, import_node_path16.join)(this.context.extensionPath, "workflows"), {
@@ -13858,7 +13876,7 @@ var SetupView = class {
       ]
     };
     this.bridge.render(
-      this.mode() === "existing" ? await this.existingDescriptor(catalog, modeField) : this.newDescriptor(catalog, modeField)
+      this.mode() === "existing" ? await this.existingDescriptor(catalog, modeField, notice) : this.newDescriptor(catalog, modeField, notice)
     );
   }
   /**
@@ -13867,7 +13885,7 @@ var SetupView = class {
    * started answers nothing. They remain reachable through the Resume Task
    * command.
    */
-  async existingDescriptor(catalog, modeField) {
+  async existingDescriptor(catalog, modeField, notice) {
     const tasks = await listUnfinishedTasks(tasksRoot());
     const labelOf = (id) => catalog.all().find((w) => w.id === id)?.label;
     const chosen = String(this.values.existingTask ?? "");
@@ -13888,6 +13906,7 @@ var SetupView = class {
       protocolVersion: PROTOCOL_VERSION,
       task: { id: "", platform: "", epic: "", workflowLabel: "Task setup" },
       progress: { index: 0, total: 0, steps: [] },
+      notice,
       step: {
         id: "setup",
         kind: "form",
@@ -13900,7 +13919,7 @@ var SetupView = class {
       }
     };
   }
-  newDescriptor(catalog, modeField) {
+  newDescriptor(catalog, modeField, notice) {
     const platforms = catalog.platforms();
     const workflows = catalog.all();
     const selectedPlatform = String(this.values.platform ?? platforms[0]?.id ?? "");
@@ -13946,6 +13965,7 @@ var SetupView = class {
       protocolVersion: PROTOCOL_VERSION,
       task: { id: "", platform: selectedPlatform, epic: "", workflowLabel: "Task setup" },
       progress: { index: 0, total: 0, steps: [] },
+      notice,
       step: {
         id: "setup",
         kind: "form",
@@ -13959,7 +13979,10 @@ var SetupView = class {
           workDir
         },
         errors: Object.keys(this.errors).length > 0 ? this.errors : void 0,
-        actions: [{ id: "start", label: "Start task", primary: true }]
+        actions: notice ? [
+          { id: "start", label: "Start task", primary: true },
+          { id: "openSettings", label: "Open Settings" }
+        ] : [{ id: "start", label: "Start task", primary: true }]
       },
       footer: {
         title: "Work directory",
@@ -13993,6 +14016,10 @@ input[type=text],select,.option-filter{background:var(--vscode-input-background)
 .option-filter{margin-bottom:.25rem}
 .field-error{color:var(--vscode-inputValidation-errorForeground,#f88);font-size:.85em}
 .error-box{padding:.4rem;margin-bottom:.5rem;background:var(--vscode-inputValidation-errorBackground,#522)}
+/* A warning rather than an error: the form below it still works. The sidebar
+   carries its own stylesheet, so a rule added to webview/style.css would not
+   reach it \u2014 see spec Section 9. */
+.notice-box{padding:.5rem;margin:0 0 .75rem;font-size:.9em;line-height:1.4;background:var(--vscode-inputValidation-warningBackground,#4d3800);border-left:3px solid var(--vscode-inputValidation-warningBorder,#c93);color:var(--vscode-inputValidation-warningForeground,inherit)}
 .actions{margin-top:1rem;display:flex;gap:.4rem}
 .step-footer{margin-top:1.5rem;padding-top:.75rem;border-top:1px solid var(--vscode-panel-border,#333)}
 .step-footer-title{font-size:.9rem;margin:0;font-weight:600}

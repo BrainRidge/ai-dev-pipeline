@@ -21,8 +21,8 @@ are genuinely team-specific, and leaves it intact for the one that is not.
 | Content | Where it lives now | Required? |
 |---|---|---|
 | `workflows/*.json` | **Bundled, unchanged** | — |
-| `config/platforms.json` | External | **Required.** No fallback |
-| `config/microservices.json` | External | **Required.** No fallback |
+| `config/platforms.json` | External | Falls back to the bundled sample |
+| `config/microservices.json` | External | Falls back to the bundled sample |
 | `prompts/<workflowId>/<stepId>.md` | External | Optional. Falls back per file to the bundled template |
 | `config/tools.json` | External | Optional. Falls back as a whole to a bundled default ([Section 17](17-system-check.md)) |
 
@@ -32,11 +32,56 @@ Config names the repositories an organisation actually has, and prompts are word
 may need its own repositories and its own wording; letting it also choose its own steps
 would leave nothing standard at all.
 
-The asymmetry within `config/` has its own reason. A missing prompt falls back to a working
-default and the task proceeds. A missing microservice catalogue cannot fall back to anything
-useful, because the bundled one would name repositories belonging to somebody else, and the
-`gitClone` step would put those repositories on a developer's disk. Content that names real
-repositories must be provided deliberately.
+### The asymmetry that used to be here, and why it went
+
+This section originally refused to fall back for `config/` at all: a missing prompt falls
+back to a working default and the task proceeds, but a missing microservice catalogue "cannot
+fall back to anything useful, because the bundled one would name repositories belonging to
+somebody else, and the `gitClone` step would put those repositories on a developer's disk."
+
+That reasoning was sound about the catalogue that *used to* ship, and it stopped being true
+in the same change that wrote it. What ships now is `examples/content-template/config/`, whose
+services point at `https://git.example.invalid/…` — a reserved TLD that cannot resolve. There
+is no repository there for anyone to clone by accident, so the rule was protecting against a
+danger its own replacement content had already removed.
+
+What it cost was the whole first run. A developer who installed the `.vsix` and opened the
+sidebar got a wall of text about a setting, before ever seeing what the tool does. That is
+the worst possible moment to ask somebody to go and assemble a JSON file: they have no idea
+yet whether the thing is worth configuring.
+
+So the two catalogues now fall back to the bundled sample, and the rule that replaces the
+asymmetry is narrower and about intent rather than about content:
+
+> **Silence falls back. A path that cannot be a path is still an error.**
+
+Nothing configured means a developer who has not got to it yet — give them something that
+works. A relative path, a file that is not there, a catalogue with two services sharing a
+`shortCode`: those are all somebody who tried, and telling them exactly what is wrong is the
+most useful thing this loader does. Those states are unchanged.
+
+The fallback is loud, because [the provenance rule below](#provenance) applies here as much
+as it does to prompt templates — and harder, because the consequence is more surprising. A
+developer who does not notice will select a service that cannot be cloned. So the sidebar
+carries a banner for as long as the sample is in play, not a caption:
+
+> ⚠ Using the bundled sample catalogue — placeholder services that cannot be cloned. Set
+> Content Root to your team's folder to work on real repositories.
+
+and the `content-resolved` audit entry records `source: "sample"` with the list of pieces
+that fell back. A task started against the sample is a real task in every other respect; its
+`gitClone` step will simply fail when the developer runs it, which is visible, harmless, and
+happens at the developer's own hand.
+
+**Falling back is per piece**, because each piece has its own setting. A team that has
+configured a service catalogue but no platform list gets sample platforms and its own
+services, and the banner still appears. Platform is recorded context that selects nothing
+([Section 6](06-workflow-schema.md)), so there is nothing to be gained by being stricter
+about it than about the catalogue that actually names repositories.
+
+**Prompts and the tool list are not sampled.** Both already fall back on their own — to the
+bundled templates ([Section 8](08-ai-handoff-step.md)) and to `DEFAULT_TOOLS`
+([Section 17](17-system-check.md)). Only the two catalogues had nothing behind them.
 
 ## The settings
 
@@ -45,8 +90,8 @@ Five entries, ordered so the convenience comes first and the things it fills in 
 | Setting | Expects | Required |
 |---|---|---|
 | `aiDevWorkflow.contentRoot` | A folder holding `config/` and `prompts/` | No — a convenience |
-| `aiDevWorkflow.microserviceConfig` | A JSON file describing the microservices and their git locations | **Yes** |
-| `aiDevWorkflow.platformConfig` | A JSON file listing the platforms | **Yes** |
+| `aiDevWorkflow.microserviceConfig` | A JSON file describing the microservices and their git locations | For real work |
+| `aiDevWorkflow.platformConfig` | A JSON file listing the platforms | For real work |
 | `aiDevWorkflow.customPrompts` | A folder of markdown prompt templates | No |
 | `aiDevWorkflow.toolsConfig` | A JSON file listing the tools to check for | No |
 
@@ -128,7 +173,7 @@ is the field they have to go and fix.
 
 | State | Behaviour |
 |---|---|
-| Nothing configured for a piece | *"No microservice config configured. Set `aiDevWorkflow.microserviceConfig` in Settings → Extensions → AI Dev Workflow, or set Content Root to fill it in."*, with an action that opens Settings at that key |
+| Nothing configured for a piece | The bundled sample is used, and the sidebar carries the banner above for as long as it is. The message in the row below is still what a build with no sample on disk would say |
 | A relative path | *"`aiDevWorkflow.microserviceConfig` must be an absolute path. Got `…`."* — quoting what was given |
 | Configured, but the file is missing | *"Microservice config not found at `<resolved path>`"* — naming the path that was actually looked at |
 | Present but invalid | The underlying validation error, verbatim |
@@ -145,7 +190,8 @@ the most useful thing the catalogue loader does.
 Carrying on with the bundled prompts when the developer has plainly tried to supply their own
 is the silent fallback this whole design exists to avoid.
 
-A task cannot be started while any of these is unresolved. This is not new machinery:
+A task cannot be started while any of the last three states is unresolved — the first is no
+longer one of them. This is not new machinery:
 `validateSetup` already requires a platform and at least one microservice, and neither can be
 selected from an empty list. What is new is that the developer is told why, and which setting
 to fix.
@@ -232,10 +278,17 @@ in the intended use, and why the audit log records which template ran.
 
 ## Bootstrapping
 
-The bundled `config/` directory is removed, because nothing falls back to it. Its contents
-move to `examples/content-template/`, with the sample services replaced by obviously
-non-functional placeholders, and it ships inside the `.vsix` so that a team can copy it out
-of an installed extension.
+The bundled `config/` directory is removed. Its contents move to
+`examples/content-template/`, with the sample services replaced by obviously non-functional
+placeholders, and it ships inside the `.vsix` so that a team can copy it out of an installed
+extension.
+
+That directory now does double duty: it is both the layout a team copies and what an
+unconfigured install runs on. Those two jobs pull in the same direction — a sample worth
+falling back to is a sample worth copying — but they do impose a rule on its contents.
+**Every `gitLocation` in it must stay unresolvable.** The moment one names a real repository,
+the danger this section originally worried about is back, and it is back on the first run of
+every fresh install.
 
 `prompts/` remains bundled in place. It is the fallback, and it must stay good.
 

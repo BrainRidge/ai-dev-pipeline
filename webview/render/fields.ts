@@ -19,6 +19,8 @@ export interface StepDescriptor {
     total: number
     steps: { id: string; title: string; status: string }[]
   }
+  /** A warning above the form, worded entirely by the host. */
+  notice?: string
   step: {
     id: string
     kind: string
@@ -442,6 +444,11 @@ export function renderStep(
     nav.append(li)
   }
   root.append(nav)
+
+  // A warning the host decided to show above the form — today, that the
+  // bundled sample catalogue is in play. The renderer supplies no wording of
+  // its own and does not know what the notice is about.
+  if (d.notice) root.append(el('div', 'notice-box', d.notice))
 
   const body = el('div', 'step-body')
   if (d.step.text) body.append(el('p', 'step-text', d.step.text))

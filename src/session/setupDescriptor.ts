@@ -1,11 +1,27 @@
 import { PROTOCOL_VERSION } from '../engine/StepDescriptor'
 import type { ActionDef, Answers, RenderField } from '../tasks/context'
 
+/**
+ * The banner shown while the bundled sample catalogue is in play.
+ *
+ * Falling back is only acceptable if it is visible afterwards — the rule
+ * [Section 16](16-external-content.md) applies to prompt templates and
+ * [Section 17](17-system-check.md) applies to the tool list. This is the same
+ * rule for the catalogue, and it has to be louder than a caption because the
+ * consequence is more surprising: a developer who does not notice will select a
+ * service that cannot be cloned.
+ */
+export const SAMPLE_NOTICE =
+  '⚠ Using the bundled sample catalogue — placeholder services that cannot be ' +
+  "cloned. Set Content Root to your team's folder to work on real repositories."
+
 /** The sidebar is a single form, not a workflow, so it has its own shape. */
 export interface SetupDescriptor {
   protocolVersion: number
   task: { id: string; platform: string; epic: string; workflowLabel: string }
   progress: { index: number; total: number; steps: never[] }
+  /** A warning above the form. Drawn as given; the renderer adds no wording. */
+  notice?: string
   step: {
     id: string
     kind: string

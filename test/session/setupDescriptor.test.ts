@@ -1,8 +1,28 @@
 import { describe, it, expect } from 'vitest'
-import { unconfiguredDescriptor } from '../../src/session/setupDescriptor'
+import { SAMPLE_NOTICE, unconfiguredDescriptor } from '../../src/session/setupDescriptor'
 import { PROTOCOL_VERSION } from '../../src/engine/StepDescriptor'
 
-describe('the sidebar with no usable content root', () => {
+/**
+ * Nothing configured now loads the bundled sample, so the wall below is only
+ * reached by a path configured wrongly. The banner is what keeps the fallback
+ * from being silent. See spec Section 16.
+ */
+describe('the sample-catalogue banner', () => {
+  it('says the services are placeholders that cannot be cloned', () => {
+    expect(SAMPLE_NOTICE).toMatch(/placeholder/i)
+    expect(SAMPLE_NOTICE).toMatch(/cannot be cloned/i)
+  })
+
+  it('names the setting that replaces it, not just the problem', () => {
+    expect(SAMPLE_NOTICE).toMatch(/Content Root/)
+  })
+
+  it('reads as a warning rather than an error, because the form still works', () => {
+    expect(SAMPLE_NOTICE.startsWith('\u26a0')).toBe(true)
+  })
+})
+
+describe('the sidebar with a badly configured content path', () => {
   it('shows the message it was given rather than one of its own', () => {
     const message =
       'No microservice config configured. Set aiDevWorkflow.microserviceConfig in ' +

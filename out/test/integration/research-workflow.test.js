@@ -41,6 +41,18 @@ const vscode = __importStar(require("vscode"));
 const TaskWorkspace_1 = require("../../src/workspace/TaskWorkspace");
 const TaskStateStore_1 = require("../../src/state/TaskStateStore");
 const SOURCE = JSON.stringify({ schemaVersion: 1, label: 'R', initialStep: 'a', steps: {} });
+/**
+ * Polls a condition rather than sleeping for a guessed interval.
+ * `onDidChangeConfiguration` is asynchronous and the write it triggers touches
+ * several settings in sequence, so the only safe thing to wait on is the state
+ * the assertions actually need.
+ */
+async function waitFor(done, timeoutMs = 5000) {
+    const deadline = Date.now() + timeoutMs;
+    while (!done() && Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 25));
+    }
+}
 suite('research workflow', () => {
     test('the extension activates and registers its commands', async () => {
         // Activation is onStartupFinished, which can land after this suite starts.
@@ -144,11 +156,11 @@ suite('research workflow', () => {
             await cfg().update(key, undefined, G);
         }
         await cfg().update('contentRoot', root, G);
-        // onDidChangeConfiguration is async; poll rather than guess a delay.
-        const deadline = Date.now() + 5000;
-        while (cfg().get('microserviceConfig') === '' && Date.now() < deadline) {
-            await new Promise((r) => setTimeout(r, 50));
-        }
+        // Wait for the whole write, not for its first field. writeDerivedSettings
+        // updates the pieces one await at a time, so polling on microserviceConfig
+        // — the first one — can return before the last has landed. That raced for
+        // as long as there were three pieces and started failing at four.
+        await waitFor(() => cfg().get('toolsConfig') === (0, node_path_1.join)(root, 'config', 'tools.json'));
         assert.strictEqual(cfg().get('microserviceConfig'), (0, node_path_1.join)(root, 'config', 'microservices.json'));
         assert.strictEqual(cfg().get('platformConfig'), (0, node_path_1.join)(root, 'config', 'platforms.json'));
         assert.strictEqual(cfg().get('customPrompts'), (0, node_path_1.join)(root, 'prompts'));
@@ -157,11 +169,10 @@ suite('research workflow', () => {
         await cfg().update('customPrompts', '/shared/prompts', G);
         const second = await (0, promises_1.mkdtemp)((0, node_path_1.join)((0, node_os_1.tmpdir)(), 'root2-'));
         await cfg().update('contentRoot', second, G);
-        const deadline2 = Date.now() + 5000;
-        while (cfg().get('microserviceConfig') !== (0, node_path_1.join)(second, 'config', 'microservices.json') &&
-            Date.now() < deadline2) {
-            await new Promise((r) => setTimeout(r, 50));
-        }
+        // Same again: toolsConfig is the last piece written, so it is the one that
+        // says the whole update is done. customPrompts is deliberately skipped this
+        // time round, which is what the final assertion is about.
+        await waitFor(() => cfg().get('toolsConfig') === (0, node_path_1.join)(second, 'config', 'tools.json'));
         assert.strictEqual(cfg().get('microserviceConfig'), (0, node_path_1.join)(second, 'config', 'microservices.json'));
         assert.strictEqual(cfg().get('customPrompts'), '/shared/prompts', 'a hand-picked prompts folder must not silently revert');
         for (const key of [

@@ -2,7 +2,7 @@ import { join } from 'node:path'
 import * as vscode from 'vscode'
 import { WorkflowCatalog } from '../engine/WorkflowCatalog'
 
-import { unconfiguredDescriptor, type SetupDescriptor } from './setupDescriptor'
+import { SAMPLE_NOTICE, unconfiguredDescriptor, type SetupDescriptor } from './setupDescriptor'
 import { resolveCodeRoot } from './resume'
 import { listUnfinishedTasks, taskLabel } from './taskIndex'
 import { resolvedContent, tasksRoot } from './TaskSession'
@@ -182,11 +182,15 @@ export class SetupView implements vscode.WebviewViewProvider {
   private async render(): Promise<void> {
     if (!this.bridge) return
 
-    const resolved = resolvedContent()
+    // Nothing configured resolves to the bundled sample, so this branch is now
+    // only reached by a path that is configured *wrongly* — relative, missing,
+    // or unparseable. See spec Section 16.
+    const resolved = resolvedContent(this.context)
     if (!resolved.ok) {
       this.bridge.render(unconfiguredDescriptor(resolved.message))
       return
     }
+    const notice = resolved.source === 'sample' ? SAMPLE_NOTICE : undefined
 
     let catalog: WorkflowCatalog
     try {
@@ -213,8 +217,8 @@ export class SetupView implements vscode.WebviewViewProvider {
 
     this.bridge.render(
       this.mode() === 'existing'
-        ? await this.existingDescriptor(catalog, modeField)
-        : this.newDescriptor(catalog, modeField),
+        ? await this.existingDescriptor(catalog, modeField, notice)
+        : this.newDescriptor(catalog, modeField, notice),
     )
   }
 
@@ -227,6 +231,7 @@ export class SetupView implements vscode.WebviewViewProvider {
   private async existingDescriptor(
     catalog: WorkflowCatalog,
     modeField: RenderField,
+    notice?: string,
   ): Promise<SetupDescriptor> {
     const tasks = await listUnfinishedTasks(tasksRoot())
     const labelOf = (id: string): string | undefined =>
@@ -252,6 +257,7 @@ export class SetupView implements vscode.WebviewViewProvider {
       protocolVersion: PROTOCOL_VERSION,
       task: { id: '', platform: '', epic: '', workflowLabel: 'Task setup' },
       progress: { index: 0, total: 0, steps: [] },
+      notice,
       step: {
         id: 'setup',
         kind: 'form',
@@ -268,7 +274,11 @@ export class SetupView implements vscode.WebviewViewProvider {
     }
   }
 
-  private newDescriptor(catalog: WorkflowCatalog, modeField: RenderField): SetupDescriptor {
+  private newDescriptor(
+    catalog: WorkflowCatalog,
+    modeField: RenderField,
+    notice?: string,
+  ): SetupDescriptor {
     const platforms = catalog.platforms()
     const workflows = catalog.all()
     const selectedPlatform = String(this.values.platform ?? platforms[0]?.id ?? '')
@@ -322,6 +332,7 @@ export class SetupView implements vscode.WebviewViewProvider {
       protocolVersion: PROTOCOL_VERSION,
       task: { id: '', platform: selectedPlatform, epic: '', workflowLabel: 'Task setup' },
       progress: { index: 0, total: 0, steps: [] },
+      notice,
       step: {
         id: 'setup',
         kind: 'form',
@@ -335,7 +346,12 @@ export class SetupView implements vscode.WebviewViewProvider {
           workDir,
         },
         errors: Object.keys(this.errors).length > 0 ? this.errors : undefined,
-        actions: [{ id: 'start', label: 'Start task', primary: true }],
+        actions: notice
+          ? [
+              { id: 'start', label: 'Start task', primary: true },
+              { id: 'openSettings', label: 'Open Settings' },
+            ]
+          : [{ id: 'start', label: 'Start task', primary: true }],
       },
       footer: {
         title: 'Work directory',
@@ -371,6 +387,10 @@ input[type=text],select,.option-filter{background:var(--vscode-input-background)
 .option-filter{margin-bottom:.25rem}
 .field-error{color:var(--vscode-inputValidation-errorForeground,#f88);font-size:.85em}
 .error-box{padding:.4rem;margin-bottom:.5rem;background:var(--vscode-inputValidation-errorBackground,#522)}
+/* A warning rather than an error: the form below it still works. The sidebar
+   carries its own stylesheet, so a rule added to webview/style.css would not
+   reach it — see spec Section 9. */
+.notice-box{padding:.5rem;margin:0 0 .75rem;font-size:.9em;line-height:1.4;background:var(--vscode-inputValidation-warningBackground,#4d3800);border-left:3px solid var(--vscode-inputValidation-warningBorder,#c93);color:var(--vscode-inputValidation-warningForeground,inherit)}
 .actions{margin-top:1rem;display:flex;gap:.4rem}
 .step-footer{margin-top:1.5rem;padding-top:.75rem;border-top:1px solid var(--vscode-panel-border,#333)}
 .step-footer-title{font-size:.9rem;margin:0;font-weight:600}

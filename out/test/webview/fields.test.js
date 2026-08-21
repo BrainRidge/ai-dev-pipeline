@@ -108,6 +108,26 @@ const descriptor = {
         (0, fields_1.renderStep)({ ...descriptor, step: { ...descriptor.step, text: 'Explanatory copy' } }, root);
         (0, vitest_1.expect)(root.textContent).toContain('Explanatory copy');
     });
+    // The notice is the host's wording. The renderer draws a box and knows
+    // nothing about what is being warned about. See spec Section 16.
+    (0, vitest_1.it)('draws a notice above the form when the host supplies one', () => {
+        const root = document.createElement('div');
+        (0, fields_1.renderStep)({ ...descriptor, notice: 'Using the sample catalogue' }, root);
+        const box = root.querySelector('.notice-box');
+        (0, vitest_1.expect)(box.textContent).toBe('Using the sample catalogue');
+        // Above the fields, so it is read before anything is chosen.
+        (0, vitest_1.expect)(box.compareDocumentPosition(root.querySelector('.step-body'))).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    });
+    (0, vitest_1.it)('draws no notice box when there is nothing to warn about', () => {
+        const root = document.createElement('div');
+        (0, fields_1.renderStep)(descriptor, root);
+        (0, vitest_1.expect)(root.querySelector('.notice-box')).toBeNull();
+    });
+    (0, vitest_1.it)('does not confuse a notice with a step error', () => {
+        const root = document.createElement('div');
+        (0, fields_1.renderStep)({ ...descriptor, notice: 'a warning' }, root);
+        (0, vitest_1.expect)(root.querySelector('.error-box')).toBeNull();
+    });
 });
 (0, vitest_1.describe)('the footer section', () => {
     const withFooter = {
