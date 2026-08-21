@@ -1,11 +1,43 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.MICROSERVICES = void 0;
+exports.MICROSERVICES = exports.foundProbe = exports.TOOLS = void 0;
+exports.systemCheck = systemCheck;
 exports.step = step;
 exports.context = context;
 exports.taskState = taskState;
 exports.bundledResolver = bundledResolver;
 const ContentRoot_1 = require("../../src/content/ContentRoot");
+const SystemCheck_1 = require("../../src/tasks/SystemCheck");
+/** One required tool with no version floor — enough to exercise the step. */
+exports.TOOLS = [
+    {
+        id: 'git',
+        label: 'Git',
+        command: 'git',
+        args: ['--version'],
+        required: true,
+        why: 'The Get the code step gives you git commands to run.',
+        install: { darwin: 'brew install git', win32: 'winget install Git.Git' },
+    },
+];
+/** A probe that finds everything and reports a plausible version. */
+exports.foundProbe = {
+    async run() {
+        return { found: true, output: 'git version 2.50.1' };
+    },
+};
+/**
+ * A System Check wired to a fake machine. The platform is pinned so the install
+ * hint in the report reads the same wherever the test runs.
+ */
+function systemCheck(opts = {}) {
+    const sink = opts.sink ?? { async copy() { }, async toTerminal() { } };
+    return new SystemCheck_1.SystemCheck(async () => ({
+        tools: opts.tools ?? exports.TOOLS,
+        source: opts.source ?? 'bundled',
+        path: opts.path,
+    }), opts.probe ?? exports.foundProbe, sink, 'darwin');
+}
 exports.MICROSERVICES = [
     {
         microserviceName: 'Payment Service',

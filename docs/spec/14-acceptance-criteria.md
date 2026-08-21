@@ -47,6 +47,18 @@ Additionally:
 17. Every handoff's composed prompt is captioned in the panel with the template it came from,
     and the audit log records that path and whether it was the team's or the bundled default.
 
+18. Reach a **System Check** step at the start of every workflow, see which of
+    their team's tools are installed and which are not, be told why each is
+    wanted and how to install it on their platform, copy the report, and be
+    prevented from continuing while a required tool is missing — with **Re-check**
+    picking up an installation without restarting the task. No model call is made
+    ([Section 17](17-system-check.md)).
+
+19. A **team** can decide what that step checks, by supplying
+    `config/tools.json` in its content folder; a team that supplies none gets a
+    working default, and the report and the audit log both say which list was
+    used.
+
 ## Status
 
 All of the above are implemented, and each is covered by tests.
@@ -61,6 +73,10 @@ prompt is editable in the panel ([Section 8](08-ai-handoff-step.md)). It now als
 prompt templates and the service catalogue, which a team owns
 ([Section 16](16-external-content.md)). What it still guarantees is the part the tool was
 built for: every developer on a team passes through the same steps in the same order.
+
+Criteria 14–19 are implemented and covered by tests. Criterion 18 was the second
+demonstration that adding a *kind* of step costs one class: `SystemCheck` needed
+no change to `render/fields.ts` at all, only a badge colour in the stylesheet.
 
 Criteria 14–17 are implemented and covered by tests. Criteria 15 and 16 are additionally
 walked by hand, since the wording a developer reads is the whole point of them.

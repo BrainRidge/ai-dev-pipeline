@@ -19,17 +19,24 @@ export interface ContentSettings {
   microserviceConfig: string
   platformConfig: string
   customPrompts: string
+  toolsConfig: string
 }
 
-/** The three settings a content root derives. */
-export type Piece = 'microserviceConfig' | 'platformConfig' | 'customPrompts'
+/** The four settings a content root derives. */
+export type Piece = 'microserviceConfig' | 'platformConfig' | 'customPrompts' | 'toolsConfig'
 
-export const PIECES: Piece[] = ['microserviceConfig', 'platformConfig', 'customPrompts']
+export const PIECES: Piece[] = [
+  'microserviceConfig',
+  'platformConfig',
+  'customPrompts',
+  'toolsConfig',
+]
 
 const LABEL: Record<Piece, { noun: string; setting: string }> = {
   microserviceConfig: { noun: 'microservice config', setting: 'aiDevWorkflow.microserviceConfig' },
   platformConfig: { noun: 'platform config', setting: 'aiDevWorkflow.platformConfig' },
   customPrompts: { noun: 'custom prompts folder', setting: 'aiDevWorkflow.customPrompts' },
+  toolsConfig: { noun: 'tool config', setting: 'aiDevWorkflow.toolsConfig' },
 }
 
 /** Where each piece sits under a content root. The layout a team copies. */
@@ -38,6 +45,7 @@ export function derivedFrom(root: string): Record<Piece, string> {
     microserviceConfig: join(root, 'config', 'microservices.json'),
     platformConfig: join(root, 'config', 'platforms.json'),
     customPrompts: join(root, 'prompts'),
+    toolsConfig: join(root, 'config', 'tools.json'),
   }
 }
 
@@ -111,8 +119,26 @@ export function resolvePromptsDir(s: ContentSettings): PromptsResult {
   return result.ok ? { kind: 'dir', path: result.path } : { kind: 'error', message: result.message }
 }
 
+/**
+ * The tool list is optional in the same way prompts are: a team that supplies
+ * none gets the bundled default, and the report says which it used. So "not
+ * configured" is an ordinary outcome — but a path that cannot be a path is not.
+ * See spec Section 17.
+ */
+export function resolveToolsFile(s: ContentSettings): PromptsResult {
+  const result = pathOf('toolsConfig', s)
+  if (!result) return { kind: 'none' }
+  return result.ok ? { kind: 'dir', path: result.path } : { kind: 'error', message: result.message }
+}
+
 export type ResolvedContent =
-  | { ok: true; microserviceConfig: string; platformConfig: string; promptsDir?: string }
+  | {
+      ok: true
+      microserviceConfig: string
+      platformConfig: string
+      promptsDir?: string
+      toolsConfig?: string
+    }
   | { ok: false; message: string }
 
 /**
@@ -131,11 +157,15 @@ export function resolveAll(s: ContentSettings): ResolvedContent {
   const prompts = resolvePromptsDir(s)
   if (prompts.kind === 'error') return { ok: false, message: prompts.message }
 
+  const tools = resolveToolsFile(s)
+  if (tools.kind === 'error') return { ok: false, message: tools.message }
+
   return {
     ok: true,
     microserviceConfig: micro.path,
     platformConfig: platform.path,
     promptsDir: prompts.kind === 'dir' ? prompts.path : undefined,
+    toolsConfig: tools.kind === 'dir' ? tools.path : undefined,
   }
 }
 

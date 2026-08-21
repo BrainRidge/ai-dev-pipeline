@@ -21,6 +21,8 @@ function badgeFor(step, fields) {
             return 'COPILOT';
         case 'manual':
             return 'REVIEW';
+        case 'systemCheck':
+            return 'SYSTEM';
         default: {
             const offered = fields ?? [];
             const choosy = offered.filter((f) => f.type === 'select' || f.type === 'multiselect');
@@ -44,6 +46,13 @@ function summarise(step, record, fields) {
         case 'manual': {
             const file = artifactName(record.result?.artifactPath);
             return file ? `${file} approved` : 'Approved';
+        }
+        case 'systemCheck': {
+            const findings = (record.result?.findings ?? []);
+            if (findings.length === 0)
+                return 'Checked';
+            const ok = findings.filter((f) => f.status === 'ok').length;
+            return `${ok} of ${findings.length} tools found`;
         }
         default: {
             const answers = record.answers ?? {};

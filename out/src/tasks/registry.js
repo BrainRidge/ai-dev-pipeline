@@ -42,13 +42,16 @@ const AuditLog_1 = require("../audit/AuditLog");
 const ContentRoot_1 = require("../content/ContentRoot");
 const ChatHandoff_1 = require("../handoff/ChatHandoff");
 const PromptComposer_1 = require("../prompt/PromptComposer");
+const ToolCatalog_1 = require("../engine/ToolCatalog");
 const CollectRequirement_1 = require("./CollectRequirement");
 const GitClone_1 = require("./GitClone");
 const InvokeCopilot_1 = require("./InvokeCopilot");
 const InvokeCopilotCoding_1 = require("./InvokeCopilotCoding");
 const InvokeCopilotCodeReview_1 = require("./InvokeCopilotCodeReview");
 const ManualReview_1 = require("./ManualReview");
+const SystemCheck_1 = require("./SystemCheck");
 const TaskType_1 = require("./TaskType");
+const ToolProbe_1 = require("./ToolProbe");
 async function fileExists(p) {
     try {
         await (0, promises_1.access)(p);
@@ -87,7 +90,21 @@ function buildTaskTypes(opts) {
             terminal.sendText(text, false);
         },
     };
+    /**
+     * The team's list if the file is there, the bundled default otherwise. A file
+     * that is present but unreadable as a tool list throws, and SystemCheck shows
+     * that on its own step. See spec Section 17.
+     */
+    const loadToolList = async () => {
+        if (opts.toolsConfig) {
+            const tools = await (0, ToolCatalog_1.loadTools)(opts.toolsConfig);
+            if (tools)
+                return { tools, source: 'external', path: opts.toolsConfig };
+        }
+        return { tools: ToolCatalog_1.DEFAULT_TOOLS, source: 'bundled' };
+    };
     return new TaskType_1.TaskTypeRegistry([
+        new SystemCheck_1.SystemCheck(loadToolList, ToolProbe_1.nodeToolProbe, sink),
         new CollectRequirement_1.CollectRequirement(),
         new GitClone_1.GitClone(opts.codeRoot, node_fs_1.existsSync, sink),
         new InvokeCopilot_1.InvokeCopilot(composer, new ChatHandoff_1.ChatHandoff(), new AuditLog_1.AuditLog(opts.taskDir), fileExists, sink),

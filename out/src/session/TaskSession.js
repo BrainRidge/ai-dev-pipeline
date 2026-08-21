@@ -71,6 +71,7 @@ function contentSettings() {
         microserviceConfig: config('microserviceConfig') ?? '',
         platformConfig: config('platformConfig') ?? '',
         customPrompts: config('customPrompts') ?? '',
+        toolsConfig: config('toolsConfig') ?? '',
     };
 }
 /**
@@ -252,6 +253,7 @@ class TaskSession {
         const registry = (0, registry_1.buildTaskTypes)({
             promptsDir: resolved.ok ? resolved.promptsDir : undefined,
             bundledPromptsDir: (0, node_path_1.join)(context.extensionPath, 'prompts'),
+            toolsConfig: resolved.ok ? resolved.toolsConfig : undefined,
             taskDir: ws.dir,
             codeRoot: (0, resume_1.resolveCodeRoot)(config('codeRoot')),
         });
@@ -266,15 +268,10 @@ class TaskSession {
                 kind: 'content-resolved',
                 data: {
                     promptsDir: resolved.promptsDir ?? null,
-                    files: await Promise.all([
-                        ['microserviceConfig', resolved.microserviceConfig],
-                        ['platformConfig', resolved.platformConfig],
-                    ].map(async ([setting, path]) => ({
+                    files: await Promise.all(configuredFiles(resolved).map(async ([setting, path]) => ({
                         setting,
                         path,
-                        sha256: (0, node_crypto_1.createHash)('sha256')
-                            .update(await (0, promises_1.readFile)(path, 'utf8'))
-                            .digest('hex'),
+                        sha256: await hashOrNull(path),
                     }))),
                 },
             });
@@ -334,6 +331,28 @@ class TaskSession {
             this.values = {};
             this.errors = {};
             await this.refresh();
+            return;
+        }
+        // Re-check and Copy on the System Check step. Neither is a transition:
+        // `submit` treats any action it does not recognise as one, so a step that
+        // offers extra affordances has to say so here.
+        if (step.stepType === 'systemCheck' && (actionId === 'recheck' || actionId === 'copy')) {
+            const task = this.registry.get(step.taskType);
+            try {
+                if (actionId === 'recheck') {
+                    task.invalidate();
+                    this.errors = {};
+                    await this.refresh();
+                    this.bridge.progress(stepId, 'Checked your machine again.');
+                }
+                else {
+                    const { label } = await task.copyReport(step, this.ctx);
+                    this.bridge.progress(stepId, `Copied ${label}.`);
+                }
+            }
+            catch (err) {
+                this.bridge.error(stepId, `Could not check your machine: ${String(err)}`, true);
+            }
             return;
         }
         // Copy / send-to-terminal on a step that plans commands. Neither advances
@@ -498,6 +517,32 @@ function loadCatalog(context) {
         platformConfig: resolved.platformConfig,
         microserviceConfig: resolved.microserviceConfig,
     });
+}
+/**
+ * The config files that were actually resolved, ready for the audit entry.
+ * `toolsConfig` is optional: absent means the bundled default tool list was
+ * used, which the step's own report also says. See spec Section 17.
+ */
+function configuredFiles(resolved) {
+    const entries = [
+        ['microserviceConfig', resolved.microserviceConfig],
+        ['platformConfig', resolved.platformConfig],
+        ['toolsConfig', resolved.toolsConfig],
+    ];
+    return entries.filter((e) => e[1] !== undefined);
+}
+/**
+ * The content hash of a config file, or null when it is not there. Null is a
+ * real answer for an optional piece, and an audit entry must never be the
+ * reason a task fails to start.
+ */
+async function hashOrNull(path) {
+    try {
+        return (0, node_crypto_1.createHash)('sha256').update(await (0, promises_1.readFile)(path, 'utf8')).digest('hex');
+    }
+    catch {
+        return null;
+    }
 }
 async function exists(path) {
     try {

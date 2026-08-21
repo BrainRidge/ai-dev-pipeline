@@ -24,6 +24,7 @@ describe('bundled configuration', () => {
 
   it('walks the graph in nextStep order', async () => {
     expect((await load()).get('researchTaskWorkflow').order).toEqual([
+      'systemCheck',
       'requirement',
       'gitClone',
       'aiHandoff',
@@ -35,6 +36,16 @@ describe('bundled configuration', () => {
     const wf = (await load()).get('researchTaskWorkflow')
     for (const id of wf.order) {
       expect(wf.steps[id]!.documentation.length).toBeGreaterThan(20)
+    }
+  })
+
+  // Every workflow opens on the machine check: there is no point collecting a
+  // requirement for a task that cannot finish for want of a tool.
+  it('starts every bundled workflow on the system check', async () => {
+    for (const wf of (await load()).all()) {
+      expect(wf.initialStep).toBe('systemCheck')
+      expect(wf.order[0]).toBe('systemCheck')
+      expect(wf.steps.systemCheck!.stepType).toBe('systemCheck')
     }
   })
 

@@ -5,6 +5,7 @@ exports.derivedFrom = derivedFrom;
 exports.resolveContentRootSetting = resolveContentRootSetting;
 exports.resolveConfigFile = resolveConfigFile;
 exports.resolvePromptsDir = resolvePromptsDir;
+exports.resolveToolsFile = resolveToolsFile;
 exports.resolveAll = resolveAll;
 exports.fieldsToWrite = fieldsToWrite;
 exports.templateResolver = templateResolver;
@@ -13,11 +14,17 @@ exports.templateNote = templateNote;
 const promises_1 = require("node:fs/promises");
 const node_path_1 = require("node:path");
 const SetupSelection_1 = require("../session/SetupSelection");
-exports.PIECES = ['microserviceConfig', 'platformConfig', 'customPrompts'];
+exports.PIECES = [
+    'microserviceConfig',
+    'platformConfig',
+    'customPrompts',
+    'toolsConfig',
+];
 const LABEL = {
     microserviceConfig: { noun: 'microservice config', setting: 'aiDevWorkflow.microserviceConfig' },
     platformConfig: { noun: 'platform config', setting: 'aiDevWorkflow.platformConfig' },
     customPrompts: { noun: 'custom prompts folder', setting: 'aiDevWorkflow.customPrompts' },
+    toolsConfig: { noun: 'tool config', setting: 'aiDevWorkflow.toolsConfig' },
 };
 /** Where each piece sits under a content root. The layout a team copies. */
 function derivedFrom(root) {
@@ -25,6 +32,7 @@ function derivedFrom(root) {
         microserviceConfig: (0, node_path_1.join)(root, 'config', 'microservices.json'),
         platformConfig: (0, node_path_1.join)(root, 'config', 'platforms.json'),
         customPrompts: (0, node_path_1.join)(root, 'prompts'),
+        toolsConfig: (0, node_path_1.join)(root, 'config', 'tools.json'),
     };
 }
 /** The content root itself, when it is set and usable. Only the workflows warning needs it. */
@@ -85,6 +93,18 @@ function resolvePromptsDir(s) {
     return result.ok ? { kind: 'dir', path: result.path } : { kind: 'error', message: result.message };
 }
 /**
+ * The tool list is optional in the same way prompts are: a team that supplies
+ * none gets the bundled default, and the report says which it used. So "not
+ * configured" is an ordinary outcome — but a path that cannot be a path is not.
+ * See spec Section 17.
+ */
+function resolveToolsFile(s) {
+    const result = pathOf('toolsConfig', s);
+    if (!result)
+        return { kind: 'none' };
+    return result.ok ? { kind: 'dir', path: result.path } : { kind: 'error', message: result.message };
+}
+/**
  * Every content path a task needs, or the first reason one is unusable.
  *
  * A broken prompts setting stops the task like a broken config file does. The
@@ -101,11 +121,15 @@ function resolveAll(s) {
     const prompts = resolvePromptsDir(s);
     if (prompts.kind === 'error')
         return { ok: false, message: prompts.message };
+    const tools = resolveToolsFile(s);
+    if (tools.kind === 'error')
+        return { ok: false, message: tools.message };
     return {
         ok: true,
         microserviceConfig: micro.path,
         platformConfig: platform.path,
         promptsDir: prompts.kind === 'dir' ? prompts.path : undefined,
+        toolsConfig: tools.kind === 'dir' ? tools.path : undefined,
     };
 }
 /**

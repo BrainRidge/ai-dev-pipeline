@@ -8,6 +8,7 @@ function settings(over = {}) {
         microserviceConfig: '',
         platformConfig: '',
         customPrompts: '',
+        toolsConfig: '',
         ...over,
     };
 }
@@ -17,6 +18,7 @@ function settings(over = {}) {
             microserviceConfig: '/team/config/microservices.json',
             platformConfig: '/team/config/platforms.json',
             customPrompts: '/team/prompts',
+            toolsConfig: '/team/config/tools.json',
         });
     });
 });
@@ -84,7 +86,7 @@ function settings(over = {}) {
     });
 });
 /**
- * Setting the content root writes the three derived paths into settings. The
+ * Setting the content root writes the four derived paths into settings. The
  * rule that makes that safe is that it only ever overwrites its own work.
  */
 (0, vitest_1.describe)('deciding which fields to write', () => {
@@ -93,6 +95,7 @@ function settings(over = {}) {
         microserviceConfig: '',
         platformConfig: '',
         customPrompts: '',
+        toolsConfig: '',
     };
     (0, vitest_1.it)('fills in every empty field', () => {
         (0, vitest_1.expect)((0, ContentRoot_1.fieldsToWrite)(empty, derived, {})).toEqual(derived);
@@ -195,6 +198,7 @@ const PROMPTS = '/team/prompts';
             microserviceConfig: '/team/config/microservices.json',
             platformConfig: '/team/config/platforms.json',
             promptsDir: '/team/prompts',
+            toolsConfig: '/team/config/tools.json',
         });
     });
     (0, vitest_1.it)('leaves promptsDir undefined when the team supplied none', () => {

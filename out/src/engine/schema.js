@@ -1,11 +1,17 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.platformsFileSchema = exports.platformSchema = exports.microservicesFileSchema = exports.microserviceSchema = exports.workflowFileSchema = exports.workflowStepSchema = exports.fieldSchema = exports.stepTypeSchema = void 0;
+exports.platformsFileSchema = exports.platformSchema = exports.toolsFileSchema = exports.toolSchema = exports.microservicesFileSchema = exports.microserviceSchema = exports.workflowFileSchema = exports.workflowStepSchema = exports.fieldSchema = exports.stepTypeSchema = void 0;
 exports.repoNameOf = repoNameOf;
 exports.parseWorkflowFilename = parseWorkflowFilename;
 const zod_1 = require("zod");
 /** How a step behaves. Declared by its taskType and cross-checked in the JSON. */
-exports.stepTypeSchema = zod_1.z.enum(['task', 'commandExecution', 'aiHandoff', 'manual']);
+exports.stepTypeSchema = zod_1.z.enum([
+    'task',
+    'commandExecution',
+    'aiHandoff',
+    'manual',
+    'systemCheck',
+]);
 exports.fieldSchema = zod_1.z.object({
     id: zod_1.z.string().min(1),
     type: zod_1.z.enum([
@@ -46,6 +52,31 @@ exports.microserviceSchema = zod_1.z.object({
     subcategory: zod_1.z.string().default(''),
 });
 exports.microservicesFileSchema = zod_1.z.array(exports.microserviceSchema);
+/**
+ * A tool the System Check step looks for on the developer's machine.
+ *
+ * `command` and `args` are spawned directly rather than through a shell, so the
+ * command is an executable name and the arguments are a list — not one string
+ * to be split. See spec Section 17.
+ */
+exports.toolSchema = zod_1.z.object({
+    id: zod_1.z.string().min(1),
+    label: zod_1.z.string().min(1),
+    command: zod_1.z.string().min(1),
+    args: zod_1.z.array(zod_1.z.string()).default(['--version']),
+    /** A missing required tool blocks the step; a missing optional one is noted. */
+    required: zod_1.z.boolean().default(true),
+    /** Dotted numbers, e.g. "17" or "2.30". Compared numerically, segment by segment. */
+    minVersion: zod_1.z
+        .string()
+        .regex(/^\d+(\.\d+)*$/, 'minVersion must be dotted numbers, such as "17" or "2.30"')
+        .optional(),
+    /** Why this workflow needs it. Shown beside the tool when it is missing. */
+    why: zod_1.z.string().default(''),
+    /** Install hint per `process.platform`: darwin, win32, linux. */
+    install: zod_1.z.record(zod_1.z.string(), zod_1.z.string()).default({}),
+});
+exports.toolsFileSchema = zod_1.z.array(exports.toolSchema);
 exports.platformSchema = zod_1.z.object({ id: zod_1.z.string().min(1), label: zod_1.z.string().min(1) });
 exports.platformsFileSchema = zod_1.z.object({
     comment: zod_1.z.string().optional(),

@@ -598,8 +598,8 @@ var require_Node = __commonJS({
         };
         const res = toJS.toJS(this, "", ctx);
         if (typeof onAnchor === "function")
-          for (const { count, res: res2 } of ctx.anchors.values())
-            onAnchor(res2, count);
+          for (const { count: count2, res: res2 } of ctx.anchors.values())
+            onAnchor(res2, count2);
         return typeof reviver === "function" ? applyReviver.applyReviver(reviver, { "": res }, "", res) : res;
       }
     };
@@ -705,13 +705,13 @@ var require_Alias = __commonJS({
         const anchor = anchors2 && source && anchors2.get(source);
         return anchor ? anchor.count * anchor.aliasCount : 0;
       } else if (identity.isCollection(node)) {
-        let count = 0;
+        let count2 = 0;
         for (const item of node.items) {
           const c = getAliasCount(doc, item, anchors2);
-          if (c > count)
-            count = c;
+          if (c > count2)
+            count2 = c;
         }
-        return count;
+        return count2;
       } else if (identity.isPair(node)) {
         const kc = getAliasCount(doc, node.key, anchors2);
         const vc = getAliasCount(doc, node.value, anchors2);
@@ -3664,8 +3664,8 @@ var require_Document = __commonJS({
         };
         const res = toJS.toJS(this.contents, jsonArg ?? "", ctx);
         if (typeof onAnchor === "function")
-          for (const { count, res: res2 } of ctx.anchors.values())
-            onAnchor(res2, count);
+          for (const { count: count2, res: res2 } of ctx.anchors.values())
+            onAnchor(res2, count2);
         return typeof reviver === "function" ? applyReviver.applyReviver(reviver, { "": res }, "", res) : res;
       }
       /**
@@ -3742,12 +3742,12 @@ var require_errors = __commonJS({
         lineStr = prev + lineStr;
       }
       if (/[^ ]/.test(lineStr)) {
-        let count = 1;
+        let count2 = 1;
         const end = error.linePos[1];
         if (end?.line === line && end.col > col) {
-          count = Math.max(1, Math.min(end.col - col, 80 - ci));
+          count2 = Math.max(1, Math.min(end.col - col, 80 - ci));
         }
-        const pointer = " ".repeat(ci) + "^".repeat(count);
+        const pointer = " ".repeat(ci) + "^".repeat(count2);
         error.message += `:
 
 ${lineStr}
@@ -7364,12 +7364,12 @@ __export(extension_exports, {
   deactivate: () => deactivate
 });
 module.exports = __toCommonJS(extension_exports);
-var import_promises10 = require("node:fs/promises");
+var import_promises11 = require("node:fs/promises");
 var vscode6 = __toESM(require("vscode"));
 
 // src/session/TaskSession.ts
 var import_node_crypto3 = require("node:crypto");
-var import_promises8 = require("node:fs/promises");
+var import_promises9 = require("node:fs/promises");
 var import_node_path14 = require("node:path");
 var vscode3 = __toESM(require("vscode"));
 
@@ -7465,6 +7465,8 @@ function badgeFor(step, fields) {
       return "COPILOT";
     case "manual":
       return "REVIEW";
+    case "systemCheck":
+      return "SYSTEM";
     default: {
       const offered = fields ?? [];
       const choosy = offered.filter((f) => f.type === "select" || f.type === "multiselect");
@@ -7487,6 +7489,12 @@ function summarise(step, record, fields) {
     case "manual": {
       const file = artifactName(record.result?.artifactPath);
       return file ? `${file} approved` : "Approved";
+    }
+    case "systemCheck": {
+      const findings = record.result?.findings ?? [];
+      if (findings.length === 0) return "Checked";
+      const ok = findings.filter((f) => f.status === "ok").length;
+      return `${ok} of ${findings.length} tools found`;
     }
     default: {
       const answers = record.answers ?? {};
@@ -11610,7 +11618,13 @@ var coerce = {
 var NEVER = INVALID;
 
 // src/engine/schema.ts
-var stepTypeSchema = external_exports.enum(["task", "commandExecution", "aiHandoff", "manual"]);
+var stepTypeSchema = external_exports.enum([
+  "task",
+  "commandExecution",
+  "aiHandoff",
+  "manual",
+  "systemCheck"
+]);
 var fieldSchema = external_exports.object({
   id: external_exports.string().min(1),
   type: external_exports.enum([
@@ -11650,6 +11664,21 @@ var microserviceSchema = external_exports.object({
   subcategory: external_exports.string().default("")
 });
 var microservicesFileSchema = external_exports.array(microserviceSchema);
+var toolSchema = external_exports.object({
+  id: external_exports.string().min(1),
+  label: external_exports.string().min(1),
+  command: external_exports.string().min(1),
+  args: external_exports.array(external_exports.string()).default(["--version"]),
+  /** A missing required tool blocks the step; a missing optional one is noted. */
+  required: external_exports.boolean().default(true),
+  /** Dotted numbers, e.g. "17" or "2.30". Compared numerically, segment by segment. */
+  minVersion: external_exports.string().regex(/^\d+(\.\d+)*$/, 'minVersion must be dotted numbers, such as "17" or "2.30"').optional(),
+  /** Why this workflow needs it. Shown beside the tool when it is missing. */
+  why: external_exports.string().default(""),
+  /** Install hint per `process.platform`: darwin, win32, linux. */
+  install: external_exports.record(external_exports.string(), external_exports.string()).default({})
+});
+var toolsFileSchema = external_exports.array(toolSchema);
 var platformSchema = external_exports.object({ id: external_exports.string().min(1), label: external_exports.string().min(1) });
 var platformsFileSchema = external_exports.object({
   comment: external_exports.string().optional(),
@@ -12025,7 +12054,7 @@ var TaskWorkspace = class _TaskWorkspace {
 // src/tasks/registry.ts
 var import_node_crypto2 = require("node:crypto");
 var import_node_fs = require("node:fs");
-var import_promises7 = require("node:fs/promises");
+var import_promises8 = require("node:fs/promises");
 var vscode2 = __toESM(require("vscode"));
 
 // src/content/ContentRoot.ts
@@ -12079,17 +12108,24 @@ function normaliseSetup(selection) {
 }
 
 // src/content/ContentRoot.ts
-var PIECES = ["microserviceConfig", "platformConfig", "customPrompts"];
+var PIECES = [
+  "microserviceConfig",
+  "platformConfig",
+  "customPrompts",
+  "toolsConfig"
+];
 var LABEL = {
   microserviceConfig: { noun: "microservice config", setting: "aiDevWorkflow.microserviceConfig" },
   platformConfig: { noun: "platform config", setting: "aiDevWorkflow.platformConfig" },
-  customPrompts: { noun: "custom prompts folder", setting: "aiDevWorkflow.customPrompts" }
+  customPrompts: { noun: "custom prompts folder", setting: "aiDevWorkflow.customPrompts" },
+  toolsConfig: { noun: "tool config", setting: "aiDevWorkflow.toolsConfig" }
 };
 function derivedFrom(root) {
   return {
     microserviceConfig: (0, import_node_path6.join)(root, "config", "microservices.json"),
     platformConfig: (0, import_node_path6.join)(root, "config", "platforms.json"),
-    customPrompts: (0, import_node_path6.join)(root, "prompts")
+    customPrompts: (0, import_node_path6.join)(root, "prompts"),
+    toolsConfig: (0, import_node_path6.join)(root, "config", "tools.json")
   };
 }
 function resolveContentRootSetting(configured) {
@@ -12125,6 +12161,11 @@ function resolvePromptsDir(s) {
   if (!result) return { kind: "none" };
   return result.ok ? { kind: "dir", path: result.path } : { kind: "error", message: result.message };
 }
+function resolveToolsFile(s) {
+  const result = pathOf("toolsConfig", s);
+  if (!result) return { kind: "none" };
+  return result.ok ? { kind: "dir", path: result.path } : { kind: "error", message: result.message };
+}
 function resolveAll(s) {
   const micro = resolveConfigFile("microserviceConfig", s);
   if (!micro.ok) return micro;
@@ -12132,11 +12173,14 @@ function resolveAll(s) {
   if (!platform.ok) return platform;
   const prompts = resolvePromptsDir(s);
   if (prompts.kind === "error") return { ok: false, message: prompts.message };
+  const tools = resolveToolsFile(s);
+  if (tools.kind === "error") return { ok: false, message: tools.message };
   return {
     ok: true,
     microserviceConfig: micro.path,
     platformConfig: platform.path,
-    promptsDir: prompts.kind === "dir" ? prompts.path : void 0
+    promptsDir: prompts.kind === "dir" ? prompts.path : void 0,
+    toolsConfig: tools.kind === "dir" ? tools.path : void 0
   };
 }
 function fieldsToWrite(current, derived, lastWritten) {
@@ -12328,6 +12372,114 @@ var PromptComposer = class {
     };
   }
 };
+
+// src/engine/ToolCatalog.ts
+var import_promises7 = require("node:fs/promises");
+var DEFAULT_TOOLS = toolsFileSchema.parse([
+  {
+    id: "git",
+    label: "Git",
+    command: "git",
+    args: ["--version"],
+    required: true,
+    minVersion: "2.30",
+    why: "The Get the code step gives you git commands to run yourself.",
+    install: {
+      darwin: "brew install git",
+      win32: "winget install Git.Git",
+      linux: "sudo apt install git"
+    }
+  },
+  {
+    id: "java",
+    label: "Java (JDK)",
+    command: "java",
+    args: ["-version"],
+    required: true,
+    minVersion: "17",
+    why: "Copilot compiles and tests the code it changes in the implementation and review steps.",
+    install: {
+      darwin: "brew install openjdk@21",
+      win32: "winget install EclipseAdoptium.Temurin.21.JDK",
+      linux: "sudo apt install openjdk-21-jdk"
+    }
+  },
+  {
+    id: "maven",
+    label: "Maven",
+    command: "mvn",
+    args: ["-v"],
+    required: false,
+    why: "Needed only if the repositories in scope build with Maven.",
+    install: {
+      darwin: "brew install maven",
+      win32: "winget install Apache.Maven",
+      linux: "sudo apt install maven"
+    }
+  },
+  {
+    id: "gradle",
+    label: "Gradle",
+    command: "gradle",
+    args: ["--version"],
+    required: false,
+    why: "Needed only if the repositories in scope build with Gradle, and not when they use the wrapper.",
+    install: {
+      darwin: "brew install gradle",
+      win32: "winget install Gradle.Gradle",
+      linux: "sudo apt install gradle"
+    }
+  }
+]);
+function validateTools(tools) {
+  const seen = /* @__PURE__ */ new Map();
+  for (const tool of tools) {
+    const clash = seen.get(tool.id);
+    if (clash) {
+      throw new Error(`tools: "${tool.label}" and "${clash}" share the id "${tool.id}"`);
+    }
+    seen.set(tool.id, tool.label);
+  }
+}
+async function loadTools(path) {
+  let raw;
+  try {
+    raw = await (0, import_promises7.readFile)(path, "utf8");
+  } catch (err) {
+    if (err.code === "ENOENT") return void 0;
+    throw err;
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (err) {
+    throw new Error(`Tool config at ${path} is not valid JSON: ${err.message}`);
+  }
+  let tools;
+  try {
+    tools = toolsFileSchema.parse(parsed);
+  } catch (err) {
+    throw new Error(
+      `Tool config at ${path} is not valid: ${err instanceof Error ? err.message : String(err)}`
+    );
+  }
+  validateTools(tools);
+  return tools;
+}
+function versionIn(output) {
+  return /\d+(?:\.\d+)*/.exec(output)?.[0];
+}
+function meetsMinimum(found, min) {
+  const a = found.split(".").map(Number);
+  const b = min.split(".").map(Number);
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    const av = a[i] ?? 0;
+    const bv = b[i] ?? 0;
+    if (Number.isNaN(av)) return true;
+    if (av !== bv) return av > bv;
+  }
+  return true;
+}
 
 // src/tasks/CollectRequirement.ts
 function isEmpty(v) {
@@ -12706,6 +12858,153 @@ var ManualReview = class {
   }
 };
 
+// src/tasks/SystemCheck.ts
+var REPORT_BLOCK_ID = "systemCheck";
+var SystemCheck = class {
+  constructor(loadTools2, probe, sink, platform = process.platform) {
+    this.loadTools = loadTools2;
+    this.probe = probe;
+    this.sink = sink;
+    this.platform = platform;
+  }
+  name = "systemCheck";
+  stepType = "systemCheck";
+  title = "System check";
+  cached;
+  failure;
+  invalidate() {
+    this.cached = void 0;
+    this.failure = void 0;
+  }
+  async describe(_step, _ctx, _values) {
+    const actions = [
+      { id: "recheck", label: "Re-check" },
+      // Copying the report is how a developer asks somebody else to fix their
+      // machine, which is the likeliest thing to happen on a locked-down laptop.
+      { id: "copy", label: "Copy report" },
+      { id: "submit", label: "Continue", primary: true }
+    ];
+    const state = await this.check();
+    if (!state) {
+      return { text: `The tool list could not be read: ${this.failure}`, actions };
+    }
+    const blocked = blockers(state.findings);
+    return {
+      text: blocked.length ? `${count(blocked.length, "problem")} to fix before this task can continue. Install what is missing, then Re-check.` : "Everything this workflow needs is installed. Nothing was run against your repositories.",
+      commands: [this.reportBlock(state)],
+      actions
+    };
+  }
+  /**
+   * A required tool that is absent or too old blocks the step. This is the one
+   * gate in the tool that rests on a detected fact rather than the developer's
+   * word, which is why it is allowed to be a gate at all.
+   */
+  validate(_step, _values) {
+    if (this.failure) {
+      return { ok: false, errors: { tools: `The tool list could not be read: ${this.failure}` } };
+    }
+    if (!this.cached) {
+      return { ok: false, errors: { tools: "The check has not run yet. Press Re-check." } };
+    }
+    const blocked = blockers(this.cached.findings);
+    if (blocked.length === 0) return { ok: true, errors: {} };
+    return {
+      ok: false,
+      errors: {
+        tools: `${blocked.map((f) => f.label).join(", ")} ${blocked.length === 1 ? "is" : "are"} still missing or too old. Install what the report names, then press Re-check.`
+      }
+    };
+  }
+  async execute(_step, _ctx, _values) {
+    const state = this.cached;
+    return {
+      toolsSource: state?.resolved.source ?? null,
+      toolsPath: state?.resolved.path ?? null,
+      findings: state?.findings ?? [],
+      checkedAt: (/* @__PURE__ */ new Date()).toISOString()
+    };
+  }
+  async copyReport(_step, _ctx) {
+    const state = await this.check();
+    if (!state) throw new Error(this.failure ?? "the check has not run");
+    await this.sink.copy(this.reportBlock(state).lines.join("\n"));
+    return { label: "the system check report" };
+  }
+  /** Probes every tool once and remembers the answer. */
+  async check() {
+    if (this.cached) return this.cached;
+    if (this.failure) return void 0;
+    let resolved;
+    try {
+      resolved = await this.loadTools();
+    } catch (err) {
+      this.failure = err instanceof Error ? err.message : String(err);
+      return void 0;
+    }
+    const findings = await Promise.all(resolved.tools.map((tool) => this.examine(tool)));
+    this.cached = { resolved, findings };
+    return this.cached;
+  }
+  async examine(tool) {
+    const base = {
+      id: tool.id,
+      label: tool.label,
+      required: tool.required,
+      minVersion: tool.minVersion,
+      why: tool.why,
+      install: tool.install[this.platform]
+    };
+    const result = await this.probe.run(tool.command, tool.args);
+    if (!result.found) return { ...base, status: "missing" };
+    const version = versionIn(result.output);
+    const outdated = tool.minVersion !== void 0 && version !== void 0 && !meetsMinimum(version, tool.minVersion);
+    return { ...base, version, status: outdated ? "outdated" : "ok" };
+  }
+  reportBlock(state) {
+    return {
+      id: REPORT_BLOCK_ID,
+      label: "System check report",
+      note: state.resolved.source === "external" ? `Tool list: ${state.resolved.path} (external)` : "Tool list: bundled default",
+      lines: reportLines(state.findings),
+      // No Copy or Terminal on the block: this is a report, not commands to
+      // run. The step offers Copy beside Re-check instead.
+      actions: []
+    };
+  }
+};
+var MARK = { ok: "\u2713", missing: "\u2717", outdated: "\u26A0" };
+function blockers(findings) {
+  return findings.filter((f) => f.required && f.status !== "ok");
+}
+function count(n, noun) {
+  return `${n} ${noun}${n === 1 ? "" : "s"}`;
+}
+function reportLines(findings) {
+  if (findings.length === 0) return ["The tool list is empty, so nothing was checked."];
+  const width = Math.max(...findings.map((f) => f.label.length));
+  const lines = findings.map((f) => {
+    const mark = f.status === "missing" && !f.required ? "\u2013" : MARK[f.status];
+    return `${f.label.padEnd(width)}  ${mark}  ${describeFinding(f)}`;
+  });
+  for (const f of findings.filter((f2) => f2.status !== "ok")) {
+    lines.push("", `${f.label} \u2014 ${f.required ? "required" : "optional"}`);
+    if (f.why) lines.push(`  Why      ${f.why}`);
+    if (f.install) lines.push(`  Install  ${f.install}`);
+  }
+  return lines;
+}
+function describeFinding(f) {
+  switch (f.status) {
+    case "ok":
+      return f.version ?? "installed";
+    case "outdated":
+      return `${f.version ?? "unknown"} \u2014 needs ${f.minVersion} or newer`;
+    default:
+      return f.required ? "not found" : "not found (optional)";
+  }
+}
+
 // src/tasks/TaskType.ts
 var TaskTypeRegistry = class {
   types = /* @__PURE__ */ new Map();
@@ -12740,17 +13039,47 @@ var TaskTypeRegistry = class {
   }
 };
 
+// src/tasks/ToolProbe.ts
+var import_node_child_process = require("node:child_process");
+var import_node_util = require("node:util");
+var run = (0, import_node_util.promisify)(import_node_child_process.execFile);
+var PROBE_TIMEOUT_MS = 5e3;
+function candidatesFor(command, platform = process.platform) {
+  const suffixes = platform === "win32" ? ["", ".cmd", ".bat", ".exe"] : [""];
+  return suffixes.map((suffix) => `${command}${suffix}`);
+}
+var nodeToolProbe = {
+  async run(command, args) {
+    for (const candidate of candidatesFor(command)) {
+      try {
+        const { stdout, stderr } = await run(candidate, args, {
+          timeout: PROBE_TIMEOUT_MS,
+          windowsHide: true
+        });
+        return { found: true, output: `${stdout}
+${stderr}`.trim() };
+      } catch (err) {
+        const e = err;
+        if (e.code === "ENOENT") continue;
+        return { found: true, output: `${e.stdout ?? ""}
+${e.stderr ?? ""}`.trim() };
+      }
+    }
+    return { found: false, output: "" };
+  }
+};
+
 // src/tasks/registry.ts
 async function fileExists(p) {
   try {
-    await (0, import_promises7.access)(p);
+    await (0, import_promises8.access)(p);
     return true;
   } catch {
     return false;
   }
 }
 async function hashFile(p) {
-  return (0, import_node_crypto2.createHash)("sha256").update(await (0, import_promises7.readFile)(p, "utf8")).digest("hex");
+  return (0, import_node_crypto2.createHash)("sha256").update(await (0, import_promises8.readFile)(p, "utf8")).digest("hex");
 }
 var TERMINAL = "AI Dev Workflow";
 async function openInEditor(p) {
@@ -12776,7 +13105,15 @@ function buildTaskTypes(opts) {
       terminal.sendText(text, false);
     }
   };
+  const loadToolList = async () => {
+    if (opts.toolsConfig) {
+      const tools = await loadTools(opts.toolsConfig);
+      if (tools) return { tools, source: "external", path: opts.toolsConfig };
+    }
+    return { tools: DEFAULT_TOOLS, source: "bundled" };
+  };
   return new TaskTypeRegistry([
+    new SystemCheck(loadToolList, nodeToolProbe, sink),
     new CollectRequirement(),
     new GitClone(opts.codeRoot, import_node_fs.existsSync, sink),
     new InvokeCopilot(
@@ -12839,7 +13176,8 @@ function contentSettings() {
     contentRoot: config("contentRoot") ?? "",
     microserviceConfig: config("microserviceConfig") ?? "",
     platformConfig: config("platformConfig") ?? "",
-    customPrompts: config("customPrompts") ?? ""
+    customPrompts: config("customPrompts") ?? "",
+    toolsConfig: config("toolsConfig") ?? ""
   };
 }
 function resolvedContent() {
@@ -12939,7 +13277,7 @@ var TaskSession = class _TaskSession {
     const catalog = await loadCatalog(context);
     const { platform, epic, workflowId } = selection;
     const workflow = catalog.get(workflowId);
-    const source = await (0, import_promises8.readFile)(
+    const source = await (0, import_promises9.readFile)(
       (0, import_node_path14.join)(workflowsDir(context), workflowFilename(workflow.id, workflow.version)),
       "utf8"
     );
@@ -13005,6 +13343,7 @@ var TaskSession = class _TaskSession {
     const registry = buildTaskTypes({
       promptsDir: resolved.ok ? resolved.promptsDir : void 0,
       bundledPromptsDir: (0, import_node_path14.join)(context.extensionPath, "prompts"),
+      toolsConfig: resolved.ok ? resolved.toolsConfig : void 0,
       taskDir: ws.dir,
       codeRoot: resolveCodeRoot(config("codeRoot"))
     });
@@ -13015,13 +13354,10 @@ var TaskSession = class _TaskSession {
         data: {
           promptsDir: resolved.promptsDir ?? null,
           files: await Promise.all(
-            [
-              ["microserviceConfig", resolved.microserviceConfig],
-              ["platformConfig", resolved.platformConfig]
-            ].map(async ([setting, path]) => ({
+            configuredFiles(resolved).map(async ([setting, path]) => ({
               setting,
               path,
-              sha256: (0, import_node_crypto3.createHash)("sha256").update(await (0, import_promises8.readFile)(path, "utf8")).digest("hex")
+              sha256: await hashOrNull(path)
             }))
           )
         }
@@ -13091,6 +13427,23 @@ var TaskSession = class _TaskSession {
       this.values = {};
       this.errors = {};
       await this.refresh();
+      return;
+    }
+    if (step.stepType === "systemCheck" && (actionId === "recheck" || actionId === "copy")) {
+      const task = this.registry.get(step.taskType);
+      try {
+        if (actionId === "recheck") {
+          task.invalidate();
+          this.errors = {};
+          await this.refresh();
+          this.bridge.progress(stepId, "Checked your machine again.");
+        } else {
+          const { label } = await task.copyReport(step, this.ctx);
+          this.bridge.progress(stepId, `Copied ${label}.`);
+        }
+      } catch (err) {
+        this.bridge.error(stepId, `Could not check your machine: ${String(err)}`, true);
+      }
       return;
     }
     if (actionId === "copy" && step.stepType === "aiHandoff") {
@@ -13250,9 +13603,24 @@ function loadCatalog(context) {
     microserviceConfig: resolved.microserviceConfig
   });
 }
+function configuredFiles(resolved) {
+  const entries = [
+    ["microserviceConfig", resolved.microserviceConfig],
+    ["platformConfig", resolved.platformConfig],
+    ["toolsConfig", resolved.toolsConfig]
+  ];
+  return entries.filter((e) => e[1] !== void 0);
+}
+async function hashOrNull(path) {
+  try {
+    return (0, import_node_crypto3.createHash)("sha256").update(await (0, import_promises9.readFile)(path, "utf8")).digest("hex");
+  } catch {
+    return null;
+  }
+}
 async function exists(path) {
   try {
-    await (0, import_promises8.access)(path);
+    await (0, import_promises9.access)(path);
     return true;
   } catch {
     return false;
@@ -13310,13 +13678,13 @@ function unconfiguredDescriptor(message) {
 }
 
 // src/session/taskIndex.ts
-var import_promises9 = require("node:fs/promises");
+var import_promises10 = require("node:fs/promises");
 var import_node_path15 = require("node:path");
 function isFinished(state) {
   return state.steps?.[state.currentStepId]?.status === "complete";
 }
 async function listUnfinishedTasks(tasksRoot2) {
-  const entries = await (0, import_promises9.readdir)(tasksRoot2, { withFileTypes: true }).catch(() => []);
+  const entries = await (0, import_promises10.readdir)(tasksRoot2, { withFileTypes: true }).catch(() => []);
   const found = [];
   for (const entry of entries) {
     if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
@@ -13332,14 +13700,14 @@ function taskLabel(summary, workflowLabel) {
 }
 async function summarise2(taskId, file) {
   try {
-    const state = JSON.parse(await (0, import_promises9.readFile)(file, "utf8"));
+    const state = JSON.parse(await (0, import_promises10.readFile)(file, "utf8"));
     if (!state.currentStepId || isFinished(state)) return void 0;
     return {
       taskId,
       epic: state.epic ?? "",
       workflowId: state.workflowId ?? "",
       currentStepId: state.currentStepId,
-      updatedAt: (await (0, import_promises9.stat)(file)).mtimeMs
+      updatedAt: (await (0, import_promises10.stat)(file)).mtimeMs
     };
   } catch {
     return void 0;
@@ -13710,7 +14078,7 @@ async function activate(context) {
       }
     }),
     vscode6.commands.registerCommand("aiDevWorkflow.resumeTask", async () => {
-      const ids = (await (0, import_promises10.readdir)(tasksRoot()).catch(() => [])).filter(
+      const ids = (await (0, import_promises11.readdir)(tasksRoot()).catch(() => [])).filter(
         (n) => !n.startsWith(".")
       );
       if (ids.length === 0) {

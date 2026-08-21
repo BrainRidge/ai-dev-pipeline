@@ -17,9 +17,10 @@
 │  WorkflowEngine       owns run state; walks the nextStep graph;   │
 │        │              persists before the caller sees a change    │
 │        │                                                          │
-│        ├──▶ TaskTypeRegistry ──┬── CollectRequirement    (task)   │
-│        │    (one class per     ├── GitClone     (commandExecution)│
-│        │     primitive)        ├── InvokeCopilot      (aiHandoff) │
+│        ├──▶ TaskTypeRegistry ──┬── SystemCheck    (systemCheck)   │
+│        │    (one class per     ├── CollectRequirement    (task)   │
+│        │     primitive)        ├── GitClone     (commandExecution)│
+│        │                       ├── InvokeCopilot      (aiHandoff) │
 │        │                       ├── InvokeCopilotCoding (aiHandoff)│
 │        │                       ├── InvokeCopilotCodeReview   (″)  │
 │        │                       └── ManualReview          (manual) │

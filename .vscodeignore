@@ -1,0 +1,32 @@
+# What ships in the .vsix. See spec Section 10.
+#
+# Everything is excluded, and the handful of files that ship are named back in
+# below. That order matters: vsce applies negations as a union at the end rather
+# than in sequence, so a broad `!out/**` followed by carve-outs does not work —
+# the carve-outs lose. Naming each file that ships is the only arrangement that
+# stays correct, and it has the side benefit that new junk at the repository
+# root cannot leak into a release by default.
+**
+
+!package.json
+!media/icon.svg
+
+# The bundles esbuild produces. dev.js is the browser harness for developing the
+# renderer without an extension host, and has no business in an installed
+# extension. The .map files are excluded for the same reason.
+!out/extension.js
+!out/webview.js
+!out/setup.js
+!out/style.css
+
+# Workflow definitions stay bundled: they are what the tool standardises.
+!workflows/*.json
+
+# Prompt templates stay bundled because they are the per-file fallback for any
+# template a team has not supplied, so they must remain good. See Section 16.
+!prompts/**/*.md
+
+# The layout a team copies to make its own content folder, shipped so it can be
+# copied out of an installed extension. See Sections 16 and 17.
+!examples/content-template/README.md
+!examples/content-template/config/*.json

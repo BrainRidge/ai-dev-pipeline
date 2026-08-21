@@ -19,6 +19,7 @@ function settings(over: Partial<ContentSettings> = {}): ContentSettings {
     microserviceConfig: '',
     platformConfig: '',
     customPrompts: '',
+    toolsConfig: '',
     ...over,
   }
 }
@@ -29,6 +30,7 @@ describe('what a content root derives', () => {
       microserviceConfig: '/team/config/microservices.json',
       platformConfig: '/team/config/platforms.json',
       customPrompts: '/team/prompts',
+      toolsConfig: '/team/config/tools.json',
     })
   })
 })
@@ -116,7 +118,7 @@ describe('resolving the prompts folder', () => {
 })
 
 /**
- * Setting the content root writes the three derived paths into settings. The
+ * Setting the content root writes the four derived paths into settings. The
  * rule that makes that safe is that it only ever overwrites its own work.
  */
 describe('deciding which fields to write', () => {
@@ -125,6 +127,7 @@ describe('deciding which fields to write', () => {
     microserviceConfig: '',
     platformConfig: '',
     customPrompts: '',
+    toolsConfig: '',
   }
 
   it('fills in every empty field', () => {
@@ -272,6 +275,7 @@ describe('resolveAll', () => {
       microserviceConfig: '/team/config/microservices.json',
       platformConfig: '/team/config/platforms.json',
       promptsDir: '/team/prompts',
+      toolsConfig: '/team/config/tools.json',
     })
   })
 

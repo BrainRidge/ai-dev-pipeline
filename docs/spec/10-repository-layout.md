@@ -11,6 +11,7 @@ ai-dev-workflow/
 │   ├── engine/                   no vscode import, enforced by ESLint
 │   │   ├── schema.ts             zod schemas; the authoritative model
 │   │   ├── WorkflowCatalog.ts    load and validate bundled JSON
+│   │   ├── ToolCatalog.ts       the tool list, and version comparison
 │   │   ├── WorkflowEngine.ts     nextStep traversal, transitions, persistence
 │   │   ├── StepDescriptor.ts     the host→webview contract
 │   │   ├── placeholders.ts       {{namespace.field}} resolution
@@ -26,6 +27,8 @@ ai-dev-workflow/
 │   │   ├── TaskType.ts           interface + registry
 │   │   ├── context.ts            what a task may know about its run
 │   │   ├── registry.ts           the vocabulary, wired to vscode
+│   │   ├── SystemCheck.ts
+│   │   ├── ToolProbe.ts         is a tool on this machine, behind an interface
 │   │   ├── CollectRequirement.ts
 │   │   ├── GitClone.ts
 │   │   ├── InvokeCopilot.ts
@@ -57,7 +60,8 @@ ai-dev-workflow/
 │   └── bugFixWorkflow_1_0.json
 ├── prompts/<workflowId>/<stepId>.md   the per-file fallback; still bundled
 ├── examples/content-template/    what a team copies; config/ lives here now
-├── .vscodeignore                 what ships in the .vsix
+├── .vscodeignore                 what ships in the .vsix — excludes all, names each file back
+├── .vscode-test.mjs              points @vscode/test-cli at out/test/integration/
 ├── out/                          built bundles; tracked deliberately
 ├── test/
 └── docs/
@@ -65,12 +69,15 @@ ai-dev-workflow/
 
 Three directories ship inside the `.vsix` besides `out/`: `workflows/`, `prompts/` and
 `examples/`. `.vscodeignore` excludes everything else — including the sourcemaps and the
-unbundled `tsc` output that `npm run compile:test` leaves in `out/`. Its negations are named
-per file type rather than per directory, because `vsce` applies them as a union at the end
-rather than in order, so a broad `!out/**` followed by carve-outs does not work.
+unbundled `tsc` output that `npm run compile:test` leaves in `out/`. It excludes everything
+with `**` and then names each file that ships, rather than excluding directory by directory,
+because `vsce` applies negations as a union at the end rather than in order: a broad `!out/**`
+followed by carve-outs does not work, the carve-outs lose. Naming each file has the side
+benefit that new junk at the repository root cannot leak into a release by default.
 
-The package is 19 files: four bundles, three workflows, seven prompt templates, the three
-under `examples/content-template/`, the icon and `package.json`.
+The package is 20 files: four bundles, three workflows, seven prompt templates, the four
+under `examples/content-template/`, the icon and `package.json`. `npx vsce ls` prints
+exactly that list, and is the cheapest way to catch the file going missing again.
 
 `out/` is tracked because `package.json`'s `main` points into it, so a checkout stays
 installable without a build step. The cost is that a source change is not finished until the

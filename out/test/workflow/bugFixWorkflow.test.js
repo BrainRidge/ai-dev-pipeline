@@ -50,6 +50,7 @@ const noSink = { async copy() { }, async toTerminal() { } };
             },
         });
         const registry = new TaskType_1.TaskTypeRegistry([
+            (0, fixtures_1.systemCheck)(),
             new CollectRequirement_1.CollectRequirement(),
             new GitClone_1.GitClone('/code', () => false, noSink),
             new InvokeCopilot_1.InvokeCopilot(composer, record('diagnosis'), new AuditLog_1.AuditLog(taskDir), async () => outputWritten, noSink),
@@ -82,6 +83,12 @@ const noSink = { async copy() { }, async toTerminal() { } };
         const refresh = async () => {
             holder.state = await store.read();
         };
+        // The workflow now opens on System Check. Passing it here keeps the tests
+        // below starting where they always did; the step has its own tests, and its
+        // place at the front of every workflow is asserted in catalog.test.ts.
+        await registry.get('systemCheck').describe(workflow.steps.systemCheck, ctx, {});
+        await engine.submit('systemCheck', 'submit', {});
+        holder.state = await store.read();
         return { workflow, engine, registry, ctx, store, refresh, services };
     }
     const defect = {
@@ -123,6 +130,7 @@ const noSink = { async copy() { }, async toTerminal() { } };
     (0, vitest_1.it)('diagnoses before it fixes, which is the whole shape of the workflow', async () => {
         const { workflow } = await run();
         (0, vitest_1.expect)(workflow.order).toEqual([
+            'systemCheck',
             'requirement',
             'gitClone',
             'diagnosis',
@@ -183,7 +191,7 @@ const noSink = { async copy() { }, async toTerminal() { } };
         await task.deliver(h.workflow.steps.CodeFix, h.ctx);
         (0, vitest_1.expect)(delivered.at(-1).prompt).not.toMatch(/story/i);
     });
-    (0, vitest_1.it)('badges the six steps for the panel with no workflow-specific code', async () => {
+    (0, vitest_1.it)('badges the seven steps for the panel with no workflow-specific code', async () => {
         const h = await upTo('gitClone');
         const descriptor = await (0, StepDescriptor_1.buildWorkflowDescriptor)({
             workflow: h.workflow,
@@ -194,6 +202,7 @@ const noSink = { async copy() { }, async toTerminal() { } };
             errors: {},
         });
         (0, vitest_1.expect)(descriptor.steps.map((s) => s.badge)).toEqual([
+            'SYSTEM',
             'INPUT',
             'COMMAND',
             'COPILOT',

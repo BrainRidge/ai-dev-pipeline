@@ -17,7 +17,7 @@ import { ManualReview } from '../../src/tasks/ManualReview'
 import { TaskTypeRegistry } from '../../src/tasks/TaskType'
 import type { CommandSink } from '../../src/tasks/CommandSink'
 import type { StepContext } from '../../src/tasks/context'
-import { bundledResolver, taskState } from '../support/fixtures'
+import { bundledResolver, systemCheck, taskState } from '../support/fixtures'
 
 const ROOT = join(__dirname, '../..')
 const CONFIG = {
@@ -56,6 +56,7 @@ describe('the bundled bug fix workflow', () => {
     })
 
     const registry = new TaskTypeRegistry([
+      systemCheck(),
       new CollectRequirement(),
       new GitClone('/code', () => false, noSink),
       new InvokeCopilot(composer, record('diagnosis'), new AuditLog(taskDir), async () => outputWritten, noSink),
@@ -91,6 +92,14 @@ describe('the bundled bug fix workflow', () => {
     const refresh = async () => {
       holder.state = await store.read()
     }
+
+    // The workflow now opens on System Check. Passing it here keeps the tests
+    // below starting where they always did; the step has its own tests, and its
+    // place at the front of every workflow is asserted in catalog.test.ts.
+    await registry.get('systemCheck').describe(workflow.steps.systemCheck!, ctx, {})
+    await engine.submit('systemCheck', 'submit', {})
+    holder.state = await store.read()
+
     return { workflow, engine, registry, ctx, store, refresh, services }
   }
 
@@ -132,6 +141,7 @@ describe('the bundled bug fix workflow', () => {
   it('diagnoses before it fixes, which is the whole shape of the workflow', async () => {
     const { workflow } = await run()
     expect(workflow.order).toEqual([
+      'systemCheck',
       'requirement',
       'gitClone',
       'diagnosis',
@@ -207,7 +217,7 @@ describe('the bundled bug fix workflow', () => {
     expect(delivered.at(-1)!.prompt).not.toMatch(/story/i)
   })
 
-  it('badges the six steps for the panel with no workflow-specific code', async () => {
+  it('badges the seven steps for the panel with no workflow-specific code', async () => {
     const h = await upTo('gitClone')
     const descriptor = await buildWorkflowDescriptor({
       workflow: h.workflow,
@@ -218,6 +228,7 @@ describe('the bundled bug fix workflow', () => {
       errors: {},
     })
     expect(descriptor.steps.map((s) => s.badge)).toEqual([
+      'SYSTEM',
       'INPUT',
       'COMMAND',
       'COPILOT',

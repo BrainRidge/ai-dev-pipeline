@@ -9,3 +9,16 @@
 /dataSources/
 /dataSources.local.xml
 .idea
+
+# The VS Code build that @vscode/test-cli downloads for the integration tier.
+# Close to a gigabyte once unpacked, and re-downloaded on demand, so it must
+# never be committed. See spec Section 11.
+/.vscode-test/
+
+.DS_Store
+
+# NOTE: out/ is deliberately NOT ignored — package.json's `main` points into it,
+# so a checkout stays installable without a build step. See spec Section 10.
+# Only the four esbuild bundles and the stylesheet need to be there; the
+# unbundled tsc output under out/src, out/test and out/webview is build
+# detritus that `npm run compile:test` rewrites, and it is tracked by mistake.

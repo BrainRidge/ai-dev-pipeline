@@ -5,11 +5,11 @@ intended shape — then point **Content Root** at your copy:
 
 **Settings → Extensions → AI Dev Workflow**
 
-Setting Content Root fills in the three settings below it — Microservice
-Config, Platform Config and Custom Prompts — so you normally set one path and
-are done. Each can also be set on its own, and whatever is in it wins: point
-Microservice Config at a catalogue your whole organisation shares while Custom
-Prompts stays your team's.
+Setting Content Root fills in the four settings below it — Microservice
+Config, Platform Config, Custom Prompts and Tool Config — so you normally set
+one path and are done. Each can also be set on its own, and whatever is in it
+wins: point Microservice Config at a catalogue your whole organisation shares
+while Custom Prompts stays your team's.
 
 A field you change yourself is never overwritten. Only ones that are empty, or
 still hold what the extension put there, get updated when Content Root changes.
@@ -22,7 +22,8 @@ working in that repository resolves the same content.
     <your copy>/
     ├── config/
     │   ├── platforms.json        required
-    │   └── microservices.json    required
+    │   ├── microservices.json    required
+    │   └── tools.json            optional
     └── prompts/
         └── <workflowId>/
             └── <stepId>.md       optional, per file
@@ -39,8 +40,16 @@ Name each file after the step id in the workflow, exactly: `aiHandoff.md`, not
 `aiHandoff.MD`. A name differing only in case is reported as an error rather
 than silently ignored.
 
+**`tools.json` is optional and falls back as a whole.** It lists the tools the
+System Check step looks for on a developer's machine, and if you supply none the
+extension uses a default list — git, a JDK, Maven and Gradle. The step's report
+says which list it used, so the fallback is never invisible. Mark a tool
+`"required": true` only if a developer genuinely cannot finish the workflow
+without it: a required tool that is missing stops the task there.
+
 **`workflows/` is not read.** Which steps run, and in what order, is what the
 extension standardises; it is bundled and changed by release.
 
 See [spec Section 16](../../docs/spec/16-external-content.md) for the whole
-contract.
+contract, and [Section 17](../../docs/spec/17-system-check.md) for the tool
+list and what the System Check step does with it.

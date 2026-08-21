@@ -47,6 +47,7 @@ const CONFIG = {
         const taskDir = await (0, promises_1.mkdtemp)((0, node_path_1.join)((0, node_os_1.tmpdir)(), 'run-'));
         const services = catalog.microservices().slice(0, 2).map((s) => s.shortCode);
         const registry = new TaskType_1.TaskTypeRegistry([
+            (0, fixtures_1.systemCheck)(),
             new CollectRequirement_1.CollectRequirement(),
             new GitClone_1.GitClone('/code', () => false, sink),
             new InvokeCopilot_1.InvokeCopilot(new PromptComposer_1.PromptComposer((0, fixtures_1.bundledResolver)((0, node_path_1.join)(ROOT, 'prompts'))), { async deliver(prompt) { delivered.push(prompt); return 'A'; } }, new AuditLog_1.AuditLog(taskDir), async () => outputWritten, sink),
@@ -77,6 +78,12 @@ const CONFIG = {
         const refresh = async () => {
             holder.state = await store.read();
         };
+        // The workflow now opens on System Check. Passing it here keeps the tests
+        // below starting where they always did; the step has its own tests, and its
+        // place at the front of every workflow is asserted in catalog.test.ts.
+        await registry.get('systemCheck').describe(workflow.steps.systemCheck, ctx, {});
+        await engine.submit('systemCheck', 'submit', {});
+        holder.state = await store.read();
         return { workflow, engine, registry, ctx, store, refresh, taskDir, services };
     }
     (0, vitest_1.it)('walks requirement → gitClone → aiHandoff → reviewAnalysis', async () => {
@@ -95,6 +102,7 @@ const CONFIG = {
         (0, vitest_1.expect)(await engine.submit('reviewAnalysis', 'approve', {})).toEqual({ ok: true, done: true });
         const final = await store.read();
         (0, vitest_1.expect)(Object.keys(final.steps)).toEqual([
+            'systemCheck',
             'requirement',
             'gitClone',
             'aiHandoff',
@@ -188,13 +196,15 @@ const CONFIG = {
             errors: {},
         });
         (0, vitest_1.expect)(descriptor.steps.map((s) => s.badge)).toEqual([
+            'SYSTEM',
             'INPUT',
             'COMMAND',
             'COPILOT',
             'REVIEW',
         ]);
         (0, vitest_1.expect)(descriptor.activeStepId).toBe('gitClone');
-        (0, vitest_1.expect)(descriptor.steps[0].summary).toBe('why is checkout slow');
+        (0, vitest_1.expect)(descriptor.steps.find((s) => s.id === 'requirement').summary).toBe('why is checkout slow');
+        (0, vitest_1.expect)(descriptor.steps.find((s) => s.id === 'systemCheck').summary).toBe('1 of 1 tools found');
         (0, vitest_1.expect)(descriptor.steps.every((s) => (s.documentation ?? '').length > 20)).toBe(true);
     });
 });

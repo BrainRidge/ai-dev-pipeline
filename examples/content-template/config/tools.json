@@ -1,0 +1,56 @@
+[
+  {
+    "id": "git",
+    "label": "Git",
+    "command": "git",
+    "args": ["--version"],
+    "required": true,
+    "minVersion": "2.30",
+    "why": "The Get the code step gives you git commands to run yourself.",
+    "install": {
+      "darwin": "brew install git",
+      "win32": "winget install Git.Git",
+      "linux": "sudo apt install git"
+    }
+  },
+  {
+    "id": "java",
+    "label": "Java (JDK)",
+    "command": "java",
+    "args": ["-version"],
+    "required": true,
+    "minVersion": "17",
+    "why": "Copilot compiles and tests the code it changes in the implementation and review steps.",
+    "install": {
+      "darwin": "brew install openjdk@21",
+      "win32": "winget install EclipseAdoptium.Temurin.21.JDK",
+      "linux": "sudo apt install openjdk-21-jdk"
+    }
+  },
+  {
+    "id": "maven",
+    "label": "Maven",
+    "command": "mvn",
+    "args": ["-v"],
+    "required": false,
+    "why": "Needed only if the repositories in scope build with Maven.",
+    "install": {
+      "darwin": "brew install maven",
+      "win32": "winget install Apache.Maven",
+      "linux": "sudo apt install maven"
+    }
+  },
+  {
+    "id": "gradle",
+    "label": "Gradle",
+    "command": "gradle",
+    "args": ["--version"],
+    "required": false,
+    "why": "Needed only if the repositories in scope build with Gradle, and not when they use the wrapper.",
+    "install": {
+      "darwin": "brew install gradle",
+      "win32": "winget install Gradle.Gradle",
+      "linux": "sudo apt install gradle"
+    }
+  }
+]

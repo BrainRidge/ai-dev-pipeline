@@ -80,9 +80,11 @@ without anything noticing.
 | `commandExecution` | Shows commands for the developer to run themselves | Developer marks them run |
 | `aiHandoff` | Composes a prompt and hands it to Copilot Chat | Declared output file exists **and** developer confirms ([D9](04-decisions.md)), or confirmation alone where the step produces edits |
 | `manual` | Opens an artifact in a normal editor tab | Developer selects Approve or Revise |
+| `systemCheck` | Probes the machine for the tools the workflow needs | No required tool is missing, and the developer continues ([Section 17](17-system-check.md)) |
 
 | `taskType` | `stepType` | What it does |
 |---|---|---|
+| `systemCheck` | `systemCheck` | Reports which of the team's tools are installed |
 | `CollectRequirement` | `task` | The story and the meeting notes behind it |
 | `gitClone` | `commandExecution` | Plans the git commands to put each selected repository on the base branch |
 | `invokeCopilot` | `aiHandoff` | A handoff contracted to write a file |
@@ -116,9 +118,14 @@ block in its already-cloned form: `cd` and `git fetch` rather than `git clone`.
 
 | File | Id | Label | Steps |
 |---|---|---|---|
-| `researchTaskWorkflow_1_0.json` | `researchTaskWorkflow` | Research Task | requirement → gitClone → aiHandoff → reviewAnalysis |
-| `newFeatureWorkflow_1_0.json` | `newFeatureWorkflow` | New Feature | requirement → gitClone → aiHandoff → reviewAnalysis → CodeImplementation → CodeReview |
-| `bugFixWorkflow_1_0.json` | `bugFixWorkflow` | Bug Fix | requirement → gitClone → diagnosis → reviewDiagnosis → CodeFix → CodeReview |
+| `researchTaskWorkflow_1_0.json` | `researchTaskWorkflow` | Research Task | systemCheck → requirement → gitClone → aiHandoff → reviewAnalysis |
+| `newFeatureWorkflow_1_0.json` | `newFeatureWorkflow` | New Feature | systemCheck → requirement → gitClone → aiHandoff → reviewAnalysis → CodeImplementation → CodeReview |
+| `bugFixWorkflow_1_0.json` | `bugFixWorkflow` | Bug Fix | systemCheck → requirement → gitClone → diagnosis → reviewDiagnosis → CodeFix → CodeReview |
+
+Every workflow opens on `systemCheck`. Nothing in the schema requires that — a
+workflow may leave it out — but there is no reason to collect a requirement for
+a task that cannot finish for want of a tool. See
+[Section 17](17-system-check.md).
 
 Bug Fix differs from New Feature in the one way a defect differs from a feature: it diagnoses
 before it changes anything, the developer approves the cause rather than a plan, and the fix
@@ -148,6 +155,12 @@ services with a short code, a name, a purpose, a git location and a category. Bo
 the team's content folder rather than from the extension — see
 [Section 16](16-external-content.md) — and neither falls back to a bundled copy.
 `examples/content-template/config/` holds the layout to copy.
+
+A third file lives beside them: `config/tools.json`, the list of tools the
+`systemCheck` step looks for. Unlike the two above it is optional and falls back
+to a bundled default, because a default tool list names no repositories and so
+cannot put anybody else's code on a developer's disk. See
+[Section 17](17-system-check.md).
 
 **Platform does not filter the microservice list.** It is recorded context — it goes into the
 task state, the audit log and the prompt, and it selects nothing. The original design had

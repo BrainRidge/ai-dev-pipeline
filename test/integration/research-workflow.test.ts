@@ -86,7 +86,8 @@ suite('research workflow', () => {
         'utf8',
       ),
     )
-    assert.strictEqual(workflow.initialStep, 'requirement')
+    // Every workflow opens on the machine check. See spec Section 17.
+    assert.strictEqual(workflow.initialStep, 'systemCheck')
 
     // Prompts still ship: they are the per-file fallback for any template a
     // team has not supplied. See spec Section 16.
@@ -104,6 +105,16 @@ suite('research workflow', () => {
       ),
     )
     assert.ok(Array.isArray(services) && services.length > 0)
+
+    // The tool list a team copies to decide what System Check looks for. The
+    // extension's own default is a constant, not this file. See Section 17.
+    const tools = JSON.parse(
+      await readFile(
+        join(ext.extensionPath, 'examples', 'content-template', 'config', 'tools.json'),
+        'utf8',
+      ),
+    )
+    assert.ok(Array.isArray(tools) && tools.some((t: { id: string }) => t.id === 'git'))
 
     await assert.rejects(
       readFile(join(ext.extensionPath, 'config', 'microservices.json'), 'utf8'),
@@ -128,14 +139,14 @@ suite('research workflow', () => {
    * The one behaviour that cannot be unit tested: writing into settings needs a
    * real configuration service. See spec Section 16.
    */
-  test('setting the content root fills in the three specific paths', async () => {
+  test('setting the content root fills in the four specific paths', async () => {
     await vscode.extensions.getExtension('internal.ai-dev-workflow')?.activate()
 
     const root = await mkdtemp(join(tmpdir(), 'root-'))
     const cfg = () => vscode.workspace.getConfiguration('aiDevWorkflow')
     const G = vscode.ConfigurationTarget.Global
 
-    for (const key of ['microserviceConfig', 'platformConfig', 'customPrompts']) {
+    for (const key of ['microserviceConfig', 'platformConfig', 'customPrompts', 'toolsConfig']) {
       await cfg().update(key, undefined, G)
     }
     await cfg().update('contentRoot', root, G)
@@ -152,6 +163,7 @@ suite('research workflow', () => {
     )
     assert.strictEqual(cfg().get<string>('platformConfig'), join(root, 'config', 'platforms.json'))
     assert.strictEqual(cfg().get<string>('customPrompts'), join(root, 'prompts'))
+    assert.strictEqual(cfg().get<string>('toolsConfig'), join(root, 'config', 'tools.json'))
 
     // A value the developer chose themselves survives a later root change.
     await cfg().update('customPrompts', '/shared/prompts', G)
@@ -176,7 +188,13 @@ suite('research workflow', () => {
       'a hand-picked prompts folder must not silently revert',
     )
 
-    for (const key of ['contentRoot', 'microserviceConfig', 'platformConfig', 'customPrompts']) {
+    for (const key of [
+      'contentRoot',
+      'microserviceConfig',
+      'platformConfig',
+      'customPrompts',
+      'toolsConfig',
+    ]) {
       await cfg().update(key, undefined, G)
     }
   })

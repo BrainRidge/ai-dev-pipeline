@@ -2,7 +2,8 @@
 
 > Part of the [AI Dev Workflow design](README.md).
 
-**Status:** Designed. Not yet implemented.
+**Status:** Implemented. Extended by [Section 17](17-system-check.md), which adds a
+fourth piece of external content on the same terms.
 
 Phase 1 bundled every piece of content in the extension repository: the workflow
 definitions, the platform and microservice catalogues, and the prompt templates. That is
@@ -23,6 +24,7 @@ are genuinely team-specific, and leaves it intact for the one that is not.
 | `config/platforms.json` | External | **Required.** No fallback |
 | `config/microservices.json` | External | **Required.** No fallback |
 | `prompts/<workflowId>/<stepId>.md` | External | Optional. Falls back per file to the bundled template |
+| `config/tools.json` | External | Optional. Falls back as a whole to a bundled default ([Section 17](17-system-check.md)) |
 
 The line is drawn where it is for a reason worth stating plainly: **workflows decide which
 steps a developer must pass through, and that is what the tool exists to standardise.**
@@ -38,7 +40,7 @@ repositories must be provided deliberately.
 
 ## The settings
 
-Four entries, ordered so the convenience comes first and the things it fills in follow.
+Five entries, ordered so the convenience comes first and the things it fills in follow.
 
 | Setting | Expects | Required |
 |---|---|---|
@@ -46,8 +48,9 @@ Four entries, ordered so the convenience comes first and the things it fills in 
 | `aiDevWorkflow.microserviceConfig` | A JSON file describing the microservices and their git locations | **Yes** |
 | `aiDevWorkflow.platformConfig` | A JSON file listing the platforms | **Yes** |
 | `aiDevWorkflow.customPrompts` | A folder of markdown prompt templates | No |
+| `aiDevWorkflow.toolsConfig` | A JSON file listing the tools to check for | No |
 
-Three specific settings rather than one root, because the pieces are genuinely separate
+Specific settings rather than one root, because the pieces are genuinely separate
 concerns: a service catalogue is an organisational fact that several teams may share, and
 prompt wording is a team's own. Naming them individually lets a team point at an existing
 catalogue in a repository they already have, without reorganising anything to match a layout
@@ -68,9 +71,9 @@ use. Nothing enforces it, in the same spirit as [Section 7](07-run-state-and-per
 — this is detection and convention, not prevention, because every user is a developer with
 full filesystem access.
 
-## Setting the content root writes the other three
+## Setting the content root writes the others
 
-When `contentRoot` changes, the extension writes the derived paths into the three specific
+When `contentRoot` changes, the extension writes the derived paths into the specific
 settings, so a developer sees what is in effect rather than three empty boxes and a rule they
 have to know. The values go into the same scope the content root was set in, so a
 workspace-level root fills workspace-level paths.
@@ -96,7 +99,8 @@ non-empty; otherwise the path is derived from the content root on the spot. So e
 <contentRoot>/
 ├── config/
 │   ├── platforms.json           required
-│   └── microservices.json       required
+│   ├── microservices.json       required
+│   └── tools.json               optional, whole-file fallback
 └── prompts/
     └── <workflowId>/
         └── <stepId>.md          optional, per file

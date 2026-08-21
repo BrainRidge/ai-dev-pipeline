@@ -15,7 +15,7 @@ import { ManualReview } from '../../src/tasks/ManualReview'
 import { TaskTypeRegistry } from '../../src/tasks/TaskType'
 import type { CommandSink } from '../../src/tasks/CommandSink'
 import type { StepContext } from '../../src/tasks/context'
-import { bundledResolver, taskState } from '../support/fixtures'
+import { bundledResolver, systemCheck, taskState } from '../support/fixtures'
 
 const ROOT = join(__dirname, '../..')
 const CONFIG = {
@@ -53,6 +53,7 @@ describe('the bundled research workflow', () => {
     const services = catalog.microservices().slice(0, 2).map((s) => s.shortCode)
 
     const registry = new TaskTypeRegistry([
+      systemCheck(),
       new CollectRequirement(),
       new GitClone('/code', () => false, sink),
       new InvokeCopilot(
@@ -96,6 +97,13 @@ describe('the bundled research workflow', () => {
       holder.state = await store.read()
     }
 
+    // The workflow now opens on System Check. Passing it here keeps the tests
+    // below starting where they always did; the step has its own tests, and its
+    // place at the front of every workflow is asserted in catalog.test.ts.
+    await registry.get('systemCheck').describe(workflow.steps.systemCheck!, ctx, {})
+    await engine.submit('systemCheck', 'submit', {})
+    holder.state = await store.read()
+
     return { workflow, engine, registry, ctx, store, refresh, taskDir, services }
   }
 
@@ -120,6 +128,7 @@ describe('the bundled research workflow', () => {
 
     const final = await store.read()
     expect(Object.keys(final.steps)).toEqual([
+      'systemCheck',
       'requirement',
       'gitClone',
       'aiHandoff',
@@ -230,13 +239,17 @@ describe('the bundled research workflow', () => {
     })
 
     expect(descriptor.steps.map((s) => s.badge)).toEqual([
+      'SYSTEM',
       'INPUT',
       'COMMAND',
       'COPILOT',
       'REVIEW',
     ])
     expect(descriptor.activeStepId).toBe('gitClone')
-    expect(descriptor.steps[0]!.summary).toBe('why is checkout slow')
+    expect(descriptor.steps.find((s) => s.id === 'requirement')!.summary).toBe(
+      'why is checkout slow',
+    )
+    expect(descriptor.steps.find((s) => s.id === 'systemCheck')!.summary).toBe('1 of 1 tools found')
     expect(descriptor.steps.every((s) => (s.documentation ?? '').length > 20)).toBe(true)
   })
 })

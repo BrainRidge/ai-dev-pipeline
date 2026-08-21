@@ -180,6 +180,10 @@ h1 {
   background: var(--vscode-charts-blue, #48c);
   color: #fff;
 }
+.badge-system {
+  background: var(--vscode-charts-green, #3a7);
+  color: #fff;
+}
 .step-text {
   margin: 0 0 1rem;
 }

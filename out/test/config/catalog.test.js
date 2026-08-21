@@ -19,6 +19,7 @@ const load = () => WorkflowCatalog_1.WorkflowCatalog.load(WORKFLOWS, CONFIG);
     });
     (0, vitest_1.it)('walks the graph in nextStep order', async () => {
         (0, vitest_1.expect)((await load()).get('researchTaskWorkflow').order).toEqual([
+            'systemCheck',
             'requirement',
             'gitClone',
             'aiHandoff',
@@ -29,6 +30,15 @@ const load = () => WorkflowCatalog_1.WorkflowCatalog.load(WORKFLOWS, CONFIG);
         const wf = (await load()).get('researchTaskWorkflow');
         for (const id of wf.order) {
             (0, vitest_1.expect)(wf.steps[id].documentation.length).toBeGreaterThan(20);
+        }
+    });
+    // Every workflow opens on the machine check: there is no point collecting a
+    // requirement for a task that cannot finish for want of a tool.
+    (0, vitest_1.it)('starts every bundled workflow on the system check', async () => {
+        for (const wf of (await load()).all()) {
+            (0, vitest_1.expect)(wf.initialStep).toBe('systemCheck');
+            (0, vitest_1.expect)(wf.order[0]).toBe('systemCheck');
+            (0, vitest_1.expect)(wf.steps.systemCheck.stepType).toBe('systemCheck');
         }
     });
     (0, vitest_1.it)('ends on a terminal step', async () => {

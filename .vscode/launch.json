@@ -1,0 +1,32 @@
+{
+  // Committed deliberately: F5 into a development host is how the panel, the
+  // sidebar and the System Check step get looked at, and without this file the
+  // only way to see a change was to package a .vsix and install it.
+  "version": "0.2.0",
+  "configurations": [
+    {
+      // Opens a second VS Code window with this extension loaded from source.
+      // Nothing is installed, so it cannot disturb the copy you use for work.
+      "name": "Run Extension",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": ["--extensionDevelopmentPath=${workspaceFolder}"],
+      "outFiles": ["${workspaceFolder}/out/*.js"],
+      // esbuild first: `main` points at out/extension.js, so a source change is
+      // invisible until the bundles are rebuilt. See spec Section 10.
+      "preLaunchTask": "npm: build"
+    },
+    {
+      // The integration tier under the debugger, so a failing assertion can be
+      // stepped through. Reads the same .vscode-test.mjs the CLI does, so the
+      // two cannot drift. See spec Section 11.
+      "name": "Integration Tests",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": ["--extensionDevelopmentPath=${workspaceFolder}"],
+      "testConfiguration": "${workspaceFolder}/.vscode-test.mjs",
+      "outFiles": ["${workspaceFolder}/out/**/*.js"],
+      "preLaunchTask": "npm: compile:test"
+    }
+  ]
+}

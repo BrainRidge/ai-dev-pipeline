@@ -1,0 +1,38 @@
+{
+  // Named so that launch.json's preLaunchTask entries resolve without relying
+  // on VS Code's npm script auto-detection, which is a setting a developer can
+  // have turned off.
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "type": "npm",
+      "script": "build",
+      "problemMatcher": [],
+      "label": "npm: build",
+      "detail": "esbuild the four bundles into out/"
+    },
+    {
+      "type": "npm",
+      "script": "compile:test",
+      "problemMatcher": ["$tsc"],
+      "label": "npm: compile:test",
+      "detail": "tsc the integration tests into out/test/integration/"
+    },
+    {
+      "type": "npm",
+      "script": "watch",
+      "problemMatcher": [],
+      "isBackground": true,
+      "label": "npm: watch",
+      "detail": "rebuild the bundles on every change"
+    },
+    {
+      "type": "npm",
+      "script": "verify",
+      "group": { "kind": "test", "isDefault": true },
+      "problemMatcher": ["$tsc"],
+      "label": "npm: verify",
+      "detail": "typecheck, lint and the unit tiers — the gate before a commit"
+    }
+  ]
+}

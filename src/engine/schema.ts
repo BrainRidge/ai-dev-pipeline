@@ -1,7 +1,13 @@
 import { z } from 'zod'
 
 /** How a step behaves. Declared by its taskType and cross-checked in the JSON. */
-export const stepTypeSchema = z.enum(['task', 'commandExecution', 'aiHandoff', 'manual'])
+export const stepTypeSchema = z.enum([
+  'task',
+  'commandExecution',
+  'aiHandoff',
+  'manual',
+  'systemCheck',
+])
 export type StepType = z.infer<typeof stepTypeSchema>
 
 export const fieldSchema = z.object({
@@ -49,6 +55,33 @@ export const microserviceSchema = z.object({
 
 export const microservicesFileSchema = z.array(microserviceSchema)
 
+/**
+ * A tool the System Check step looks for on the developer's machine.
+ *
+ * `command` and `args` are spawned directly rather than through a shell, so the
+ * command is an executable name and the arguments are a list — not one string
+ * to be split. See spec Section 17.
+ */
+export const toolSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+  command: z.string().min(1),
+  args: z.array(z.string()).default(['--version']),
+  /** A missing required tool blocks the step; a missing optional one is noted. */
+  required: z.boolean().default(true),
+  /** Dotted numbers, e.g. "17" or "2.30". Compared numerically, segment by segment. */
+  minVersion: z
+    .string()
+    .regex(/^\d+(\.\d+)*$/, 'minVersion must be dotted numbers, such as "17" or "2.30"')
+    .optional(),
+  /** Why this workflow needs it. Shown beside the tool when it is missing. */
+  why: z.string().default(''),
+  /** Install hint per `process.platform`: darwin, win32, linux. */
+  install: z.record(z.string(), z.string()).default({}),
+})
+
+export const toolsFileSchema = z.array(toolSchema)
+
 export const platformSchema = z.object({ id: z.string().min(1), label: z.string().min(1) })
 export const platformsFileSchema = z.object({
   comment: z.string().optional(),
@@ -60,6 +93,7 @@ export type WorkflowStepDef = z.infer<typeof workflowStepSchema>
 export type WorkflowFile = z.infer<typeof workflowFileSchema>
 export type Microservice = z.infer<typeof microserviceSchema>
 export type PlatformDef = z.infer<typeof platformSchema>
+export type ToolDef = z.infer<typeof toolSchema>
 
 /** A step with its id folded in, which is what the engine and UI pass around. */
 export interface StepDef extends WorkflowStepDef {

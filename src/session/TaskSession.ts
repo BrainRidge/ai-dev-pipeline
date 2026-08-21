@@ -31,6 +31,7 @@ import { reposBefore } from '../tasks/history'
 import type { CopilotHandoff } from '../tasks/CopilotHandoff'
 import { editedPrompt } from '../tasks/promptBlock'
 import type { ManualReview } from '../tasks/ManualReview'
+import type { SystemReporter } from '../tasks/SystemCheck'
 import type { Mechanism } from '../handoff/ChatHandoff'
 import type { Answers, StepContext } from '../tasks/context'
 import type { TaskTypeRegistry } from '../tasks/TaskType'
@@ -50,6 +51,7 @@ export function contentSettings(): ContentSettings {
     microserviceConfig: config<string>('microserviceConfig') ?? '',
     platformConfig: config<string>('platformConfig') ?? '',
     customPrompts: config<string>('customPrompts') ?? '',
+    toolsConfig: config<string>('toolsConfig') ?? '',
   }
 }
 
@@ -272,6 +274,7 @@ export class TaskSession {
     const registry = buildTaskTypes({
       promptsDir: resolved.ok ? resolved.promptsDir : undefined,
       bundledPromptsDir: join(context.extensionPath, 'prompts'),
+      toolsConfig: resolved.ok ? resolved.toolsConfig : undefined,
       taskDir: ws.dir,
       codeRoot: resolveCodeRoot(config<string>('codeRoot')),
     })
@@ -288,17 +291,10 @@ export class TaskSession {
         data: {
           promptsDir: resolved.promptsDir ?? null,
           files: await Promise.all(
-            (
-              [
-                ['microserviceConfig', resolved.microserviceConfig],
-                ['platformConfig', resolved.platformConfig],
-              ] as const
-            ).map(async ([setting, path]) => ({
+            configuredFiles(resolved).map(async ([setting, path]) => ({
               setting,
               path,
-              sha256: createHash('sha256')
-                .update(await readFile(path, 'utf8'))
-                .digest('hex'),
+              sha256: await hashOrNull(path),
             })),
           ),
         },
@@ -383,6 +379,27 @@ export class TaskSession {
       this.values = {}
       this.errors = {}
       await this.refresh()
+      return
+    }
+
+    // Re-check and Copy on the System Check step. Neither is a transition:
+    // `submit` treats any action it does not recognise as one, so a step that
+    // offers extra affordances has to say so here.
+    if (step.stepType === 'systemCheck' && (actionId === 'recheck' || actionId === 'copy')) {
+      const task = this.registry.get(step.taskType) as unknown as SystemReporter
+      try {
+        if (actionId === 'recheck') {
+          task.invalidate()
+          this.errors = {}
+          await this.refresh()
+          this.bridge.progress(stepId, 'Checked your machine again.')
+        } else {
+          const { label } = await task.copyReport(step, this.ctx)
+          this.bridge.progress(stepId, `Copied ${label}.`)
+        }
+      } catch (err) {
+        this.bridge.error(stepId, `Could not check your machine: ${String(err)}`, true)
+      }
       return
     }
 
@@ -579,6 +596,33 @@ function loadCatalog(context: vscode.ExtensionContext): Promise<WorkflowCatalog>
     platformConfig: resolved.platformConfig,
     microserviceConfig: resolved.microserviceConfig,
   })
+}
+
+/**
+ * The config files that were actually resolved, ready for the audit entry.
+ * `toolsConfig` is optional: absent means the bundled default tool list was
+ * used, which the step's own report also says. See spec Section 17.
+ */
+function configuredFiles(resolved: ResolvedContent & { ok: true }): [string, string][] {
+  const entries: [string, string | undefined][] = [
+    ['microserviceConfig', resolved.microserviceConfig],
+    ['platformConfig', resolved.platformConfig],
+    ['toolsConfig', resolved.toolsConfig],
+  ]
+  return entries.filter((e): e is [string, string] => e[1] !== undefined)
+}
+
+/**
+ * The content hash of a config file, or null when it is not there. Null is a
+ * real answer for an optional piece, and an audit entry must never be the
+ * reason a task fails to start.
+ */
+async function hashOrNull(path: string): Promise<string | null> {
+  try {
+    return createHash('sha256').update(await readFile(path, 'utf8')).digest('hex')
+  } catch {
+    return null
+  }
 }
 
 async function exists(path: string): Promise<boolean> {

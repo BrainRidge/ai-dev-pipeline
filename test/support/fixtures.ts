@@ -1,4 +1,4 @@
-import type { Microservice, StepDef, StepType } from '../../src/engine/schema'
+import type { Microservice, StepDef, StepType, ToolDef } from '../../src/engine/schema'
 import type { StepContext } from '../../src/tasks/context'
 import type { TaskState } from '../../src/state/TaskStateStore'
 import {
@@ -6,6 +6,55 @@ import {
   templateResolver,
   type TemplateResolver,
 } from '../../src/content/ContentRoot'
+import { SystemCheck } from '../../src/tasks/SystemCheck'
+import type { CommandSink } from '../../src/tasks/CommandSink'
+import type { ToolProbe } from '../../src/tasks/ToolProbe'
+
+/** One required tool with no version floor — enough to exercise the step. */
+export const TOOLS: ToolDef[] = [
+  {
+    id: 'git',
+    label: 'Git',
+    command: 'git',
+    args: ['--version'],
+    required: true,
+    why: 'The Get the code step gives you git commands to run.',
+    install: { darwin: 'brew install git', win32: 'winget install Git.Git' },
+  },
+]
+
+/** A probe that finds everything and reports a plausible version. */
+export const foundProbe: ToolProbe = {
+  async run() {
+    return { found: true, output: 'git version 2.50.1' }
+  },
+}
+
+/**
+ * A System Check wired to a fake machine. The platform is pinned so the install
+ * hint in the report reads the same wherever the test runs.
+ */
+export function systemCheck(
+  opts: {
+    probe?: ToolProbe
+    tools?: ToolDef[]
+    source?: 'external' | 'bundled'
+    path?: string
+    sink?: CommandSink
+  } = {},
+): SystemCheck {
+  const sink: CommandSink = opts.sink ?? { async copy() {}, async toTerminal() {} }
+  return new SystemCheck(
+    async () => ({
+      tools: opts.tools ?? TOOLS,
+      source: opts.source ?? 'bundled',
+      path: opts.path,
+    }),
+    opts.probe ?? foundProbe,
+    sink,
+    'darwin',
+  )
+}
 
 export const MICROSERVICES: Microservice[] = [
   {

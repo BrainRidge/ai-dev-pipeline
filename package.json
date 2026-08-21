@@ -50,7 +50,7 @@
           "type": "string",
           "default": "",
           "order": 1,
-          "markdownDescription": "Absolute path to a folder holding your team's `config/` and `prompts/`. Optional convenience: setting it fills in the three paths below, and leaves alone any you have changed yourself. Copy `examples/content-template` for the expected layout."
+          "markdownDescription": "Absolute path to a folder holding your team's `config/` and `prompts/`. Optional convenience: setting it fills in the four paths below, and leaves alone any you have changed yourself. Copy `examples/content-template` for the expected layout."
         },
         "aiDevWorkflow.microserviceConfig": {
           "type": "string",
@@ -70,29 +70,35 @@
           "order": 4,
           "markdownDescription": "Optional. Absolute path to a folder of markdown files used to prompt Copilot, laid out as `<workflowId>/<stepId>.md`. Any template you do not supply uses the one shipped with the extension, so overriding a single prompt needs a single file. A name differing only in case — `aiHandoff.MD` for `aiHandoff.md` — is reported rather than silently ignored."
         },
+        "aiDevWorkflow.toolsConfig": {
+          "type": "string",
+          "default": "",
+          "order": 5,
+          "markdownDescription": "Optional. Absolute path to a JSON file listing the tools the System Check step looks for on a developer's machine. If you supply none, a default list is used — git, a JDK, Maven and Gradle — and the step's report says which list it used. Copy `examples/content-template/config/tools.json` for the expected shape."
+        },
         "aiDevWorkflow.tasksRoot": {
           "type": "string",
           "default": "",
           "description": "Where task folders are created. Defaults to ~/ai-dev-workflow/tasks.",
-          "order": 5
+          "order": 6
         },
         "aiDevWorkflow.codeRoot": {
           "type": "string",
           "default": "",
           "description": "Where repositories are cloned. Defaults to ~/ai-dev-workflow/code.",
-          "order": 6
+          "order": 7
         },
         "aiDevWorkflow.updateManifestUrl": {
           "type": "string",
           "default": "",
           "description": "URL of a JSON manifest stating the latest published version. Empty disables the check.",
-          "order": 7
+          "order": 8
         },
         "aiDevWorkflow.taskId": {
           "type": "string",
           "default": "",
           "description": "Set automatically in generated workspace files. Do not edit.",
-          "order": 8
+          "order": 9
         }
       }
     }

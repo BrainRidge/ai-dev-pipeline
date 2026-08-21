@@ -6,14 +6,17 @@ import { AuditLog } from '../audit/AuditLog'
 import { nodeProbe, templateResolver } from '../content/ContentRoot'
 import { ChatHandoff } from '../handoff/ChatHandoff'
 import { PromptComposer } from '../prompt/PromptComposer'
+import { DEFAULT_TOOLS, loadTools, type ResolvedTools } from '../engine/ToolCatalog'
 import { CollectRequirement } from './CollectRequirement'
 import { GitClone } from './GitClone'
 import { InvokeCopilot } from './InvokeCopilot'
 import { InvokeCopilotCoding } from './InvokeCopilotCoding'
 import { InvokeCopilotCodeReview } from './InvokeCopilotCodeReview'
 import { ManualReview } from './ManualReview'
+import { SystemCheck } from './SystemCheck'
 import { TaskTypeRegistry } from './TaskType'
 import type { CommandSink } from './CommandSink'
+import { nodeToolProbe } from './ToolProbe'
 
 async function fileExists(p: string): Promise<boolean> {
   try {
@@ -45,6 +48,8 @@ export function buildTaskTypes(opts: {
   promptsDir: string | undefined
   /** The prompts shipped in the extension, used wherever the team supplied none. */
   bundledPromptsDir: string
+  /** The team's tool list, or undefined when they supplied none. */
+  toolsConfig: string | undefined
   taskDir: string
   codeRoot: string
 }): TaskTypeRegistry {
@@ -71,7 +76,21 @@ export function buildTaskTypes(opts: {
     },
   }
 
+  /**
+   * The team's list if the file is there, the bundled default otherwise. A file
+   * that is present but unreadable as a tool list throws, and SystemCheck shows
+   * that on its own step. See spec Section 17.
+   */
+  const loadToolList = async (): Promise<ResolvedTools> => {
+    if (opts.toolsConfig) {
+      const tools = await loadTools(opts.toolsConfig)
+      if (tools) return { tools, source: 'external', path: opts.toolsConfig }
+    }
+    return { tools: DEFAULT_TOOLS, source: 'bundled' }
+  }
+
   return new TaskTypeRegistry([
+    new SystemCheck(loadToolList, nodeToolProbe, sink),
     new CollectRequirement(),
     new GitClone(opts.codeRoot, existsSync, sink),
     new InvokeCopilot(

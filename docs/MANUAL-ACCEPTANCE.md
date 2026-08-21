@@ -25,8 +25,9 @@ code --install-extension ai-dev-workflow-0.1.0.vsix
 ## Criteria
 
 - [ ] **0a. Settings pane.** Open Settings → Extensions → AI Dev Workflow.
-      *Expected:* four entries in this order — Content Root, Microservice
-      Config, Platform Config, Custom Prompts — each saying what it expects.
+      *Expected:* five entries in this order — Content Root, Microservice
+      Config, Platform Config, Custom Prompts, Tool Config — each saying what it
+      expects.
 
 - [ ] **0b. Unset.** Clear all four and open the sidebar.
       *Expected:* *"No microservice config configured. Set
@@ -36,9 +37,9 @@ code --install-extension ai-dev-workflow-0.1.0.vsix
 
 - [ ] **0c. Content Root fills the rest in.** Set Content Root to your copy of
       the template.
-      *Expected:* Microservice Config, Platform Config and Custom Prompts fill
-      in with paths under it, and the sidebar redraws into a working form
-      without you touching anything else.
+      *Expected:* Microservice Config, Platform Config, Custom Prompts and Tool
+      Config fill in with paths under it, and the sidebar redraws into a working
+      form without you touching anything else.
 
 - [ ] **0d. Your own edit survives.** Change Custom Prompts to some other
       absolute path, then change Content Root to a different folder.
@@ -60,7 +61,30 @@ code --install-extension ai-dev-workflow-0.1.0.vsix
 
 - [ ] **1. Start a task.** Run **AI Dev Workflow: Start Task**. Pick a platform,
       enter an epic key, pick Research Task.
-      *Expected:* the workflow panel opens on "What are we researching?".
+      *Expected:* the workflow panel opens on **System check**, the first of five
+      nodes, badged `SYSTEM`.
+
+- [ ] **1a. System check reports the machine.** Read the report.
+      *Expected:* one line per tool with a version beside each one it found, and
+      the caption above it naming the tool list — `(bundled default)` if you have
+      not put `config/tools.json` in your content folder. Nothing was sent to
+      Copilot: no chat turn appears.
+
+- [ ] **1b. A missing required tool blocks the step.** Copy
+      `examples/content-template/config/tools.json` into your content folder and
+      add an entry with `"command": "definitely-not-installed"` and
+      `"required": true`. Press **Re-check**.
+      *Expected:* the tool is listed as not found with your `why` and `install`
+      text beneath it, the caption now says `(external)`, and **Continue** is
+      refused with a message naming that tool.
+
+- [ ] **1c. Re-check picks up a change without restarting.** Mark that entry
+      `"required": false` and press **Re-check**.
+      *Expected:* it is now listed as optional, and **Continue** works. You did
+      not have to close or restart the task.
+
+- [ ] **1d. Copy the report.** Press **Copy report** and paste somewhere.
+      *Expected:* the whole report, as shown, on the clipboard.
 
 - [ ] **2. Scope form.** The microservices list shows exactly the services
       configured for the platform you chose.
@@ -142,10 +166,25 @@ code --install-extension ai-dev-workflow-0.1.0.vsix
       *Expected:* a warning saying workflow definitions are bundled and the
       folder is ignored.
 
+- [ ] **16. A broken tool list is reported on its own step.** Put `[{` in
+      `<contentRoot>/config/tools.json` and start a task.
+      *Expected:* the System Check step shows *"Tool config at … is not valid
+      JSON"* and refuses to continue — and **the rest of the panel still
+      renders**, with every other step visible. A broken tool list must not blank
+      the workflow.
+
+- [ ] **17. Windows only: the git plan runs in your shell.** On the `gitClone`
+      step press **Send to terminal** and run the block.
+      *Expected:* it runs clean. The plan uses POSIX idioms (`mkdir -p`) and
+      Node-built paths with backslashes, so this is the check that tells us
+      whether the emitted commands are usable in PowerShell and in Git Bash.
+
 ---
 
 ## Recording results
 
 For any criterion that fails, note what happened instead. Criterion 11 failing
 is a design finding and should go back to the spec; the others are ordinarily
-bugs.
+bugs. Criterion 17 failing is a known open question rather than a regression —
+see [Section 17](spec/17-system-check.md) on the Windows suffix handling, and
+record which shell you used.
