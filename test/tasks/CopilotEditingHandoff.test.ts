@@ -18,7 +18,18 @@ const ctx = context()
 /** An editing template declares no output, so compose returns none. */
 const composer = {
   async compose() {
-    return { prompt: 'COMPOSED PROMPT', outputFile: undefined }
+    return {
+      prompt: 'COMPOSED PROMPT',
+      outputFile: undefined,
+      templatePath: '/team/prompts/newFeatureWorkflow/CodeImplementation.md',
+      templateSource: 'external' as const,
+    }
+  },
+  async resolved() {
+    return {
+      path: '/team/prompts/newFeatureWorkflow/CodeImplementation.md',
+      source: 'external' as const,
+    }
   },
 } as unknown as PromptComposer
 
@@ -156,5 +167,24 @@ describe('editing an editing handoff’s prompt', () => {
     const t = new InvokeCopilotCoding(composer, handoffReturning('A'), fakeAudit(), sink)
     await t.copyPrompt(coding, ctx, 'DO IT MY WAY')
     expect(copied).toEqual(['DO IT MY WAY'])
+  })
+})
+
+describe('provenance on an editing handoff', () => {
+  it('records the template path and source, even with no output contract', async () => {
+    const audit = fakeAudit()
+    const t = new InvokeCopilotCoding(composer, handoffReturning('A'), audit, noSink)
+    await t.deliver(coding, ctx)
+    expect(audit.logged[0]!.data).toMatchObject({
+      templatePath: '/team/prompts/newFeatureWorkflow/CodeImplementation.md',
+      templateSource: 'external',
+    })
+  })
+
+  it('captions the prompt block so a team override is visible on screen', async () => {
+    const view = await task().describe(coding, ctx, {})
+    expect(view.commands?.[0]?.note).toBe(
+      'Template: /team/prompts/newFeatureWorkflow/CodeImplementation.md (external)',
+    )
   })
 })

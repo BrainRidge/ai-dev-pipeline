@@ -165,6 +165,8 @@ export function collectValues(
 export interface CommandBlock {
   id: string
   label: string
+  /** A caption under the label. The renderer draws it and asks no questions. */
+  note?: string
   lines: string[]
   /** Draws a textarea instead of a read-only block, and reports what is in it. */
   editable?: boolean
@@ -380,6 +382,8 @@ function commandList(
     ]
     for (const a of actions) head.append(button(a.label, a.id, block.id))
     box.append(head)
+
+    if (block.note) box.append(el('div', 'cmd-note', block.note))
 
     if (block.editable) {
       const area = el('textarea', 'cmd-lines cmd-editable')

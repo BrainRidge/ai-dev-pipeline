@@ -17,6 +17,10 @@ const ManualReview_1 = require("../../src/tasks/ManualReview");
 const TaskType_1 = require("../../src/tasks/TaskType");
 const fixtures_1 = require("../support/fixtures");
 const ROOT = (0, node_path_1.join)(__dirname, '../..');
+const CONFIG = {
+    platformConfig: (0, node_path_1.join)(ROOT, 'examples/content-template/config/platforms.json'),
+    microserviceConfig: (0, node_path_1.join)(ROOT, 'examples/content-template/config/microservices.json'),
+};
 /**
  * The bundled research workflow, run end to end against the real JSON, the real
  * microservice catalogue and the real prompt template. This is what proves the
@@ -38,14 +42,14 @@ const ROOT = (0, node_path_1.join)(__dirname, '../..');
         outputWritten = false;
     });
     async function run() {
-        const catalog = await WorkflowCatalog_1.WorkflowCatalog.load((0, node_path_1.join)(ROOT, 'workflows'), (0, node_path_1.join)(ROOT, 'config'));
+        const catalog = await WorkflowCatalog_1.WorkflowCatalog.load((0, node_path_1.join)(ROOT, 'workflows'), CONFIG);
         const workflow = catalog.get('researchTaskWorkflow');
         const taskDir = await (0, promises_1.mkdtemp)((0, node_path_1.join)((0, node_os_1.tmpdir)(), 'run-'));
         const services = catalog.microservices().slice(0, 2).map((s) => s.shortCode);
         const registry = new TaskType_1.TaskTypeRegistry([
             new CollectRequirement_1.CollectRequirement(),
             new GitClone_1.GitClone('/code', () => false, sink),
-            new InvokeCopilot_1.InvokeCopilot(new PromptComposer_1.PromptComposer((0, node_path_1.join)(ROOT, 'prompts')), { async deliver(prompt) { delivered.push(prompt); return 'A'; } }, new AuditLog_1.AuditLog(taskDir), async () => outputWritten, sink),
+            new InvokeCopilot_1.InvokeCopilot(new PromptComposer_1.PromptComposer((0, fixtures_1.bundledResolver)((0, node_path_1.join)(ROOT, 'prompts'))), { async deliver(prompt) { delivered.push(prompt); return 'A'; } }, new AuditLog_1.AuditLog(taskDir), async () => outputWritten, sink),
             new ManualReview_1.ManualReview(async (p) => { opened.push(p); }, async () => 'deadbeef'),
         ]);
         registry.validateWorkflow(workflow.id, workflow.steps);

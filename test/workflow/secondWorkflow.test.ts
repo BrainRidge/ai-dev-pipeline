@@ -13,11 +13,15 @@ import { ManualReview } from '../../src/tasks/ManualReview'
 import { TaskTypeRegistry } from '../../src/tasks/TaskType'
 import type { StepContext } from '../../src/tasks/context'
 import type { CommandSink } from '../../src/tasks/CommandSink'
-import { taskState } from '../support/fixtures'
+import { bundledResolver, taskState } from '../support/fixtures'
 
 const noSink: CommandSink = { async copy() {}, async toTerminal() {} }
 
 const ROOT = join(__dirname, '../..')
+const CONFIG = {
+  platformConfig: join(ROOT, 'examples/content-template/config/platforms.json'),
+  microserviceConfig: join(ROOT, 'examples/content-template/config/microservices.json'),
+}
 
 const SECOND = {
   schemaVersion: 1,
@@ -68,7 +72,7 @@ describe('a second workflow', () => {
   }
 
   it('is loaded alongside the bundled ones', async () => {
-    const catalog = await WorkflowCatalog.load(join(await bundle(), 'workflows'), join(ROOT, 'config'))
+    const catalog = await WorkflowCatalog.load(join(await bundle(), 'workflows'), CONFIG)
     expect(catalog.all().map((w) => w.id).sort()).toEqual([
       'bugFixWorkflow',
       'newFeatureWorkflow',
@@ -78,11 +82,11 @@ describe('a second workflow', () => {
   })
 
   it('names only taskTypes that already exist', async () => {
-    const catalog = await WorkflowCatalog.load(join(await bundle(), 'workflows'), join(ROOT, 'config'))
+    const catalog = await WorkflowCatalog.load(join(await bundle(), 'workflows'), CONFIG)
     const registry = new TaskTypeRegistry([
       new CollectRequirement(),
       new InvokeCopilot(
-        new PromptComposer('/unused'),
+        new PromptComposer(bundledResolver('/unused')),
         { async deliver() { return 'A' } },
         new AuditLog('/unused'),
         async () => true,
@@ -97,12 +101,12 @@ describe('a second workflow', () => {
   it('runs, using its own prompt template found by convention', async () => {
     const dir = await bundle()
     const taskDir = await mkdtemp(join(tmpdir(), 'run2-'))
-    const catalog = await WorkflowCatalog.load(join(dir, 'workflows'), join(ROOT, 'config'))
+    const catalog = await WorkflowCatalog.load(join(dir, 'workflows'), CONFIG)
     const workflow = catalog.get('throwawayWorkflow')
 
     const delivered: string[] = []
     const handoff = new InvokeCopilot(
-      new PromptComposer(join(dir, 'prompts')),
+      new PromptComposer(bundledResolver(join(dir, 'prompts'))),
       { async deliver(prompt) { delivered.push(prompt); return 'A' } },
       new AuditLog(taskDir),
       async () => true,

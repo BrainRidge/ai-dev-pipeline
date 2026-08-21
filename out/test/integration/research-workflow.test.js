@@ -103,12 +103,63 @@ suite('research workflow', () => {
         await (0, promises_1.writeFile)((0, node_path_1.join)(ws.dir, '.engine', 'workflow.json'), '{"tampered":true}');
         assert.strictEqual(await ws.verifySnapshot(original), false);
     });
-    test('the bundled workflow and its configuration ship inside the extension', async () => {
+    test('the bundled workflow and the content template ship inside the extension', async () => {
         const ext = vscode.extensions.getExtension('internal.ai-dev-workflow');
         assert.ok(ext, 'extension not found');
         const workflow = JSON.parse(await (0, promises_1.readFile)((0, node_path_1.join)(ext.extensionPath, 'workflows', 'researchTaskWorkflow_1_0.json'), 'utf8'));
         assert.strictEqual(workflow.initialStep, 'requirement');
-        const services = JSON.parse(await (0, promises_1.readFile)((0, node_path_1.join)(ext.extensionPath, 'config', 'microservices.json'), 'utf8'));
+        // Prompts still ship: they are the per-file fallback for any template a
+        // team has not supplied. See spec Section 16.
+        const prompt = await (0, promises_1.readFile)((0, node_path_1.join)(ext.extensionPath, 'prompts', 'researchTaskWorkflow', 'aiHandoff.md'), 'utf8');
+        assert.ok(prompt.includes('output:'), 'the bundled template declares its artifact');
+        // Config does not ship. The template a team copies does.
+        const services = JSON.parse(await (0, promises_1.readFile)((0, node_path_1.join)(ext.extensionPath, 'examples', 'content-template', 'config', 'microservices.json'), 'utf8'));
         assert.ok(Array.isArray(services) && services.length > 0);
+        await assert.rejects((0, promises_1.readFile)((0, node_path_1.join)(ext.extensionPath, 'config', 'microservices.json'), 'utf8'), 'config/ must not exist — nothing reads it, and it would name another team\u2019s repos');
+    });
+    test('the content root setting is contributed and defaults to unset', () => {
+        const ext = vscode.extensions.getExtension('internal.ai-dev-workflow');
+        assert.ok(ext);
+        const props = ext.packageJSON.contributes.configuration.properties;
+        assert.ok('aiDevWorkflow.contentRoot' in props);
+        // An empty default is what puts a fresh install into the unconfigured state
+        // rather than silently reading somebody else's catalogue.
+        assert.strictEqual(props['aiDevWorkflow.contentRoot'].default, '');
+    });
+    /**
+     * The one behaviour that cannot be unit tested: writing into settings needs a
+     * real configuration service. See spec Section 16.
+     */
+    test('setting the content root fills in the three specific paths', async () => {
+        await vscode.extensions.getExtension('internal.ai-dev-workflow')?.activate();
+        const root = await (0, promises_1.mkdtemp)((0, node_path_1.join)((0, node_os_1.tmpdir)(), 'root-'));
+        const cfg = () => vscode.workspace.getConfiguration('aiDevWorkflow');
+        const G = vscode.ConfigurationTarget.Global;
+        for (const key of ['microserviceConfig', 'platformConfig', 'customPrompts']) {
+            await cfg().update(key, undefined, G);
+        }
+        await cfg().update('contentRoot', root, G);
+        // onDidChangeConfiguration is async; poll rather than guess a delay.
+        const deadline = Date.now() + 5000;
+        while (cfg().get('microserviceConfig') === '' && Date.now() < deadline) {
+            await new Promise((r) => setTimeout(r, 50));
+        }
+        assert.strictEqual(cfg().get('microserviceConfig'), (0, node_path_1.join)(root, 'config', 'microservices.json'));
+        assert.strictEqual(cfg().get('platformConfig'), (0, node_path_1.join)(root, 'config', 'platforms.json'));
+        assert.strictEqual(cfg().get('customPrompts'), (0, node_path_1.join)(root, 'prompts'));
+        // A value the developer chose themselves survives a later root change.
+        await cfg().update('customPrompts', '/shared/prompts', G);
+        const second = await (0, promises_1.mkdtemp)((0, node_path_1.join)((0, node_os_1.tmpdir)(), 'root2-'));
+        await cfg().update('contentRoot', second, G);
+        const deadline2 = Date.now() + 5000;
+        while (cfg().get('microserviceConfig') !== (0, node_path_1.join)(second, 'config', 'microservices.json') &&
+            Date.now() < deadline2) {
+            await new Promise((r) => setTimeout(r, 50));
+        }
+        assert.strictEqual(cfg().get('microserviceConfig'), (0, node_path_1.join)(second, 'config', 'microservices.json'));
+        assert.strictEqual(cfg().get('customPrompts'), '/shared/prompts', 'a hand-picked prompts folder must not silently revert');
+        for (const key of ['contentRoot', 'microserviceConfig', 'platformConfig', 'customPrompts']) {
+            await cfg().update(key, undefined, G);
+        }
     });
 });

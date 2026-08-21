@@ -20,6 +20,10 @@ const ManualReview_1 = require("../../src/tasks/ManualReview");
 const TaskType_1 = require("../../src/tasks/TaskType");
 const fixtures_1 = require("../support/fixtures");
 const ROOT = (0, node_path_1.join)(__dirname, '../..');
+const CONFIG = {
+    platformConfig: (0, node_path_1.join)(ROOT, 'examples/content-template/config/platforms.json'),
+    microserviceConfig: (0, node_path_1.join)(ROOT, 'examples/content-template/config/microservices.json'),
+};
 const noSink = { async copy() { }, async toTerminal() { } };
 /**
  * The bundled New Feature workflow, run against its real JSON and its real
@@ -34,11 +38,11 @@ const noSink = { async copy() { }, async toTerminal() { } };
         outputWritten = false;
     });
     async function run() {
-        const catalog = await WorkflowCatalog_1.WorkflowCatalog.load((0, node_path_1.join)(ROOT, 'workflows'), (0, node_path_1.join)(ROOT, 'config'));
+        const catalog = await WorkflowCatalog_1.WorkflowCatalog.load((0, node_path_1.join)(ROOT, 'workflows'), CONFIG);
         const workflow = catalog.get('newFeatureWorkflow');
         const taskDir = await (0, promises_1.mkdtemp)((0, node_path_1.join)((0, node_os_1.tmpdir)(), 'nf-'));
         const services = catalog.microservices().slice(0, 2).map((s) => s.shortCode);
-        const composer = new PromptComposer_1.PromptComposer((0, node_path_1.join)(ROOT, 'prompts'));
+        const composer = new PromptComposer_1.PromptComposer((0, fixtures_1.bundledResolver)((0, node_path_1.join)(ROOT, 'prompts')));
         const record = (stepId) => ({
             async deliver(prompt) {
                 delivered.push({ stepId, prompt });
@@ -103,7 +107,7 @@ const noSink = { async copy() { }, async toTerminal() { } };
         return h;
     }
     (0, vitest_1.it)('is loaded from the workflows directory alongside the other task types', async () => {
-        const catalog = await WorkflowCatalog_1.WorkflowCatalog.load((0, node_path_1.join)(ROOT, 'workflows'), (0, node_path_1.join)(ROOT, 'config'));
+        const catalog = await WorkflowCatalog_1.WorkflowCatalog.load((0, node_path_1.join)(ROOT, 'workflows'), CONFIG);
         (0, vitest_1.expect)(catalog.all().map((w) => w.label).sort()).toEqual([
             'Bug Fix',
             'New Feature',

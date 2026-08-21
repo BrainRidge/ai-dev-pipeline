@@ -5,7 +5,13 @@ import { TaskTypeRegistry } from '../../src/tasks/TaskType'
 import { CollectRequirement } from '../../src/tasks/CollectRequirement'
 
 const WORKFLOWS = join(__dirname, '../../workflows')
-const CONFIG = join(__dirname, '../../config')
+const CONFIG = {
+  platformConfig: join(__dirname, '../../examples/content-template/config/platforms.json'),
+  microserviceConfig: join(
+    __dirname,
+    '../../examples/content-template/config/microservices.json',
+  ),
+}
 
 const load = () => WorkflowCatalog.load(WORKFLOWS, CONFIG)
 

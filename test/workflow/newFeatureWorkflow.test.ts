@@ -18,9 +18,13 @@ import { ManualReview } from '../../src/tasks/ManualReview'
 import { TaskTypeRegistry } from '../../src/tasks/TaskType'
 import type { CommandSink } from '../../src/tasks/CommandSink'
 import type { StepContext } from '../../src/tasks/context'
-import { taskState } from '../support/fixtures'
+import { bundledResolver, taskState } from '../support/fixtures'
 
 const ROOT = join(__dirname, '../..')
+const CONFIG = {
+  platformConfig: join(ROOT, 'examples/content-template/config/platforms.json'),
+  microserviceConfig: join(ROOT, 'examples/content-template/config/microservices.json'),
+}
 const noSink: CommandSink = { async copy() {}, async toTerminal() {} }
 
 /**
@@ -38,12 +42,12 @@ describe('the bundled new feature workflow', () => {
   })
 
   async function run() {
-    const catalog = await WorkflowCatalog.load(join(ROOT, 'workflows'), join(ROOT, 'config'))
+    const catalog = await WorkflowCatalog.load(join(ROOT, 'workflows'), CONFIG)
     const workflow = catalog.get('newFeatureWorkflow')
     const taskDir = await mkdtemp(join(tmpdir(), 'nf-'))
     const services = catalog.microservices().slice(0, 2).map((s) => s.shortCode)
 
-    const composer = new PromptComposer(join(ROOT, 'prompts'))
+    const composer = new PromptComposer(bundledResolver(join(ROOT, 'prompts')))
     const record = (stepId: string) => ({
       async deliver(prompt: string) {
         delivered.push({ stepId, prompt })
@@ -110,7 +114,7 @@ describe('the bundled new feature workflow', () => {
   }
 
   it('is loaded from the workflows directory alongside the other task types', async () => {
-    const catalog = await WorkflowCatalog.load(join(ROOT, 'workflows'), join(ROOT, 'config'))
+    const catalog = await WorkflowCatalog.load(join(ROOT, 'workflows'), CONFIG)
     expect(catalog.all().map((w) => w.label).sort()).toEqual([
       'Bug Fix',
       'New Feature',

@@ -55,12 +55,18 @@ class CopilotEditingHandoff {
         };
     }
     async deliver(step, ctx, override) {
-        const prompt = override ?? (await this.composer.compose(step, ctx, (0, history_1.reposBefore)(ctx, step.id))).prompt;
+        const composed = await this.composer.compose(step, ctx, (0, history_1.reposBefore)(ctx, step.id));
+        const prompt = override ?? composed.prompt;
         // Written BEFORE delivery so a crash still leaves the record.
         await this.audit.append({
             kind: 'prompt-composed',
             stepId: step.id,
-            data: { prompt, chars: prompt.length },
+            data: {
+                prompt,
+                chars: prompt.length,
+                templatePath: composed.templatePath,
+                templateSource: composed.templateSource,
+            },
         });
         const mechanism = await this.handoff.deliver(prompt, ctx.taskDir);
         return { mechanism, promptChars: prompt.length };

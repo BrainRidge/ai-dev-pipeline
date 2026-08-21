@@ -8,10 +8,21 @@ const handoffStep = (0, fixtures_1.step)('aiHandoff', { stepType: 'aiHandoff', t
 const ctx = (0, fixtures_1.context)();
 const composer = {
     async compose() {
-        return { prompt: 'COMPOSED PROMPT', outputFile: '02-analysis.md' };
+        return {
+            prompt: 'COMPOSED PROMPT',
+            outputFile: '02-analysis.md',
+            templatePath: '/ext/prompts/researchTaskWorkflow/aiHandoff.md',
+            templateSource: 'bundled',
+        };
     },
     async outputFor() {
         return '02-analysis.md';
+    },
+    async resolved() {
+        return {
+            path: '/ext/prompts/researchTaskWorkflow/aiHandoff.md',
+            source: 'bundled',
+        };
     },
 };
 function fakeAudit() {
@@ -165,5 +176,26 @@ function task(mechanism = 'A', present = true) {
         const t = new InvokeCopilot_1.InvokeCopilot(composer, handoffReturning('A'), fakeAudit(), async () => true, sink);
         await t.copyPrompt(handoffStep, ctx, 'MY OWN WORDS');
         (0, vitest_1.expect)(copied).toEqual(['MY OWN WORDS']);
+    });
+});
+(0, vitest_1.describe)('the developer can see which template composed the prompt', () => {
+    (0, vitest_1.it)('captions the prompt block with the resolved template', async () => {
+        const view = await task().describe(handoffStep, ctx, {});
+        (0, vitest_1.expect)(view.commands?.[0]?.note).toBe('Template: /ext/prompts/researchTaskWorkflow/aiHandoff.md (bundled default)');
+    });
+    (0, vitest_1.it)('still captions the block when the developer has rewritten the prompt', async () => {
+        const view = await task().describe(handoffStep, ctx, { edited: { prompt: 'MY OWN WORDS' } });
+        (0, vitest_1.expect)(view.commands?.[0]?.note).toContain('aiHandoff.md');
+    });
+    // The log has always answered "what was asked". It now also answers
+    // "whose template asked it". See spec Section 16.
+    (0, vitest_1.it)('records the template path and source alongside the prompt', async () => {
+        const audit = fakeAudit();
+        const t = new InvokeCopilot_1.InvokeCopilot(composer, handoffReturning('A'), audit, async () => true, noSink);
+        await t.deliver(handoffStep, ctx);
+        (0, vitest_1.expect)(audit.logged[0].data).toMatchObject({
+            templatePath: '/ext/prompts/researchTaskWorkflow/aiHandoff.md',
+            templateSource: 'bundled',
+        });
     });
 });

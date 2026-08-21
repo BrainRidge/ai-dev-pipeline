@@ -39,6 +39,7 @@ const node_fs_1 = require("node:fs");
 const promises_1 = require("node:fs/promises");
 const vscode = __importStar(require("vscode"));
 const AuditLog_1 = require("../audit/AuditLog");
+const ContentRoot_1 = require("../content/ContentRoot");
 const ChatHandoff_1 = require("../handoff/ChatHandoff");
 const PromptComposer_1 = require("../prompt/PromptComposer");
 const CollectRequirement_1 = require("./CollectRequirement");
@@ -71,6 +72,8 @@ async function openInEditor(p) {
  * See spec Section 5.
  */
 function buildTaskTypes(opts) {
+    // Stateless, so one instance serves every handoff. See spec Section 16.
+    const composer = new PromptComposer_1.PromptComposer((0, ContentRoot_1.templateResolver)({ promptsDir: opts.promptsDir, bundledPromptsDir: opts.bundledPromptsDir }, ContentRoot_1.nodeProbe));
     const sink = {
         async copy(text) {
             await vscode.env.clipboard.writeText(text);
@@ -87,9 +90,9 @@ function buildTaskTypes(opts) {
     return new TaskType_1.TaskTypeRegistry([
         new CollectRequirement_1.CollectRequirement(),
         new GitClone_1.GitClone(opts.codeRoot, node_fs_1.existsSync, sink),
-        new InvokeCopilot_1.InvokeCopilot(new PromptComposer_1.PromptComposer(opts.promptDir), new ChatHandoff_1.ChatHandoff(), new AuditLog_1.AuditLog(opts.taskDir), fileExists, sink),
-        new InvokeCopilotCoding_1.InvokeCopilotCoding(new PromptComposer_1.PromptComposer(opts.promptDir), new ChatHandoff_1.ChatHandoff(), new AuditLog_1.AuditLog(opts.taskDir), sink),
-        new InvokeCopilotCodeReview_1.InvokeCopilotCodeReview(new PromptComposer_1.PromptComposer(opts.promptDir), new ChatHandoff_1.ChatHandoff(), new AuditLog_1.AuditLog(opts.taskDir), sink),
+        new InvokeCopilot_1.InvokeCopilot(composer, new ChatHandoff_1.ChatHandoff(), new AuditLog_1.AuditLog(opts.taskDir), fileExists, sink),
+        new InvokeCopilotCoding_1.InvokeCopilotCoding(composer, new ChatHandoff_1.ChatHandoff(), new AuditLog_1.AuditLog(opts.taskDir), sink),
+        new InvokeCopilotCodeReview_1.InvokeCopilotCodeReview(composer, new ChatHandoff_1.ChatHandoff(), new AuditLog_1.AuditLog(opts.taskDir), sink),
         new ManualReview_1.ManualReview(openInEditor, hashFile),
     ]);
 }

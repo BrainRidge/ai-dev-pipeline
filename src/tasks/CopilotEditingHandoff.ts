@@ -75,14 +75,19 @@ export abstract class CopilotEditingHandoff implements TaskType, CopilotHandoff 
   }
 
   async deliver(step: StepDef, ctx: StepContext, override?: string): Promise<Delivery> {
-    const prompt =
-      override ?? (await this.composer.compose(step, ctx, reposBefore(ctx, step.id))).prompt
+    const composed = await this.composer.compose(step, ctx, reposBefore(ctx, step.id))
+    const prompt = override ?? composed.prompt
 
     // Written BEFORE delivery so a crash still leaves the record.
     await this.audit.append({
       kind: 'prompt-composed',
       stepId: step.id,
-      data: { prompt, chars: prompt.length },
+      data: {
+        prompt,
+        chars: prompt.length,
+        templatePath: composed.templatePath,
+        templateSource: composed.templateSource,
+      },
     })
 
     const mechanism = await this.handoff.deliver(prompt, ctx.taskDir)

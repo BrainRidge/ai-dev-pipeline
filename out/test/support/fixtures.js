@@ -4,6 +4,8 @@ exports.MICROSERVICES = void 0;
 exports.step = step;
 exports.context = context;
 exports.taskState = taskState;
+exports.bundledResolver = bundledResolver;
+const ContentRoot_1 = require("../../src/content/ContentRoot");
 exports.MICROSERVICES = [
     {
         microserviceName: 'Payment Service',
@@ -60,4 +62,12 @@ function taskState(over = {}) {
         steps: {},
         ...over,
     };
+}
+/**
+ * A resolver with no content root, so every template resolves to the given
+ * directory. This is what `PromptComposer` did on its own before the content
+ * root existed, and it keeps tests that do not care about resolution short.
+ */
+function bundledResolver(promptsDir) {
+    return (0, ContentRoot_1.templateResolver)({ bundledPromptsDir: promptsDir }, ContentRoot_1.nodeProbe);
 }

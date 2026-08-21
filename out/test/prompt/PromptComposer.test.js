@@ -5,6 +5,7 @@ const promises_1 = require("node:fs/promises");
 const node_os_1 = require("node:os");
 const node_path_1 = require("node:path");
 const PromptComposer_1 = require("../../src/prompt/PromptComposer");
+const ContentRoot_1 = require("../../src/content/ContentRoot");
 const fixtures_1 = require("../support/fixtures");
 const TEMPLATE = `---
 output: 02-analysis.md
@@ -19,7 +20,7 @@ async function composer(body = TEMPLATE) {
     const dir = await (0, promises_1.mkdtemp)((0, node_path_1.join)((0, node_os_1.tmpdir)(), 'pr-'));
     await (0, promises_1.mkdir)((0, node_path_1.join)(dir, 'researchTaskWorkflow'), { recursive: true });
     await (0, promises_1.writeFile)((0, node_path_1.join)(dir, 'researchTaskWorkflow', 'aiHandoff.md'), body);
-    return new PromptComposer_1.PromptComposer(dir);
+    return new PromptComposer_1.PromptComposer((0, fixtures_1.bundledResolver)(dir));
 }
 const answers = {
     requirement: { story: 'PLAT-1 body', notes: 'said in refinement' },
@@ -110,5 +111,63 @@ const repos = [{ name: 'pis', path: '/code/pis' }];
     (0, vitest_1.it)('refuses to answer outputFor, because a watched step needs a filename', async () => {
         const c = await composer('Just do it.\n');
         await (0, vitest_1.expect)(c.outputFor(handoff, ctx)).rejects.toThrow(/must declare "output:"/);
+    });
+});
+/**
+ * A bundled directory and a team directory, so resolution has something to
+ * choose between. Returns both paths so tests can assert which one won.
+ */
+async function twoSources(opts) {
+    const bundledDir = await (0, promises_1.mkdtemp)((0, node_path_1.join)((0, node_os_1.tmpdir)(), 'bundled-'));
+    await (0, promises_1.mkdir)((0, node_path_1.join)(bundledDir, 'researchTaskWorkflow'), { recursive: true });
+    await (0, promises_1.writeFile)((0, node_path_1.join)(bundledDir, 'researchTaskWorkflow', 'aiHandoff.md'), TEMPLATE);
+    const contentRoot = await (0, promises_1.mkdtemp)((0, node_path_1.join)((0, node_os_1.tmpdir)(), 'team-'));
+    if (opts.external !== undefined) {
+        await (0, promises_1.mkdir)((0, node_path_1.join)(contentRoot, 'prompts', 'researchTaskWorkflow'), { recursive: true });
+        await (0, promises_1.writeFile)((0, node_path_1.join)(contentRoot, 'prompts', 'researchTaskWorkflow', 'aiHandoff.md'), opts.external);
+    }
+    return {
+        composer: new PromptComposer_1.PromptComposer((0, ContentRoot_1.templateResolver)({ promptsDir: (0, node_path_1.join)(contentRoot, 'prompts'), bundledPromptsDir: bundledDir }, ContentRoot_1.nodeProbe)),
+        bundledDir,
+        contentRoot,
+    };
+}
+(0, vitest_1.describe)('where the template came from', () => {
+    (0, vitest_1.it)('reports the bundled template when the team supplied none', async () => {
+        const { composer, bundledDir } = await twoSources({});
+        const composed = await composer.compose(handoff, ctx, repos);
+        (0, vitest_1.expect)(composed.templateSource).toBe('bundled');
+        (0, vitest_1.expect)(composed.templatePath).toBe((0, node_path_1.join)(bundledDir, 'researchTaskWorkflow', 'aiHandoff.md'));
+    });
+    (0, vitest_1.it)("uses and reports the team's template when they supplied one", async () => {
+        const { composer, contentRoot } = await twoSources({
+            external: '---\noutput: 02-analysis.md\n---\nOur own wording for {{task.epic}}.\n',
+        });
+        const composed = await composer.compose(handoff, ctx, repos);
+        (0, vitest_1.expect)(composed.templateSource).toBe('external');
+        (0, vitest_1.expect)(composed.templatePath).toBe((0, node_path_1.join)(contentRoot, 'prompts', 'researchTaskWorkflow', 'aiHandoff.md'));
+        (0, vitest_1.expect)(composed.prompt).toContain('Our own wording for PLAT-1234.');
+    });
+    (0, vitest_1.it)('takes the output contract from whichever template won', async () => {
+        const { composer } = await twoSources({ external: '---\noutput: our-analysis.md\n---\nBody.\n' });
+        (0, vitest_1.expect)(await composer.outputFor(handoff, ctx)).toBe('our-analysis.md');
+    });
+    (0, vitest_1.it)('answers resolved() without composing, for callers that only need the path', async () => {
+        const { composer, contentRoot } = await twoSources({ external: 'Body.\n' });
+        (0, vitest_1.expect)(await composer.resolved(handoff, ctx)).toEqual({
+            path: (0, node_path_1.join)(contentRoot, 'prompts', 'researchTaskWorkflow', 'aiHandoff.md'),
+            source: 'external',
+        });
+    });
+    // The guard from Task 0, seen from where a developer would actually hit it.
+    (0, vitest_1.it)('surfaces a case-mismatched override as a composition failure', async () => {
+        const bundledDir = await (0, promises_1.mkdtemp)((0, node_path_1.join)((0, node_os_1.tmpdir)(), 'bundled-'));
+        await (0, promises_1.mkdir)((0, node_path_1.join)(bundledDir, 'researchTaskWorkflow'), { recursive: true });
+        await (0, promises_1.writeFile)((0, node_path_1.join)(bundledDir, 'researchTaskWorkflow', 'aiHandoff.md'), TEMPLATE);
+        const contentRoot = await (0, promises_1.mkdtemp)((0, node_path_1.join)((0, node_os_1.tmpdir)(), 'team-'));
+        await (0, promises_1.mkdir)((0, node_path_1.join)(contentRoot, 'prompts', 'researchTaskWorkflow'), { recursive: true });
+        await (0, promises_1.writeFile)((0, node_path_1.join)(contentRoot, 'prompts', 'researchTaskWorkflow', 'aiHandoff.MD'), 'Body.\n');
+        const composer = new PromptComposer_1.PromptComposer((0, ContentRoot_1.templateResolver)({ promptsDir: (0, node_path_1.join)(contentRoot, 'prompts'), bundledPromptsDir: bundledDir }, ContentRoot_1.nodeProbe));
+        await (0, vitest_1.expect)(composer.compose(handoff, ctx, repos)).rejects.toThrow(/found "aiHandoff\.MD".*expected "aiHandoff\.md"/);
     });
 });

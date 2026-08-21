@@ -84,14 +84,15 @@ export class InvokeCopilot implements TaskType, CopilotHandoff {
 
   async deliver(step: StepDef, ctx: StepContext, override?: string): Promise<Delivery> {
     const composed = await this.composer.compose(step, ctx, reposBefore(ctx, step.id))
-    const { outputFile } = composed
+    const { outputFile, templatePath, templateSource } = composed
 
     // The developer's text wins, but the artifact contract does not: which file
     // this step waits for is the template's decision, not the prompt's wording.
     const prompt = override ?? composed.prompt
     if (!outputFile) {
+      const { path } = await this.composer.resolved(step, ctx)
       throw new Error(
-        `prompt template "${this.composer.path(step, ctx)}" must declare "output:" — ` +
+        `prompt template "${path}" must declare "output:" — ` +
           `step "${step.id}" completes only when that file appears`,
       )
     }
@@ -100,7 +101,7 @@ export class InvokeCopilot implements TaskType, CopilotHandoff {
     await this.audit.append({
       kind: 'prompt-composed',
       stepId: step.id,
-      data: { prompt, chars: prompt.length, outputFile },
+      data: { prompt, chars: prompt.length, outputFile, templatePath, templateSource },
     })
 
     const mechanism = await this.handoff.deliver(prompt, ctx.taskDir)

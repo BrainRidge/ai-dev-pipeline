@@ -15,9 +15,13 @@ import { ManualReview } from '../../src/tasks/ManualReview'
 import { TaskTypeRegistry } from '../../src/tasks/TaskType'
 import type { CommandSink } from '../../src/tasks/CommandSink'
 import type { StepContext } from '../../src/tasks/context'
-import { taskState } from '../support/fixtures'
+import { bundledResolver, taskState } from '../support/fixtures'
 
 const ROOT = join(__dirname, '../..')
+const CONFIG = {
+  platformConfig: join(ROOT, 'examples/content-template/config/platforms.json'),
+  microserviceConfig: join(ROOT, 'examples/content-template/config/microservices.json'),
+}
 
 /**
  * The bundled research workflow, run end to end against the real JSON, the real
@@ -43,7 +47,7 @@ describe('the bundled research workflow', () => {
   })
 
   async function run() {
-    const catalog = await WorkflowCatalog.load(join(ROOT, 'workflows'), join(ROOT, 'config'))
+    const catalog = await WorkflowCatalog.load(join(ROOT, 'workflows'), CONFIG)
     const workflow = catalog.get('researchTaskWorkflow')
     const taskDir = await mkdtemp(join(tmpdir(), 'run-'))
     const services = catalog.microservices().slice(0, 2).map((s) => s.shortCode)
@@ -52,7 +56,7 @@ describe('the bundled research workflow', () => {
       new CollectRequirement(),
       new GitClone('/code', () => false, sink),
       new InvokeCopilot(
-        new PromptComposer(join(ROOT, 'prompts')),
+        new PromptComposer(bundledResolver(join(ROOT, 'prompts'))),
         { async deliver(prompt) { delivered.push(prompt); return 'A' } },
         new AuditLog(taskDir),
         async () => outputWritten,

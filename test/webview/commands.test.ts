@@ -23,6 +23,7 @@ const descriptor: WorkflowDescriptor = {
         {
           id: 'pis',
           label: 'party-service (pis)',
+          note: 'Template: /team/prompts/w/s.md (external)',
           lines: ['git clone https://x/party-service /code/pis', 'cd /code/pis', 'git pull'],
         },
         { id: 'ris', label: 'reference-data-service (ris)', lines: ['cd /code/ris', 'git pull'] },
@@ -240,5 +241,16 @@ describe('an editable block', () => {
     renderWorkflow(descriptor, root, (_s, _a, values) => seen.push(values))
     root.querySelector<HTMLButtonElement>('.wf-detail .actions button')!.click()
     expect(seen).toEqual([{}])
+  })
+})
+
+describe('a block with a note', () => {
+  it('draws the note for the block that has one', () => {
+    const note = render().querySelector('.cmd-block[data-block=pis] .cmd-note')
+    expect(note?.textContent).toBe('Template: /team/prompts/w/s.md (external)')
+  })
+
+  it('draws no note element for a block without one', () => {
+    expect(render().querySelector('.cmd-block[data-block=ris] .cmd-note')).toBeNull()
   })
 })

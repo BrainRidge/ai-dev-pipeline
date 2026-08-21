@@ -232,6 +232,7 @@
       ];
       for (const a of actions) head.append(button(a.label, a.id, block.id));
       box.append(head);
+      if (block.note) box.append(el("div", "cmd-note", block.note));
       if (block.editable) {
         const area = el("textarea", "cmd-lines cmd-editable");
         area.value = block.lines.join("\n");

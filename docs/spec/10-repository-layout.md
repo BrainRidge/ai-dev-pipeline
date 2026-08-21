@@ -55,17 +55,22 @@ ai-dev-workflow/
 │   ├── researchTaskWorkflow_1_0.json
 │   ├── newFeatureWorkflow_1_0.json
 │   └── bugFixWorkflow_1_0.json
-├── config/
-│   ├── platforms.json
-│   └── microservices.json
-├── prompts/<workflowId>/<stepId>.md
+├── prompts/<workflowId>/<stepId>.md   the per-file fallback; still bundled
+├── examples/content-template/    what a team copies; config/ lives here now
+├── .vscodeignore                 what ships in the .vsix
 ├── out/                          built bundles; tracked deliberately
 ├── test/
 └── docs/
 ```
 
-Three directories ship inside the `.vsix` besides `out/`: `workflows/`, `config/` and
-`prompts/`. Everything else is excluded by `.vscodeignore`.
+Three directories ship inside the `.vsix` besides `out/`: `workflows/`, `prompts/` and
+`examples/`. `.vscodeignore` excludes everything else — including the sourcemaps and the
+unbundled `tsc` output that `npm run compile:test` leaves in `out/`. Its negations are named
+per file type rather than per directory, because `vsce` applies them as a union at the end
+rather than in order, so a broad `!out/**` followed by carve-outs does not work.
+
+The package is 19 files: four bundles, three workflows, seven prompt templates, the three
+under `examples/content-template/`, the icon and `package.json`.
 
 `out/` is tracked because `package.json`'s `main` points into it, so a checkout stays
 installable without a build step. The cost is that a source change is not finished until the

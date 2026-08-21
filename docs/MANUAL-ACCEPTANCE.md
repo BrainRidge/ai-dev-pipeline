@@ -9,8 +9,9 @@ so they must be walked by hand.
 - [ ] GitHub Copilot installed in VS Code and signed in
 - [ ] Copilot **agent mode** enabled in settings
 - [ ] Task 0 spike completed — you know which handoff mechanism (A/B/C) applies
-- [ ] `workflows/platforms.yaml` edited to reference at least one repository you
-      can actually clone
+- [ ] A content folder prepared: copy `examples/content-template/` somewhere,
+      put at least one repository you can actually clone into
+      `config/microservices.json`, and set **Content Root** to it
 
 Install the build under test:
 
@@ -22,6 +23,40 @@ code --install-extension ai-dev-workflow-0.1.0.vsix
 ---
 
 ## Criteria
+
+- [ ] **0a. Settings pane.** Open Settings → Extensions → AI Dev Workflow.
+      *Expected:* four entries in this order — Content Root, Microservice
+      Config, Platform Config, Custom Prompts — each saying what it expects.
+
+- [ ] **0b. Unset.** Clear all four and open the sidebar.
+      *Expected:* *"No microservice config configured. Set
+      aiDevWorkflow.microserviceConfig in Settings → Extensions → AI Dev
+      Workflow, or set Content Root to fill it in."*, an **Open Settings**
+      button landing on that key, and no form.
+
+- [ ] **0c. Content Root fills the rest in.** Set Content Root to your copy of
+      the template.
+      *Expected:* Microservice Config, Platform Config and Custom Prompts fill
+      in with paths under it, and the sidebar redraws into a working form
+      without you touching anything else.
+
+- [ ] **0d. Your own edit survives.** Change Custom Prompts to some other
+      absolute path, then change Content Root to a different folder.
+      *Expected:* the two config paths follow the new root; **Custom Prompts
+      keeps your value.**
+
+- [ ] **0e. Missing file.** Point Microservice Config at a path that does not
+      exist.
+      *Expected:* *"Microservice config not found at <that path>"*. The path
+      shown is the one it actually looked at.
+
+- [ ] **0f. Relative path.** Set Microservice Config to `./services.json`.
+      *Expected:* *"aiDevWorkflow.microserviceConfig must be an absolute path.
+      Got "./services.json"."*
+
+- [ ] **0g. Invalid file.** Give two services the same `shortCode`.
+      *Expected:* the loader's own wording — *"…share the shortCode …"* — not a
+      generic "please configure" message.
 
 - [ ] **1. Start a task.** Run **AI Dev Workflow: Start Task**. Pick a platform,
       enter an epic key, pick Research Task.
@@ -71,9 +106,10 @@ code --install-extension ai-dev-workflow-0.1.0.vsix
       *Expected:* the workflow resumes at the correct step.
 
 - [ ] **11. A tool developer can add a workflow with no TypeScript and no HTML.**
-      Copy `workflows/research.yaml` to `workflows/scratch.yaml`, change `id` to
-      `scratch` and `label` to `Scratch Task`, and reorder two steps. Rebuild and
-      reload.
+      Copy `workflows/researchTaskWorkflow_1_0.json` to
+      `workflows/scratchWorkflow_1_0.json` and change `label` to `Scratch Task`
+      — the id and version come from the filename — then reorder two steps by
+      editing their `nextStep`. Rebuild and reload.
       *Expected:* "Scratch Task" appears as a task type and runs in the new order.
       **No file under `src/` or `webview/` was touched.**
 
@@ -82,10 +118,29 @@ code --install-extension ai-dev-workflow-0.1.0.vsix
       > not a bug to patch around.
 
 - [ ] **12. A developer cannot alter a workflow.** Edit
-      `.engine/workflow.yaml` inside a live task folder, then resume the task.
+      `.engine/workflow.json` inside a live task folder, then resume the task.
       *Expected:* a warning appears saying the definition was modified, and a
       `snapshot-modified` entry is written to the audit log. The task continues
       with the modified file — this is detection, not prevention, by design.
+
+- [ ] **13. Prompt fallback is visible.** Run a research task with no
+      `prompts/` folder in your content root.
+      *Expected:* the caption above the composed prompt reads
+      *"Template: …/prompts/researchTaskWorkflow/aiHandoff.md (bundled default)"*.
+      Now copy that template into `<contentRoot>/prompts/researchTaskWorkflow/`,
+      change a line, and reopen the step.
+      *Expected:* your wording appears, and the caption now says **(external)**.
+      `audit.jsonl` records `templateSource` for both.
+
+- [ ] **14. A case-mismatched override is refused.** Rename your override to
+      `aiHandoff.MD`.
+      *Expected:* the step shows *found "aiHandoff.MD" … expected
+      "aiHandoff.md"* rather than quietly using the bundled prompt.
+
+- [ ] **15. A workflows folder in the content root is reported.** Create
+      `<contentRoot>/workflows/` and reload the window.
+      *Expected:* a warning saying workflow definitions are bundled and the
+      folder is ignored.
 
 ---
 

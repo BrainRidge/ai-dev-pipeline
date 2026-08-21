@@ -16,6 +16,12 @@ export interface RenderField extends FieldDef {
 export interface CommandBlock {
   id: string
   label: string
+  /**
+   * A caption under the label. Used to show which prompt template composed the
+   * block, so a fallback to the bundled default is visible rather than silent.
+   * See spec Section 16.
+   */
+  note?: string
   lines: string[]
   /**
    * The developer may rewrite the block before acting on it. Whatever is in the

@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs'
 import { access, readFile } from 'node:fs/promises'
 import * as vscode from 'vscode'
 import { AuditLog } from '../audit/AuditLog'
+import { nodeProbe, templateResolver } from '../content/ContentRoot'
 import { ChatHandoff } from '../handoff/ChatHandoff'
 import { PromptComposer } from '../prompt/PromptComposer'
 import { CollectRequirement } from './CollectRequirement'
@@ -40,10 +41,21 @@ async function openInEditor(p: string): Promise<void> {
  * See spec Section 5.
  */
 export function buildTaskTypes(opts: {
-  promptDir: string
+  /** The team's prompts folder, or undefined when they supplied none. */
+  promptsDir: string | undefined
+  /** The prompts shipped in the extension, used wherever the team supplied none. */
+  bundledPromptsDir: string
   taskDir: string
   codeRoot: string
 }): TaskTypeRegistry {
+  // Stateless, so one instance serves every handoff. See spec Section 16.
+  const composer = new PromptComposer(
+    templateResolver(
+      { promptsDir: opts.promptsDir, bundledPromptsDir: opts.bundledPromptsDir },
+      nodeProbe,
+    ),
+  )
+
   const sink: CommandSink = {
     async copy(text) {
       await vscode.env.clipboard.writeText(text)
@@ -63,20 +75,20 @@ export function buildTaskTypes(opts: {
     new CollectRequirement(),
     new GitClone(opts.codeRoot, existsSync, sink),
     new InvokeCopilot(
-      new PromptComposer(opts.promptDir),
+      composer,
       new ChatHandoff(),
       new AuditLog(opts.taskDir),
       fileExists,
       sink,
     ),
     new InvokeCopilotCoding(
-      new PromptComposer(opts.promptDir),
+      composer,
       new ChatHandoff(),
       new AuditLog(opts.taskDir),
       sink,
     ),
     new InvokeCopilotCodeReview(
-      new PromptComposer(opts.promptDir),
+      composer,
       new ChatHandoff(),
       new AuditLog(opts.taskDir),
       sink,

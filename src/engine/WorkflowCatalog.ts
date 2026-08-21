@@ -13,6 +13,42 @@ import {
   type WorkflowFile,
 } from './schema'
 
+/**
+ * A config file now comes from a folder a team maintains rather than from the
+ * extension bundle, so "which file, and where did we look" is the first thing
+ * the reader needs. Errors from the schema and from validateMicroservices keep
+ * their own wording — they are the most useful thing this loader says.
+ * See spec Section 16.
+ */
+async function readConfig(path: string, label: string): Promise<unknown> {
+  let raw: string
+  try {
+    raw = await readFile(path, 'utf8')
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+      throw new Error(`${label} not found at ${path}`)
+    }
+    throw err
+  }
+
+  try {
+    return JSON.parse(raw)
+  } catch (err) {
+    throw new Error(`${label} at ${path} is not valid JSON: ${(err as Error).message}`)
+  }
+}
+
+/** Names the file a schema failure came from; zod's own message does not. */
+function attribute<T>(label: string, path: string, parse: () => T): T {
+  try {
+    return parse()
+  } catch (err) {
+    throw new Error(
+      `${label} at ${path} is not valid: ${err instanceof Error ? err.message : String(err)}`,
+    )
+  }
+}
+
 export class WorkflowCatalog {
   private constructor(
     private readonly workflows: Map<string, WorkflowDef>,
@@ -22,15 +58,22 @@ export class WorkflowCatalog {
 
   /**
    * @param workflowsDir directory of `<name>_<major>_<minor>.json` workflow files
-   * @param configDir    directory holding platforms.json and microservices.json
+   * @param config       absolute paths to the two config files. They are given
+   *                     separately rather than as a directory because each has
+   *                     its own setting and may live anywhere. See spec Section 16.
    */
-  static async load(workflowsDir: string, configDir: string): Promise<WorkflowCatalog> {
-    const platforms = platformsFileSchema.parse(
-      JSON.parse(await readFile(join(configDir, 'platforms.json'), 'utf8')),
+  static async load(
+    workflowsDir: string,
+    config: { platformConfig: string; microserviceConfig: string },
+  ): Promise<WorkflowCatalog> {
+    const platformsRaw = await readConfig(config.platformConfig, 'Platform config')
+    const platforms = attribute('Platform config', config.platformConfig, () =>
+      platformsFileSchema.parse(platformsRaw),
     ).platforms
 
-    const services = microservicesFileSchema.parse(
-      JSON.parse(await readFile(join(configDir, 'microservices.json'), 'utf8')),
+    const servicesRaw = await readConfig(config.microserviceConfig, 'Microservice config')
+    const services = attribute('Microservice config', config.microserviceConfig, () =>
+      microservicesFileSchema.parse(servicesRaw),
     )
     validateMicroservices(services)
 

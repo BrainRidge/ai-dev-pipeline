@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { access, readFile } from 'node:fs/promises'
 import { basename, join } from 'node:path'
 import * as vscode from 'vscode'
@@ -10,6 +11,12 @@ import { workflowFileSchema, type WorkflowDef } from '../engine/schema'
 import { TaskStateStore, type TaskState } from '../state/TaskStateStore'
 import { TaskWorkspace } from '../workspace/TaskWorkspace'
 import { buildTaskTypes } from '../tasks/registry'
+import {
+  resolveAll,
+  resolveContentRootSetting,
+  type ContentSettings,
+  type ResolvedContent,
+} from '../content/ContentRoot'
 import { allInsideOpenFolders } from './openFolders'
 import { resolveCodeRoot, resolveTasksRoot } from './resume'
 import {
@@ -34,6 +41,30 @@ function config<T>(key: string): T | undefined {
 
 export function tasksRoot(): string {
   return resolveTasksRoot(config<string>('tasksRoot'))
+}
+
+/** The four settings that decide where content comes from. See spec Section 16. */
+export function contentSettings(): ContentSettings {
+  return {
+    contentRoot: config<string>('contentRoot') ?? '',
+    microserviceConfig: config<string>('microserviceConfig') ?? '',
+    platformConfig: config<string>('platformConfig') ?? '',
+    customPrompts: config<string>('customPrompts') ?? '',
+  }
+}
+
+/**
+ * Every content path a task needs. Config has no fallback, because the bundled
+ * catalogue would name repositories belonging to somebody else and gitClone
+ * would put them on this developer's disk. See spec Section 16.
+ */
+export function resolvedContent(): ResolvedContent {
+  return resolveAll(contentSettings())
+}
+
+/** Just the content root, for the one thing that is keyed on it. */
+export function contentRoot(): string | undefined {
+  return resolveContentRootSetting(config<string>('contentRoot') ?? '')
 }
 
 /** Workflows are versioned by filename: researchTaskWorkflow_1_0.json. */
@@ -237,14 +268,42 @@ export class TaskSession {
       label: state.platform,
     }
 
+    const resolved = resolvedContent()
     const registry = buildTaskTypes({
-      promptDir: join(context.extensionPath, 'prompts'),
+      promptsDir: resolved.ok ? resolved.promptsDir : undefined,
+      bundledPromptsDir: join(context.extensionPath, 'prompts'),
       taskDir: ws.dir,
       codeRoot: resolveCodeRoot(config<string>('codeRoot')),
     })
     // A snapshot can name a taskType this version no longer implements. Fail
     // here, with the list of what exists, rather than mid-workflow.
     registry.validateWorkflow(workflow.id, workflow.steps)
+
+    // Written on every open rather than only at creation: a resume may resolve
+    // a different content root than the session that started the task, and the
+    // log should say so. See spec Section 16.
+    if (resolved.ok) {
+      await new AuditLog(ws.dir).append({
+        kind: 'content-resolved',
+        data: {
+          promptsDir: resolved.promptsDir ?? null,
+          files: await Promise.all(
+            (
+              [
+                ['microserviceConfig', resolved.microserviceConfig],
+                ['platformConfig', resolved.platformConfig],
+              ] as const
+            ).map(async ([setting, path]) => ({
+              setting,
+              path,
+              sha256: createHash('sha256')
+                .update(await readFile(path, 'utf8'))
+                .digest('hex'),
+            })),
+          ),
+        },
+      })
+    }
 
     const panel = vscode.window.createWebviewPanel(
       'aiDevWorkflow',
@@ -514,7 +573,12 @@ function workflowsDir(context: vscode.ExtensionContext): string {
 }
 
 function loadCatalog(context: vscode.ExtensionContext): Promise<WorkflowCatalog> {
-  return WorkflowCatalog.load(workflowsDir(context), join(context.extensionPath, 'config'))
+  const resolved = resolvedContent()
+  if (!resolved.ok) throw new Error(resolved.message)
+  return WorkflowCatalog.load(workflowsDir(context), {
+    platformConfig: resolved.platformConfig,
+    microserviceConfig: resolved.microserviceConfig,
+  })
 }
 
 async function exists(path: string): Promise<boolean> {

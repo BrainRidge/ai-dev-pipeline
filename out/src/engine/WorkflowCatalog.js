@@ -7,6 +7,40 @@ exports.validateGraph = validateGraph;
 const promises_1 = require("node:fs/promises");
 const node_path_1 = require("node:path");
 const schema_1 = require("./schema");
+/**
+ * A config file now comes from a folder a team maintains rather than from the
+ * extension bundle, so "which file, and where did we look" is the first thing
+ * the reader needs. Errors from the schema and from validateMicroservices keep
+ * their own wording — they are the most useful thing this loader says.
+ * See spec Section 16.
+ */
+async function readConfig(path, label) {
+    let raw;
+    try {
+        raw = await (0, promises_1.readFile)(path, 'utf8');
+    }
+    catch (err) {
+        if (err.code === 'ENOENT') {
+            throw new Error(`${label} not found at ${path}`);
+        }
+        throw err;
+    }
+    try {
+        return JSON.parse(raw);
+    }
+    catch (err) {
+        throw new Error(`${label} at ${path} is not valid JSON: ${err.message}`);
+    }
+}
+/** Names the file a schema failure came from; zod's own message does not. */
+function attribute(label, path, parse) {
+    try {
+        return parse();
+    }
+    catch (err) {
+        throw new Error(`${label} at ${path} is not valid: ${err instanceof Error ? err.message : String(err)}`);
+    }
+}
 class WorkflowCatalog {
     workflows;
     platformDefs;
@@ -18,11 +52,15 @@ class WorkflowCatalog {
     }
     /**
      * @param workflowsDir directory of `<name>_<major>_<minor>.json` workflow files
-     * @param configDir    directory holding platforms.json and microservices.json
+     * @param config       absolute paths to the two config files. They are given
+     *                     separately rather than as a directory because each has
+     *                     its own setting and may live anywhere. See spec Section 16.
      */
-    static async load(workflowsDir, configDir) {
-        const platforms = schema_1.platformsFileSchema.parse(JSON.parse(await (0, promises_1.readFile)((0, node_path_1.join)(configDir, 'platforms.json'), 'utf8'))).platforms;
-        const services = schema_1.microservicesFileSchema.parse(JSON.parse(await (0, promises_1.readFile)((0, node_path_1.join)(configDir, 'microservices.json'), 'utf8')));
+    static async load(workflowsDir, config) {
+        const platformsRaw = await readConfig(config.platformConfig, 'Platform config');
+        const platforms = attribute('Platform config', config.platformConfig, () => schema_1.platformsFileSchema.parse(platformsRaw)).platforms;
+        const servicesRaw = await readConfig(config.microserviceConfig, 'Microservice config');
+        const services = attribute('Microservice config', config.microserviceConfig, () => schema_1.microservicesFileSchema.parse(servicesRaw));
         validateMicroservices(services);
         const workflows = new Map();
         for (const filename of await (0, promises_1.readdir)(workflowsDir)) {

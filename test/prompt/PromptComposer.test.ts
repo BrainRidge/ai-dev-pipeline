@@ -3,7 +3,8 @@ import { mkdir, mkdtemp, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { PromptComposer } from '../../src/prompt/PromptComposer'
-import { context, step } from '../support/fixtures'
+import { nodeProbe, templateResolver } from '../../src/content/ContentRoot'
+import { bundledResolver, context, step } from '../support/fixtures'
 
 const TEMPLATE = `---
 output: 02-analysis.md
@@ -19,7 +20,7 @@ async function composer(body = TEMPLATE): Promise<PromptComposer> {
   const dir = await mkdtemp(join(tmpdir(), 'pr-'))
   await mkdir(join(dir, 'researchTaskWorkflow'), { recursive: true })
   await writeFile(join(dir, 'researchTaskWorkflow', 'aiHandoff.md'), body)
-  return new PromptComposer(dir)
+  return new PromptComposer(bundledResolver(dir))
 }
 
 const answers: Record<string, Record<string, unknown>> = {
@@ -135,5 +136,88 @@ describe('a template with no output declared', async () => {
   it('refuses to answer outputFor, because a watched step needs a filename', async () => {
     const c = await composer('Just do it.\n')
     await expect(c.outputFor(handoff, ctx)).rejects.toThrow(/must declare "output:"/)
+  })
+})
+
+/**
+ * A bundled directory and a team directory, so resolution has something to
+ * choose between. Returns both paths so tests can assert which one won.
+ */
+async function twoSources(opts: { external?: string }): Promise<{
+  composer: PromptComposer
+  bundledDir: string
+  contentRoot: string
+}> {
+  const bundledDir = await mkdtemp(join(tmpdir(), 'bundled-'))
+  await mkdir(join(bundledDir, 'researchTaskWorkflow'), { recursive: true })
+  await writeFile(join(bundledDir, 'researchTaskWorkflow', 'aiHandoff.md'), TEMPLATE)
+
+  const contentRoot = await mkdtemp(join(tmpdir(), 'team-'))
+  if (opts.external !== undefined) {
+    await mkdir(join(contentRoot, 'prompts', 'researchTaskWorkflow'), { recursive: true })
+    await writeFile(
+      join(contentRoot, 'prompts', 'researchTaskWorkflow', 'aiHandoff.md'),
+      opts.external,
+    )
+  }
+
+  return {
+    composer: new PromptComposer(
+      templateResolver({ promptsDir: join(contentRoot, 'prompts'), bundledPromptsDir: bundledDir }, nodeProbe),
+    ),
+    bundledDir,
+    contentRoot,
+  }
+}
+
+describe('where the template came from', () => {
+  it('reports the bundled template when the team supplied none', async () => {
+    const { composer, bundledDir } = await twoSources({})
+    const composed = await composer.compose(handoff, ctx, repos)
+    expect(composed.templateSource).toBe('bundled')
+    expect(composed.templatePath).toBe(join(bundledDir, 'researchTaskWorkflow', 'aiHandoff.md'))
+  })
+
+  it("uses and reports the team's template when they supplied one", async () => {
+    const { composer, contentRoot } = await twoSources({
+      external: '---\noutput: 02-analysis.md\n---\nOur own wording for {{task.epic}}.\n',
+    })
+    const composed = await composer.compose(handoff, ctx, repos)
+    expect(composed.templateSource).toBe('external')
+    expect(composed.templatePath).toBe(
+      join(contentRoot, 'prompts', 'researchTaskWorkflow', 'aiHandoff.md'),
+    )
+    expect(composed.prompt).toContain('Our own wording for PLAT-1234.')
+  })
+
+  it('takes the output contract from whichever template won', async () => {
+    const { composer } = await twoSources({ external: '---\noutput: our-analysis.md\n---\nBody.\n' })
+    expect(await composer.outputFor(handoff, ctx)).toBe('our-analysis.md')
+  })
+
+  it('answers resolved() without composing, for callers that only need the path', async () => {
+    const { composer, contentRoot } = await twoSources({ external: 'Body.\n' })
+    expect(await composer.resolved(handoff, ctx)).toEqual({
+      path: join(contentRoot, 'prompts', 'researchTaskWorkflow', 'aiHandoff.md'),
+      source: 'external',
+    })
+  })
+
+  // The guard from Task 0, seen from where a developer would actually hit it.
+  it('surfaces a case-mismatched override as a composition failure', async () => {
+    const bundledDir = await mkdtemp(join(tmpdir(), 'bundled-'))
+    await mkdir(join(bundledDir, 'researchTaskWorkflow'), { recursive: true })
+    await writeFile(join(bundledDir, 'researchTaskWorkflow', 'aiHandoff.md'), TEMPLATE)
+
+    const contentRoot = await mkdtemp(join(tmpdir(), 'team-'))
+    await mkdir(join(contentRoot, 'prompts', 'researchTaskWorkflow'), { recursive: true })
+    await writeFile(join(contentRoot, 'prompts', 'researchTaskWorkflow', 'aiHandoff.MD'), 'Body.\n')
+
+    const composer = new PromptComposer(
+      templateResolver({ promptsDir: join(contentRoot, 'prompts'), bundledPromptsDir: bundledDir }, nodeProbe),
+    )
+    await expect(composer.compose(handoff, ctx, repos)).rejects.toThrow(
+      /found "aiHandoff\.MD".*expected "aiHandoff\.md"/,
+    )
   })
 })

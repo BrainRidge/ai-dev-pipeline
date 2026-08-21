@@ -13,7 +13,18 @@ const ctx = (0, fixtures_1.context)();
 /** An editing template declares no output, so compose returns none. */
 const composer = {
     async compose() {
-        return { prompt: 'COMPOSED PROMPT', outputFile: undefined };
+        return {
+            prompt: 'COMPOSED PROMPT',
+            outputFile: undefined,
+            templatePath: '/team/prompts/newFeatureWorkflow/CodeImplementation.md',
+            templateSource: 'external',
+        };
+    },
+    async resolved() {
+        return {
+            path: '/team/prompts/newFeatureWorkflow/CodeImplementation.md',
+            source: 'external',
+        };
     },
 };
 function fakeAudit() {
@@ -123,5 +134,20 @@ const task = (m = 'A') => new InvokeCopilotCoding_1.InvokeCopilotCoding(composer
         const t = new InvokeCopilotCoding_1.InvokeCopilotCoding(composer, handoffReturning('A'), fakeAudit(), sink);
         await t.copyPrompt(coding, ctx, 'DO IT MY WAY');
         (0, vitest_1.expect)(copied).toEqual(['DO IT MY WAY']);
+    });
+});
+(0, vitest_1.describe)('provenance on an editing handoff', () => {
+    (0, vitest_1.it)('records the template path and source, even with no output contract', async () => {
+        const audit = fakeAudit();
+        const t = new InvokeCopilotCoding_1.InvokeCopilotCoding(composer, handoffReturning('A'), audit, noSink);
+        await t.deliver(coding, ctx);
+        (0, vitest_1.expect)(audit.logged[0].data).toMatchObject({
+            templatePath: '/team/prompts/newFeatureWorkflow/CodeImplementation.md',
+            templateSource: 'external',
+        });
+    });
+    (0, vitest_1.it)('captions the prompt block so a team override is visible on screen', async () => {
+        const view = await task().describe(coding, ctx, {});
+        (0, vitest_1.expect)(view.commands?.[0]?.note).toBe('Template: /team/prompts/newFeatureWorkflow/CodeImplementation.md (external)');
     });
 });

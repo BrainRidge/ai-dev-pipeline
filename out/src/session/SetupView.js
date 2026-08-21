@@ -37,6 +37,7 @@ exports.SetupView = void 0;
 const node_path_1 = require("node:path");
 const vscode = __importStar(require("vscode"));
 const WorkflowCatalog_1 = require("../engine/WorkflowCatalog");
+const setupDescriptor_1 = require("./setupDescriptor");
 const resume_1 = require("./resume");
 const taskIndex_1 = require("./taskIndex");
 const TaskSession_1 = require("./TaskSession");
@@ -81,6 +82,10 @@ class SetupView {
         });
         await this.render();
     }
+    /** Redraw, for when a setting changes underneath the pane. */
+    async refresh() {
+        await this.render();
+    }
     async onAction(actionId, values) {
         // Merged, not replaced: the form only reports the fields it is currently
         // showing, and switching modes must not throw away what has been typed.
@@ -100,6 +105,10 @@ class SetupView {
         }
         if (actionId === 'open') {
             await this.open();
+            return;
+        }
+        if (actionId === 'openSettings') {
+            await vscode.commands.executeCommand('workbench.action.openSettings', 'aiDevWorkflow.contentRoot');
             return;
         }
         if (actionId === 'start')
@@ -175,7 +184,24 @@ class SetupView {
     async render() {
         if (!this.bridge)
             return;
-        const catalog = await WorkflowCatalog_1.WorkflowCatalog.load((0, node_path_1.join)(this.context.extensionPath, 'workflows'), (0, node_path_1.join)(this.context.extensionPath, 'config'));
+        const resolved = (0, TaskSession_1.resolvedContent)();
+        if (!resolved.ok) {
+            this.bridge.render((0, setupDescriptor_1.unconfiguredDescriptor)(resolved.message));
+            return;
+        }
+        let catalog;
+        try {
+            catalog = await WorkflowCatalog_1.WorkflowCatalog.load((0, node_path_1.join)(this.context.extensionPath, 'workflows'), {
+                platformConfig: resolved.platformConfig,
+                microserviceConfig: resolved.microserviceConfig,
+            });
+        }
+        catch (err) {
+            // A missing file, malformed JSON, a duplicate shortCode. The loader's own
+            // wording is the most useful thing here, so it is shown as it comes.
+            this.bridge.render((0, setupDescriptor_1.unconfiguredDescriptor)(err instanceof Error ? err.message : String(err)));
+            return;
+        }
         const modeField = {
             id: 'mode',
             type: 'select',

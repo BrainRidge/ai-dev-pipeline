@@ -35,7 +35,11 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.TaskSession = void 0;
 exports.tasksRoot = tasksRoot;
+exports.contentSettings = contentSettings;
+exports.resolvedContent = resolvedContent;
+exports.contentRoot = contentRoot;
 exports.workflowFilename = workflowFilename;
+const node_crypto_1 = require("node:crypto");
 const promises_1 = require("node:fs/promises");
 const node_path_1 = require("node:path");
 const vscode = __importStar(require("vscode"));
@@ -48,6 +52,7 @@ const schema_1 = require("../engine/schema");
 const TaskStateStore_1 = require("../state/TaskStateStore");
 const TaskWorkspace_1 = require("../workspace/TaskWorkspace");
 const registry_1 = require("../tasks/registry");
+const ContentRoot_1 = require("../content/ContentRoot");
 const openFolders_1 = require("./openFolders");
 const resume_1 = require("./resume");
 const SetupSelection_1 = require("./SetupSelection");
@@ -58,6 +63,27 @@ function config(key) {
 }
 function tasksRoot() {
     return (0, resume_1.resolveTasksRoot)(config('tasksRoot'));
+}
+/** The four settings that decide where content comes from. See spec Section 16. */
+function contentSettings() {
+    return {
+        contentRoot: config('contentRoot') ?? '',
+        microserviceConfig: config('microserviceConfig') ?? '',
+        platformConfig: config('platformConfig') ?? '',
+        customPrompts: config('customPrompts') ?? '',
+    };
+}
+/**
+ * Every content path a task needs. Config has no fallback, because the bundled
+ * catalogue would name repositories belonging to somebody else and gitClone
+ * would put them on this developer's disk. See spec Section 16.
+ */
+function resolvedContent() {
+    return (0, ContentRoot_1.resolveAll)(contentSettings());
+}
+/** Just the content root, for the one thing that is keyed on it. */
+function contentRoot() {
+    return (0, ContentRoot_1.resolveContentRootSetting)(config('contentRoot') ?? '');
 }
 /** Workflows are versioned by filename: researchTaskWorkflow_1_0.json. */
 function workflowFilename(id, version) {
@@ -222,14 +248,37 @@ class TaskSession {
             id: state.platform,
             label: state.platform,
         };
+        const resolved = resolvedContent();
         const registry = (0, registry_1.buildTaskTypes)({
-            promptDir: (0, node_path_1.join)(context.extensionPath, 'prompts'),
+            promptsDir: resolved.ok ? resolved.promptsDir : undefined,
+            bundledPromptsDir: (0, node_path_1.join)(context.extensionPath, 'prompts'),
             taskDir: ws.dir,
             codeRoot: (0, resume_1.resolveCodeRoot)(config('codeRoot')),
         });
         // A snapshot can name a taskType this version no longer implements. Fail
         // here, with the list of what exists, rather than mid-workflow.
         registry.validateWorkflow(workflow.id, workflow.steps);
+        // Written on every open rather than only at creation: a resume may resolve
+        // a different content root than the session that started the task, and the
+        // log should say so. See spec Section 16.
+        if (resolved.ok) {
+            await new AuditLog_1.AuditLog(ws.dir).append({
+                kind: 'content-resolved',
+                data: {
+                    promptsDir: resolved.promptsDir ?? null,
+                    files: await Promise.all([
+                        ['microserviceConfig', resolved.microserviceConfig],
+                        ['platformConfig', resolved.platformConfig],
+                    ].map(async ([setting, path]) => ({
+                        setting,
+                        path,
+                        sha256: (0, node_crypto_1.createHash)('sha256')
+                            .update(await (0, promises_1.readFile)(path, 'utf8'))
+                            .digest('hex'),
+                    }))),
+                },
+            });
+        }
         const panel = vscode.window.createWebviewPanel('aiDevWorkflow', workflow.label, vscode.ViewColumn.One, {
             enableScripts: true,
             retainContextWhenHidden: true,
@@ -442,7 +491,13 @@ function workflowsDir(context) {
     return (0, node_path_1.join)(context.extensionPath, 'workflows');
 }
 function loadCatalog(context) {
-    return WorkflowCatalog_1.WorkflowCatalog.load(workflowsDir(context), (0, node_path_1.join)(context.extensionPath, 'config'));
+    const resolved = resolvedContent();
+    if (!resolved.ok)
+        throw new Error(resolved.message);
+    return WorkflowCatalog_1.WorkflowCatalog.load(workflowsDir(context), {
+        platformConfig: resolved.platformConfig,
+        microserviceConfig: resolved.microserviceConfig,
+    });
 }
 async function exists(path) {
     try {

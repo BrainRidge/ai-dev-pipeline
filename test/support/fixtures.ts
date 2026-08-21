@@ -1,6 +1,11 @@
 import type { Microservice, StepDef, StepType } from '../../src/engine/schema'
 import type { StepContext } from '../../src/tasks/context'
 import type { TaskState } from '../../src/state/TaskStateStore'
+import {
+  nodeProbe,
+  templateResolver,
+  type TemplateResolver,
+} from '../../src/content/ContentRoot'
 
 export const MICROSERVICES: Microservice[] = [
   {
@@ -61,4 +66,13 @@ export function taskState(over: Partial<TaskState> = {}): TaskState {
     steps: {},
     ...over,
   }
+}
+
+/**
+ * A resolver with no content root, so every template resolves to the given
+ * directory. This is what `PromptComposer` did on its own before the content
+ * root existed, and it keeps tests that do not care about resolution short.
+ */
+export function bundledResolver(promptsDir: string): TemplateResolver {
+  return templateResolver({ bundledPromptsDir: promptsDir }, nodeProbe)
 }

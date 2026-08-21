@@ -29,10 +29,23 @@ Additionally:
 12. A **tool developer** can add a workflow with **no TypeScript and no HTML changes** — a
     new JSON file and new prompt templates in the extension repository, released as a new
     version. This proves [D6](04-decisions.md) was achieved.
-13. A **developer** has no way to alter a workflow. Specifically: no setting, command or
-    editable file changes which steps run, in what order, or what any prompt says. Tampering
-    with the task's workflow snapshot is detected and logged rather than silently honoured
+13. A **developer** cannot change **which steps run, or in what order**. No setting, command
+    or editable file alters the step sequence. Tampering with the task's workflow snapshot is
+    detected and logged rather than silently honoured
     ([Section 7](07-run-state-and-persistence.md)).
+14. A **team** can supply its own microservice catalogue and its own prompt wording through
+    `aiDevWorkflow.microserviceConfig` and `aiDevWorkflow.customPrompts` — or through
+    `aiDevWorkflow.contentRoot`, which fills both in — with no change to the extension
+    ([Section 16](16-external-content.md)).
+15. With a required setting unset, relative, missing on disk or invalid, the sidebar names
+    the setting at fault, says which of those it is, and offers to open Settings. No task can
+    be started until it is resolved.
+15a. Setting Content Root fills in Microservice Config, Platform Config and Custom Prompts,
+    and never overwrites a value the developer changed themselves.
+16. A prompt template the team has not supplied falls back to the bundled one; one that
+    differs from the expected name only by case is reported rather than silently ignored.
+17. Every handoff's composed prompt is captioned in the panel with the template it came from,
+    and the audit log records that path and whether it was the team's or the bundled default.
 
 ## Status
 
@@ -43,8 +56,11 @@ Criterion 12 was proven twice on real work rather than on a throwaway: **New Fea
 TypeScript. A throwaway third workflow is also built and run inside the test suite, which is
 what keeps the claim true as the code changes.
 
-Criterion 13 holds for the workflow *definition*. It does not extend to the prompt: since a
-handoff prompt is editable in the panel, a developer can change what is asked on a given
-step without changing the workflow. That was a deliberate choice — see
-[Section 8](08-ai-handoff-step.md) — and it narrows criterion 13 to what steps run and in
-what order.
+Criterion 13 has now been narrowed twice. It first excluded prompt wording, because a handoff
+prompt is editable in the panel ([Section 8](08-ai-handoff-step.md)). It now also excludes the
+prompt templates and the service catalogue, which a team owns
+([Section 16](16-external-content.md)). What it still guarantees is the part the tool was
+built for: every developer on a team passes through the same steps in the same order.
+
+Criteria 14–17 are implemented and covered by tests. Criteria 15 and 16 are additionally
+walked by hand, since the wording a developer reads is the whole point of them.

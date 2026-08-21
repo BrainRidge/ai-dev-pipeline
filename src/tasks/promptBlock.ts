@@ -1,6 +1,7 @@
 import type { StepDef } from '../engine/schema'
 import type { PromptComposer } from '../prompt/PromptComposer'
 import type { Answers, CommandBlock, StepContext } from './context'
+import { templateNote } from '../content/ContentRoot'
 import { reposBefore } from './history'
 
 export interface PromptPreview {
@@ -46,20 +47,30 @@ export async function composePreview(
   ctx: StepContext,
   override?: string,
 ): Promise<PromptPreview> {
-  if (override !== undefined) return { block: promptBlock(override, true) }
-
   try {
-    const { prompt } = await composer.compose(step, ctx, reposBefore(ctx, step.id))
-    return { block: promptBlock(prompt, false) }
+    // An override replaces the text but not the provenance: the caption still
+    // reports which template this step would compose from.
+    if (override !== undefined) {
+      const note = templateNote(await composer.resolved(step, ctx))
+      return { block: promptBlock(override, true, note) }
+    }
+
+    const composed = await composer.compose(step, ctx, reposBefore(ctx, step.id))
+    const note = templateNote({
+      path: composed.templatePath,
+      source: composed.templateSource,
+    })
+    return { block: promptBlock(composed.prompt, false, note) }
   } catch (err) {
     return { failure: err instanceof Error ? err.message : String(err) }
   }
 }
 
-function promptBlock(text: string, edited: boolean): CommandBlock {
+function promptBlock(text: string, edited: boolean, note: string): CommandBlock {
   return {
     id: PROMPT_BLOCK_ID,
     label: edited ? 'Composed prompt (edited)' : 'Composed prompt',
+    note,
     lines: text.split('\n'),
     editable: true,
     actions: [

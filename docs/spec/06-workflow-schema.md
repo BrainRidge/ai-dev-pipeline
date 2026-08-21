@@ -126,7 +126,8 @@ step is required to write a failing regression test first.
 
 Each workflow has one prompt template per `aiHandoff` step, found by convention at
 `prompts/<workflowId>/<stepId>.md`. Nothing in the JSON names a template — see
-[Section 8](08-ai-handoff-step.md).
+[Section 8](08-ai-handoff-step.md). The template is looked for in the team's content folder
+first and falls back to the bundled one per file ([Section 16](16-external-content.md)).
 
 ## Task-level inputs
 
@@ -142,8 +143,11 @@ which is the right answer if a third workflow ever needs a field of its own.
 
 ## Platform and microservice configuration
 
-`config/platforms.json` lists the four platforms. `config/microservices.json` is a flat list
-of services with a short code, a name, a purpose, a git location and a category.
+`config/platforms.json` lists the platforms and `config/microservices.json` is a flat list of
+services with a short code, a name, a purpose, a git location and a category. Both come from
+the team's content folder rather than from the extension — see
+[Section 16](16-external-content.md) — and neither falls back to a bundled copy.
+`examples/content-template/config/` holds the layout to copy.
 
 **Platform does not filter the microservice list.** It is recorded context — it goes into the
 task state, the audit log and the prompt, and it selects nothing. The original design had

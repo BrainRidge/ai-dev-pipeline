@@ -19,7 +19,7 @@ implementation. Changing one is a spec change.
 
 ## Where implementation departed from these
 
-Four departures, recorded here because a decision table that quietly disagrees with the code
+Five departures, recorded here because a decision table that quietly disagrees with the code
 is worse than no decision table.
 
 **D2 and D6 — the format is JSON, not YAML.** Both decisions originally said YAML. The
@@ -47,3 +47,13 @@ in scope is already inside a folder open in the current window, no `.code-worksp
 written and no reload is offered. The developer is already working the way the generated
 workspace would have arranged for, and reloading a correctly configured window costs the
 extension host restart for nothing.
+
+**D2 — config and prompts are no longer bundled.** Workflow definitions still are: they
+remain in the extension repository, changed by pull request and release, which is the part of
+D2 that standardises the process. The platform and microservice catalogues and the prompt
+templates now come from paths a team maintains, behind the `aiDevWorkflow.microserviceConfig`,
+`aiDevWorkflow.platformConfig` and `aiDevWorkflow.customPrompts` settings — with
+`aiDevWorkflow.contentRoot` as the convenience that fills all three in — because one build
+otherwise serves exactly one team. Accepted cost: the team owning
+the extension no longer knows what any given team's prompts say. See
+[Section 16](16-external-content.md).

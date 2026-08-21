@@ -1,9 +1,11 @@
 import { readdir } from 'node:fs/promises'
 import * as vscode from 'vscode'
-import { TaskSession, tasksRoot } from './session/TaskSession'
+import { TaskSession, contentRoot, tasksRoot } from './session/TaskSession'
+import { externalWorkflowsPresent, nodeProbe } from './content/ContentRoot'
 import { SetupView } from './session/SetupView'
 import { taskIdFromWorkspaceSettings } from './session/resume'
 import { checkForUpdate } from './update/UpdateCheck'
+import { writeDerivedSettings } from './session/derivedSettings'
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   const resume = async (taskId: string): Promise<void> => {
@@ -57,6 +59,22 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   )
 
   void notifyIfOutOfDate(context)
+  void warnAboutExternalWorkflows()
+
+  // Setting the content root fills the three specific paths in. Run once at
+  // activation too, so a settings.json edited by hand is honoured without a
+  // second change. See spec Section 16.
+  void writeDerivedSettings(context)
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration(async (e) => {
+      if (e.affectsConfiguration('aiDevWorkflow.contentRoot')) {
+        await writeDerivedSettings(context)
+      }
+      // Any content setting can turn the sidebar's error into a working form,
+      // so it must redraw rather than leave a stale message on screen.
+      if (e.affectsConfiguration('aiDevWorkflow')) await setup.refresh()
+    }),
+  )
 
   // Resume automatically when a generated workspace is opened. This is what
   // makes a workflow survive the extension-host restart that opening the
@@ -73,6 +91,21 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       void vscode.window.showErrorMessage(`Could not resume task ${taskId}: ${String(err)}`)
     }
   }
+}
+
+/**
+ * Workflows stay bundled — they are what the tool standardises. A team that has
+ * put a workflows folder in their content root has misread the contract, and
+ * silence would let them believe it took effect. See spec Section 16.
+ */
+async function warnAboutExternalWorkflows(): Promise<void> {
+  const root = contentRoot()
+  if (!root) return
+  if (!(await externalWorkflowsPresent(root, nodeProbe))) return
+  void vscode.window.showWarningMessage(
+    'Your content folder contains a workflows/ directory. Workflow definitions ' +
+      'are bundled with the extension and cannot be overridden, so it is ignored.',
+  )
 }
 
 async function notifyIfOutOfDate(context: vscode.ExtensionContext): Promise<void> {

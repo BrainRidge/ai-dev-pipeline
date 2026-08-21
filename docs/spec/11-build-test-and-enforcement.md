@@ -44,3 +44,9 @@ are not fluent in this stack. The unit tier includes one test per bundled workfl
 it end to end against its real JSON, its real prompt templates and the real microservice
 catalogue — those are what prove the configuration and the code agree, where every other
 test uses fixtures.
+
+The integration tier is configured by `.vscode-test.mjs`, which points
+`@vscode/test-cli` at the compiled tests under `out/test/integration/`.
+`pretest:integration` runs `tsc` to produce them. Without that file the tier
+cannot run at all, which is how it sat for a while — it is now covered by the
+same command it always claimed.

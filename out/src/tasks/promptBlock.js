@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.PROMPT_BLOCK_ID = void 0;
 exports.editedPrompt = editedPrompt;
 exports.composePreview = composePreview;
+const ContentRoot_1 = require("../content/ContentRoot");
 const history_1 = require("./history");
 /**
  * The block id under which the composed prompt is shown and edited. The
@@ -35,20 +36,29 @@ function editedPrompt(values) {
  * the problem on the step that owns it.
  */
 async function composePreview(composer, step, ctx, override) {
-    if (override !== undefined)
-        return { block: promptBlock(override, true) };
     try {
-        const { prompt } = await composer.compose(step, ctx, (0, history_1.reposBefore)(ctx, step.id));
-        return { block: promptBlock(prompt, false) };
+        // An override replaces the text but not the provenance: the caption still
+        // reports which template this step would compose from.
+        if (override !== undefined) {
+            const note = (0, ContentRoot_1.templateNote)(await composer.resolved(step, ctx));
+            return { block: promptBlock(override, true, note) };
+        }
+        const composed = await composer.compose(step, ctx, (0, history_1.reposBefore)(ctx, step.id));
+        const note = (0, ContentRoot_1.templateNote)({
+            path: composed.templatePath,
+            source: composed.templateSource,
+        });
+        return { block: promptBlock(composed.prompt, false, note) };
     }
     catch (err) {
         return { failure: err instanceof Error ? err.message : String(err) };
     }
 }
-function promptBlock(text, edited) {
+function promptBlock(text, edited, note) {
     return {
         id: exports.PROMPT_BLOCK_ID,
         label: edited ? 'Composed prompt (edited)' : 'Composed prompt',
+        note,
         lines: text.split('\n'),
         editable: true,
         actions: [

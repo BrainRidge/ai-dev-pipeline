@@ -6,7 +6,10 @@ const WorkflowCatalog_1 = require("../../src/engine/WorkflowCatalog");
 const TaskType_1 = require("../../src/tasks/TaskType");
 const CollectRequirement_1 = require("../../src/tasks/CollectRequirement");
 const WORKFLOWS = (0, node_path_1.join)(__dirname, '../../workflows');
-const CONFIG = (0, node_path_1.join)(__dirname, '../../config');
+const CONFIG = {
+    platformConfig: (0, node_path_1.join)(__dirname, '../../examples/content-template/config/platforms.json'),
+    microserviceConfig: (0, node_path_1.join)(__dirname, '../../examples/content-template/config/microservices.json'),
+};
 const load = () => WorkflowCatalog_1.WorkflowCatalog.load(WORKFLOWS, CONFIG);
 (0, vitest_1.describe)('bundled configuration', () => {
     (0, vitest_1.it)('loads the versioned research workflow', async () => {

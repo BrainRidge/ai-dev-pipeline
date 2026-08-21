@@ -26,9 +26,11 @@ author never names them twice.
 ## Prompt template format
 
 Plain markdown with `{{namespace.field}}` placeholders, stored in `prompts/` in the extension
-repository and **found by convention** at `prompts/<workflowId>/<stepId>.md`. Nothing in the
-workflow JSON names a template. This is why adding a workflow needs a JSON file and some
-markdown but no TypeScript.
+repository and **found by convention** at `prompts/<workflowId>/<stepId>.md` — under the
+team's content folder if they have supplied that template, otherwise under the extension's own
+`prompts/` directory ([Section 16](16-external-content.md)). Nothing in the workflow JSON names
+a template. This is why adding a workflow needs a JSON file and some markdown but no
+TypeScript.
 
 An optional YAML frontmatter block declares the artifact the model is contracted to write:
 
@@ -147,8 +149,9 @@ put a false promise in the audit log.
 
 **Captured:** workflow id and version, every developer input, every action the panel sent,
 the exact prompt as delivered, the handoff mechanism used, timestamps, the reviewed
-artifact's path and content hash, every approval and every revise loop, and any detected
-tampering with the workflow snapshot.
+artifact's path and content hash, every approval and every revise loop, any detected
+tampering with the workflow snapshot, and — for each handoff — the path of the template the
+prompt was composed from and whether it was the team's or the bundled default.
 
 **Not captured:** anything inside Copilot Chat — follow-up turns, or unrelated conversation.
 **Nor a copy of the artifact.** The original design said the returned artifact was stored

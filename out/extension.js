@@ -7364,12 +7364,13 @@ __export(extension_exports, {
   deactivate: () => deactivate
 });
 module.exports = __toCommonJS(extension_exports);
-var import_promises9 = require("node:fs/promises");
-var vscode5 = __toESM(require("vscode"));
+var import_promises10 = require("node:fs/promises");
+var vscode6 = __toESM(require("vscode"));
 
 // src/session/TaskSession.ts
-var import_promises7 = require("node:fs/promises");
-var import_node_path13 = require("node:path");
+var import_node_crypto3 = require("node:crypto");
+var import_promises8 = require("node:fs/promises");
+var import_node_path14 = require("node:path");
 var vscode3 = __toESM(require("vscode"));
 
 // src/audit/AuditLog.ts
@@ -11667,6 +11668,31 @@ function parseWorkflowFilename(filename) {
 }
 
 // src/engine/WorkflowCatalog.ts
+async function readConfig(path, label) {
+  let raw;
+  try {
+    raw = await (0, import_promises2.readFile)(path, "utf8");
+  } catch (err) {
+    if (err.code === "ENOENT") {
+      throw new Error(`${label} not found at ${path}`);
+    }
+    throw err;
+  }
+  try {
+    return JSON.parse(raw);
+  } catch (err) {
+    throw new Error(`${label} at ${path} is not valid JSON: ${err.message}`);
+  }
+}
+function attribute(label, path, parse2) {
+  try {
+    return parse2();
+  } catch (err) {
+    throw new Error(
+      `${label} at ${path} is not valid: ${err instanceof Error ? err.message : String(err)}`
+    );
+  }
+}
 var WorkflowCatalog = class _WorkflowCatalog {
   constructor(workflows, platformDefs, services) {
     this.workflows = workflows;
@@ -11675,14 +11701,22 @@ var WorkflowCatalog = class _WorkflowCatalog {
   }
   /**
    * @param workflowsDir directory of `<name>_<major>_<minor>.json` workflow files
-   * @param configDir    directory holding platforms.json and microservices.json
+   * @param config       absolute paths to the two config files. They are given
+   *                     separately rather than as a directory because each has
+   *                     its own setting and may live anywhere. See spec Section 16.
    */
-  static async load(workflowsDir2, configDir) {
-    const platforms = platformsFileSchema.parse(
-      JSON.parse(await (0, import_promises2.readFile)((0, import_node_path3.join)(configDir, "platforms.json"), "utf8"))
+  static async load(workflowsDir2, config2) {
+    const platformsRaw = await readConfig(config2.platformConfig, "Platform config");
+    const platforms = attribute(
+      "Platform config",
+      config2.platformConfig,
+      () => platformsFileSchema.parse(platformsRaw)
     ).platforms;
-    const services = microservicesFileSchema.parse(
-      JSON.parse(await (0, import_promises2.readFile)((0, import_node_path3.join)(configDir, "microservices.json"), "utf8"))
+    const servicesRaw = await readConfig(config2.microserviceConfig, "Microservice config");
+    const services = attribute(
+      "Microservice config",
+      config2.microserviceConfig,
+      () => microservicesFileSchema.parse(servicesRaw)
     );
     validateMicroservices(services);
     const workflows = /* @__PURE__ */ new Map();
@@ -11991,12 +12025,167 @@ var TaskWorkspace = class _TaskWorkspace {
 // src/tasks/registry.ts
 var import_node_crypto2 = require("node:crypto");
 var import_node_fs = require("node:fs");
-var import_promises6 = require("node:fs/promises");
+var import_promises7 = require("node:fs/promises");
 var vscode2 = __toESM(require("vscode"));
+
+// src/content/ContentRoot.ts
+var import_promises5 = require("node:fs/promises");
+var import_node_path6 = require("node:path");
+
+// src/session/SetupSelection.ts
+var NEW_FEATURE_WORKFLOW_ID = "newFeatureWorkflow";
+var JIRA_KEY = /^[A-Za-z][A-Za-z0-9]*-\d+$/;
+function isAbsolutePath(value) {
+  return value.startsWith("/") || /^[A-Za-z]:[\\/]/.test(value) || value.startsWith("\\\\");
+}
+function needsFeatureStory(workflowId) {
+  return workflowId === NEW_FEATURE_WORKFLOW_ID;
+}
+function validateSetup(selection) {
+  const errors = {};
+  if (!selection.platform) errors.platform = "Select a platform";
+  if (!selection.epic.trim()) errors.epic = "An epic key is required";
+  if (!selection.workflowId) errors.workflowId = "Select a task type";
+  if (!selection.baseBranch.trim()) {
+    errors.baseBranch = "A base branch is required";
+  }
+  if (selection.services.length === 0) {
+    errors.services = "Select at least one microservice";
+  }
+  const workDir = selection.workDir.trim();
+  if (!workDir) {
+    errors.workDir = "A work directory is required";
+  } else if (!isAbsolutePath(workDir)) {
+    errors.workDir = "Enter a full path, such as /Users/you/work";
+  }
+  if (needsFeatureStory(selection.workflowId)) {
+    const story = selection.featureStory.trim();
+    if (!story) {
+      errors.featureStory = "A feature story is required";
+    } else if (!JIRA_KEY.test(story)) {
+      errors.featureStory = "Enter a story key such as PLAT-1234";
+    }
+  }
+  return errors;
+}
+function normaliseSetup(selection) {
+  return {
+    ...selection,
+    epic: selection.epic.trim(),
+    baseBranch: selection.baseBranch.trim(),
+    workDir: selection.workDir.trim(),
+    featureStory: needsFeatureStory(selection.workflowId) ? selection.featureStory.trim() : ""
+  };
+}
+
+// src/content/ContentRoot.ts
+var PIECES = ["microserviceConfig", "platformConfig", "customPrompts"];
+var LABEL = {
+  microserviceConfig: { noun: "microservice config", setting: "aiDevWorkflow.microserviceConfig" },
+  platformConfig: { noun: "platform config", setting: "aiDevWorkflow.platformConfig" },
+  customPrompts: { noun: "custom prompts folder", setting: "aiDevWorkflow.customPrompts" }
+};
+function derivedFrom(root) {
+  return {
+    microserviceConfig: (0, import_node_path6.join)(root, "config", "microservices.json"),
+    platformConfig: (0, import_node_path6.join)(root, "config", "platforms.json"),
+    customPrompts: (0, import_node_path6.join)(root, "prompts")
+  };
+}
+function resolveContentRootSetting(configured) {
+  const value = configured.trim();
+  return value !== "" && isAbsolutePath(value) ? value : void 0;
+}
+function absoluteOrMessage(setting, value) {
+  return isAbsolutePath(value) ? { ok: true, path: value } : { ok: false, message: `${setting} must be an absolute path. Got "${value}".` };
+}
+function pathOf(piece, s) {
+  const own = s[piece].trim();
+  if (own !== "") return absoluteOrMessage(LABEL[piece].setting, own);
+  const root = s.contentRoot.trim();
+  if (root === "") return void 0;
+  if (!isAbsolutePath(root)) {
+    return {
+      ok: false,
+      message: `aiDevWorkflow.contentRoot must be an absolute path. Got "${root}".`
+    };
+  }
+  return { ok: true, path: derivedFrom(root)[piece] };
+}
+function resolveConfigFile(piece, s) {
+  const result = pathOf(piece, s);
+  if (result) return result;
+  return {
+    ok: false,
+    message: `No ${LABEL[piece].noun} configured. Set ${LABEL[piece].setting} in Settings \u2192 Extensions \u2192 AI Dev Workflow, or set Content Root to fill it in.`
+  };
+}
+function resolvePromptsDir(s) {
+  const result = pathOf("customPrompts", s);
+  if (!result) return { kind: "none" };
+  return result.ok ? { kind: "dir", path: result.path } : { kind: "error", message: result.message };
+}
+function resolveAll(s) {
+  const micro = resolveConfigFile("microserviceConfig", s);
+  if (!micro.ok) return micro;
+  const platform = resolveConfigFile("platformConfig", s);
+  if (!platform.ok) return platform;
+  const prompts = resolvePromptsDir(s);
+  if (prompts.kind === "error") return { ok: false, message: prompts.message };
+  return {
+    ok: true,
+    microserviceConfig: micro.path,
+    platformConfig: platform.path,
+    promptsDir: prompts.kind === "dir" ? prompts.path : void 0
+  };
+}
+function fieldsToWrite(current, derived, lastWritten) {
+  const out = {};
+  for (const piece of PIECES) {
+    const value = current[piece].trim();
+    const ours = value === "" || value === lastWritten[piece];
+    if (ours && value !== derived[piece]) out[piece] = derived[piece];
+  }
+  return out;
+}
+var nodeProbe = {
+  async list(dir) {
+    try {
+      return await (0, import_promises5.readdir)(dir);
+    } catch {
+      return void 0;
+    }
+  }
+};
+function templateResolver(opts, probe) {
+  return async (workflowId, stepId) => {
+    const expected = `${stepId}.md`;
+    const bundled = {
+      path: (0, import_node_path6.join)(opts.bundledPromptsDir, workflowId, expected),
+      source: "bundled"
+    };
+    if (!opts.promptsDir) return bundled;
+    const dir = (0, import_node_path6.join)(opts.promptsDir, workflowId);
+    const names = await probe.list(dir);
+    if (!names) return bundled;
+    if (names.includes(expected)) return { path: (0, import_node_path6.join)(dir, expected), source: "external" };
+    const variant = names.find((n) => n.toLowerCase() === expected.toLowerCase());
+    if (variant) {
+      throw new Error(`found "${variant}" in ${dir}, expected "${expected}"`);
+    }
+    return bundled;
+  };
+}
+async function externalWorkflowsPresent(root, probe) {
+  return await probe.list((0, import_node_path6.join)(root, "workflows")) !== void 0;
+}
+function templateNote(t) {
+  return `Template: ${t.path} (${t.source === "external" ? "external" : "bundled default"})`;
+}
 
 // src/handoff/ChatHandoff.ts
 var vscode = __toESM(require("vscode"));
-var import_node_path6 = require("node:path");
+var import_node_path7 = require("node:path");
 var ChatHandoff = class {
   async deliver(prompt, taskDir) {
     try {
@@ -12016,7 +12205,7 @@ var ChatHandoff = class {
       return "B";
     } catch {
     }
-    const file = vscode.Uri.file((0, import_node_path6.join)(taskDir, ".engine", "prompt.md"));
+    const file = vscode.Uri.file((0, import_node_path7.join)(taskDir, ".engine", "prompt.md"));
     await vscode.workspace.fs.writeFile(file, Buffer.from(prompt, "utf8"));
     await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(file));
     void vscode.window.showWarningMessage(
@@ -12027,8 +12216,8 @@ var ChatHandoff = class {
 };
 
 // src/prompt/PromptComposer.ts
-var import_promises5 = require("node:fs/promises");
-var import_node_path7 = require("node:path");
+var import_promises6 = require("node:fs/promises");
+var import_node_path8 = require("node:path");
 var import_yaml = __toESM(require_dist());
 
 // src/engine/placeholders.ts
@@ -12063,8 +12252,17 @@ function resolveText(text, ctx) {
 // src/prompt/PromptComposer.ts
 var FRONTMATTER = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/;
 var PromptComposer = class {
-  constructor(templateDir) {
-    this.templateDir = templateDir;
+  constructor(resolve) {
+    this.resolve = resolve;
+  }
+  /**
+   * Which template this step will use, and whether it is the team's or the
+   * bundled default — without reading or composing it. The panel needs this to
+   * caption the prompt, and `InvokeCopilot` needs it to name the file in an
+   * error. See spec Section 16.
+   */
+  async resolved(step, ctx) {
+    return this.resolve(ctx.workflowId, step.id);
   }
   /**
    * The artifact name is frontmatter rather than code, because which file a
@@ -12075,16 +12273,14 @@ var PromptComposer = class {
    * on a file appearing (spec D9) cannot proceed without knowing its name.
    */
   async outputFor(step, ctx) {
-    const { outputFile } = await this.template(step, ctx);
+    const { outputFile, path } = await this.template(step, ctx);
     if (!outputFile) {
-      throw new Error(
-        `prompt template "${this.path(step, ctx)}" must declare "output:" in its frontmatter`
-      );
+      throw new Error(`prompt template "${path}" must declare "output:" in its frontmatter`);
     }
     return outputFile;
   }
   async compose(step, ctx, repos) {
-    const { body, outputFile } = await this.template(step, ctx);
+    const { body, outputFile, path, source } = await this.template(step, ctx);
     const part1 = resolveText(body, ctx);
     const part2 = [
       "",
@@ -12102,24 +12298,23 @@ var PromptComposer = class {
       "",
       "## Required output",
       "",
-      `Write your result to \`${(0, import_node_path7.join)(ctx.taskDir, outputFile)}\`.`,
+      `Write your result to \`${(0, import_node_path8.join)(ctx.taskDir, outputFile)}\`.`,
       "Create the file if it does not exist. Do not write your result anywhere else."
     ].join("\n") : ["", "## Required output", "", "Change the code in place. Do not write a summary file."].join(
       "\n"
     );
     return {
       prompt: [part1.trimEnd(), part2, part3, part4, ""].join("\n"),
-      outputFile
+      outputFile,
+      templatePath: path,
+      templateSource: source
     };
   }
-  path(step, ctx) {
-    return (0, import_node_path7.join)(this.templateDir, ctx.workflowId, `${step.id}.md`);
-  }
   async template(step, ctx) {
-    const path = this.path(step, ctx);
-    const raw = await (0, import_promises5.readFile)(path, "utf8");
+    const { path, source } = await this.resolved(step, ctx);
+    const raw = await (0, import_promises6.readFile)(path, "utf8");
     const match = FRONTMATTER.exec(raw);
-    if (!match) return { body: raw };
+    if (!match) return { body: raw, path, source };
     const meta = (0, import_yaml.parse)(match[1]);
     const declared = meta?.output;
     if (declared !== void 0 && (typeof declared !== "string" || declared.trim() === "")) {
@@ -12127,7 +12322,9 @@ var PromptComposer = class {
     }
     return {
       body: raw.slice(match[0].length),
-      outputFile: typeof declared === "string" ? declared.trim() : void 0
+      outputFile: typeof declared === "string" ? declared.trim() : void 0,
+      path,
+      source
     };
   }
 };
@@ -12169,7 +12366,7 @@ var CollectRequirement = class {
 };
 
 // src/tasks/GitClone.ts
-var import_node_path8 = require("node:path");
+var import_node_path9 = require("node:path");
 var GitClone = class {
   /**
    * @param fallbackWorkDir used only by tasks started before the work
@@ -12200,7 +12397,7 @@ var GitClone = class {
     const workDir = this.workDirOf(ctx);
     return this.selected(ctx).map((service) => {
       const repo = folderFor(service);
-      const lines = this.exists(this.pathOf(ctx, service)) ? [`cd ${(0, import_node_path8.join)(workDir, repo)}`, "git fetch origin"] : [
+      const lines = this.exists(this.pathOf(ctx, service)) ? [`cd ${(0, import_node_path9.join)(workDir, repo)}`, "git fetch origin"] : [
         `mkdir -p ${workDir}`,
         `cd ${workDir}`,
         `git clone ${service.gitLocation} ${repo}`,
@@ -12242,7 +12439,7 @@ var GitClone = class {
     return String(ctx.inputs.workDir ?? "").trim() || this.fallbackWorkDir;
   }
   pathOf(ctx, service) {
-    return (0, import_node_path8.join)(this.workDirOf(ctx), folderFor(service));
+    return (0, import_node_path9.join)(this.workDirOf(ctx), folderFor(service));
   }
   /** A selected shortCode with no catalogue entry is ignored, not fatal. */
   selected(ctx) {
@@ -12258,7 +12455,7 @@ function baseBranchOf(ctx) {
 }
 
 // src/tasks/InvokeCopilot.ts
-var import_node_path9 = require("node:path");
+var import_node_path10 = require("node:path");
 
 // src/tasks/history.ts
 function reposBefore(ctx, stepId) {
@@ -12280,18 +12477,26 @@ function editedPrompt(values) {
   return typeof text === "string" && text.trim() !== "" ? text : void 0;
 }
 async function composePreview(composer, step, ctx, override) {
-  if (override !== void 0) return { block: promptBlock(override, true) };
   try {
-    const { prompt } = await composer.compose(step, ctx, reposBefore(ctx, step.id));
-    return { block: promptBlock(prompt, false) };
+    if (override !== void 0) {
+      const note2 = templateNote(await composer.resolved(step, ctx));
+      return { block: promptBlock(override, true, note2) };
+    }
+    const composed = await composer.compose(step, ctx, reposBefore(ctx, step.id));
+    const note = templateNote({
+      path: composed.templatePath,
+      source: composed.templateSource
+    });
+    return { block: promptBlock(composed.prompt, false, note) };
   } catch (err) {
     return { failure: err instanceof Error ? err.message : String(err) };
   }
 }
-function promptBlock(text, edited) {
+function promptBlock(text, edited, note) {
   return {
     id: PROMPT_BLOCK_ID,
     label: edited ? "Composed prompt (edited)" : "Composed prompt",
+    note,
     lines: text.split("\n"),
     editable: true,
     actions: [
@@ -12354,30 +12559,31 @@ var InvokeCopilot = class {
   }
   /** Where this step's artifact will land. Needed by the watcher and the review step. */
   async outputPath(step, ctx) {
-    return (0, import_node_path9.join)(ctx.taskDir, await this.composer.outputFor(step, ctx));
+    return (0, import_node_path10.join)(ctx.taskDir, await this.composer.outputFor(step, ctx));
   }
   async deliver(step, ctx, override) {
     const composed = await this.composer.compose(step, ctx, reposBefore(ctx, step.id));
-    const { outputFile } = composed;
+    const { outputFile, templatePath, templateSource } = composed;
     const prompt = override ?? composed.prompt;
     if (!outputFile) {
+      const { path } = await this.composer.resolved(step, ctx);
       throw new Error(
-        `prompt template "${this.composer.path(step, ctx)}" must declare "output:" \u2014 step "${step.id}" completes only when that file appears`
+        `prompt template "${path}" must declare "output:" \u2014 step "${step.id}" completes only when that file appears`
       );
     }
     await this.audit.append({
       kind: "prompt-composed",
       stepId: step.id,
-      data: { prompt, chars: prompt.length, outputFile }
+      data: { prompt, chars: prompt.length, outputFile, templatePath, templateSource }
     });
     const mechanism = await this.handoff.deliver(prompt, ctx.taskDir);
-    return { mechanism, promptChars: prompt.length, outputPath: (0, import_node_path9.join)(ctx.taskDir, outputFile) };
+    return { mechanism, promptChars: prompt.length, outputPath: (0, import_node_path10.join)(ctx.taskDir, outputFile) };
   }
   async execute(step, ctx, values) {
     const outputPath = await this.outputPath(step, ctx);
     return {
       outputPath,
-      outputFile: (0, import_node_path9.basename)(outputPath),
+      outputFile: (0, import_node_path10.basename)(outputPath),
       outputPresent: await this.fileExists(outputPath),
       mechanism: values.mechanism ?? null
     };
@@ -12422,11 +12628,17 @@ var CopilotEditingHandoff = class {
     };
   }
   async deliver(step, ctx, override) {
-    const prompt = override ?? (await this.composer.compose(step, ctx, reposBefore(ctx, step.id))).prompt;
+    const composed = await this.composer.compose(step, ctx, reposBefore(ctx, step.id));
+    const prompt = override ?? composed.prompt;
     await this.audit.append({
       kind: "prompt-composed",
       stepId: step.id,
-      data: { prompt, chars: prompt.length }
+      data: {
+        prompt,
+        chars: prompt.length,
+        templatePath: composed.templatePath,
+        templateSource: composed.templateSource
+      }
     });
     const mechanism = await this.handoff.deliver(prompt, ctx.taskDir);
     return { mechanism, promptChars: prompt.length };
@@ -12451,7 +12663,7 @@ var InvokeCopilotCodeReview = class extends CopilotEditingHandoff {
 };
 
 // src/tasks/ManualReview.ts
-var import_node_path10 = require("node:path");
+var import_node_path11 = require("node:path");
 var ManualReview = class {
   constructor(openFile, hashFile2) {
     this.openFile = openFile;
@@ -12463,7 +12675,7 @@ var ManualReview = class {
   async describe(step, ctx, _values) {
     const path = this.artifactPath(step, ctx);
     return {
-      text: path ? `${(0, import_node_path10.basename)(path)} is open in an editor tab. Read it, edit it if you want to, then approve it or send it back for another pass.` : "No earlier step has produced an artifact to review yet.",
+      text: path ? `${(0, import_node_path11.basename)(path)} is open in an editor tab. Read it, edit it if you want to, then approve it or send it back for another pass.` : "No earlier step has produced an artifact to review yet.",
       actions: [
         { id: "revise", label: "Revise" },
         { id: "approve", label: "Approve", primary: true }
@@ -12531,14 +12743,14 @@ var TaskTypeRegistry = class {
 // src/tasks/registry.ts
 async function fileExists(p) {
   try {
-    await (0, import_promises6.access)(p);
+    await (0, import_promises7.access)(p);
     return true;
   } catch {
     return false;
   }
 }
 async function hashFile(p) {
-  return (0, import_node_crypto2.createHash)("sha256").update(await (0, import_promises6.readFile)(p, "utf8")).digest("hex");
+  return (0, import_node_crypto2.createHash)("sha256").update(await (0, import_promises7.readFile)(p, "utf8")).digest("hex");
 }
 var TERMINAL = "AI Dev Workflow";
 async function openInEditor(p) {
@@ -12546,6 +12758,12 @@ async function openInEditor(p) {
   await vscode2.window.showTextDocument(doc, { preview: false });
 }
 function buildTaskTypes(opts) {
+  const composer = new PromptComposer(
+    templateResolver(
+      { promptsDir: opts.promptsDir, bundledPromptsDir: opts.bundledPromptsDir },
+      nodeProbe
+    )
+  );
   const sink = {
     async copy(text) {
       await vscode2.env.clipboard.writeText(text);
@@ -12562,20 +12780,20 @@ function buildTaskTypes(opts) {
     new CollectRequirement(),
     new GitClone(opts.codeRoot, import_node_fs.existsSync, sink),
     new InvokeCopilot(
-      new PromptComposer(opts.promptDir),
+      composer,
       new ChatHandoff(),
       new AuditLog(opts.taskDir),
       fileExists,
       sink
     ),
     new InvokeCopilotCoding(
-      new PromptComposer(opts.promptDir),
+      composer,
       new ChatHandoff(),
       new AuditLog(opts.taskDir),
       sink
     ),
     new InvokeCopilotCodeReview(
-      new PromptComposer(opts.promptDir),
+      composer,
       new ChatHandoff(),
       new AuditLog(opts.taskDir),
       sink
@@ -12585,10 +12803,10 @@ function buildTaskTypes(opts) {
 }
 
 // src/session/openFolders.ts
-var import_node_path11 = require("node:path");
+var import_node_path12 = require("node:path");
 function isInside(path, folder) {
-  const root = folder.endsWith(import_node_path11.sep) ? folder.slice(0, -import_node_path11.sep.length) : folder;
-  return path === root || path.startsWith(root + import_node_path11.sep);
+  const root = folder.endsWith(import_node_path12.sep) ? folder.slice(0, -import_node_path12.sep.length) : folder;
+  return path === root || path.startsWith(root + import_node_path12.sep);
 }
 function allInsideOpenFolders(repoPaths, openFolders) {
   if (repoPaths.length === 0 || openFolders.length === 0) return false;
@@ -12597,62 +12815,16 @@ function allInsideOpenFolders(repoPaths, openFolders) {
 
 // src/session/resume.ts
 var import_node_os = require("node:os");
-var import_node_path12 = require("node:path");
+var import_node_path13 = require("node:path");
 function taskIdFromWorkspaceSettings(settings) {
   const v = settings["aiDevWorkflow.taskId"];
   return typeof v === "string" && v.length > 0 ? v : void 0;
 }
 function resolveTasksRoot(configured) {
-  return configured && configured.length > 0 ? configured : (0, import_node_path12.join)((0, import_node_os.homedir)(), "ai-dev-workflow", "tasks");
+  return configured && configured.length > 0 ? configured : (0, import_node_path13.join)((0, import_node_os.homedir)(), "ai-dev-workflow", "tasks");
 }
 function resolveCodeRoot(configured) {
-  return configured && configured.length > 0 ? configured : (0, import_node_path12.join)((0, import_node_os.homedir)(), "ai-dev-workflow", "code");
-}
-
-// src/session/SetupSelection.ts
-var NEW_FEATURE_WORKFLOW_ID = "newFeatureWorkflow";
-var JIRA_KEY = /^[A-Za-z][A-Za-z0-9]*-\d+$/;
-function isAbsolutePath(value) {
-  return value.startsWith("/") || /^[A-Za-z]:[\\/]/.test(value) || value.startsWith("\\\\");
-}
-function needsFeatureStory(workflowId) {
-  return workflowId === NEW_FEATURE_WORKFLOW_ID;
-}
-function validateSetup(selection) {
-  const errors = {};
-  if (!selection.platform) errors.platform = "Select a platform";
-  if (!selection.epic.trim()) errors.epic = "An epic key is required";
-  if (!selection.workflowId) errors.workflowId = "Select a task type";
-  if (!selection.baseBranch.trim()) {
-    errors.baseBranch = "A base branch is required";
-  }
-  if (selection.services.length === 0) {
-    errors.services = "Select at least one microservice";
-  }
-  const workDir = selection.workDir.trim();
-  if (!workDir) {
-    errors.workDir = "A work directory is required";
-  } else if (!isAbsolutePath(workDir)) {
-    errors.workDir = "Enter a full path, such as /Users/you/work";
-  }
-  if (needsFeatureStory(selection.workflowId)) {
-    const story = selection.featureStory.trim();
-    if (!story) {
-      errors.featureStory = "A feature story is required";
-    } else if (!JIRA_KEY.test(story)) {
-      errors.featureStory = "Enter a story key such as PLAT-1234";
-    }
-  }
-  return errors;
-}
-function normaliseSetup(selection) {
-  return {
-    ...selection,
-    epic: selection.epic.trim(),
-    baseBranch: selection.baseBranch.trim(),
-    workDir: selection.workDir.trim(),
-    featureStory: needsFeatureStory(selection.workflowId) ? selection.featureStory.trim() : ""
-  };
+  return configured && configured.length > 0 ? configured : (0, import_node_path13.join)((0, import_node_os.homedir)(), "ai-dev-workflow", "code");
 }
 
 // src/session/TaskSession.ts
@@ -12661,6 +12833,20 @@ function config(key) {
 }
 function tasksRoot() {
   return resolveTasksRoot(config("tasksRoot"));
+}
+function contentSettings() {
+  return {
+    contentRoot: config("contentRoot") ?? "",
+    microserviceConfig: config("microserviceConfig") ?? "",
+    platformConfig: config("platformConfig") ?? "",
+    customPrompts: config("customPrompts") ?? ""
+  };
+}
+function resolvedContent() {
+  return resolveAll(contentSettings());
+}
+function contentRoot() {
+  return resolveContentRootSetting(config("contentRoot") ?? "");
 }
 function workflowFilename(id, version) {
   return `${id}_${version.replace(".", "_")}.json`;
@@ -12753,8 +12939,8 @@ var TaskSession = class _TaskSession {
     const catalog = await loadCatalog(context);
     const { platform, epic, workflowId } = selection;
     const workflow = catalog.get(workflowId);
-    const source = await (0, import_promises7.readFile)(
-      (0, import_node_path13.join)(workflowsDir(context), workflowFilename(workflow.id, workflow.version)),
+    const source = await (0, import_promises8.readFile)(
+      (0, import_node_path14.join)(workflowsDir(context), workflowFilename(workflow.id, workflow.version)),
       "utf8"
     );
     const ws = await TaskWorkspace.create({
@@ -12794,7 +12980,7 @@ var TaskSession = class _TaskSession {
     return session;
   }
   static async resume(context, taskId) {
-    const dir = (0, import_node_path13.join)(tasksRoot(), taskId);
+    const dir = (0, import_node_path14.join)(tasksRoot(), taskId);
     const store = new TaskStateStore(dir);
     if (!await store.exists()) return void 0;
     const state = await store.read();
@@ -12815,12 +13001,32 @@ var TaskSession = class _TaskSession {
       id: state.platform,
       label: state.platform
     };
+    const resolved = resolvedContent();
     const registry = buildTaskTypes({
-      promptDir: (0, import_node_path13.join)(context.extensionPath, "prompts"),
+      promptsDir: resolved.ok ? resolved.promptsDir : void 0,
+      bundledPromptsDir: (0, import_node_path14.join)(context.extensionPath, "prompts"),
       taskDir: ws.dir,
       codeRoot: resolveCodeRoot(config("codeRoot"))
     });
     registry.validateWorkflow(workflow.id, workflow.steps);
+    if (resolved.ok) {
+      await new AuditLog(ws.dir).append({
+        kind: "content-resolved",
+        data: {
+          promptsDir: resolved.promptsDir ?? null,
+          files: await Promise.all(
+            [
+              ["microserviceConfig", resolved.microserviceConfig],
+              ["platformConfig", resolved.platformConfig]
+            ].map(async ([setting, path]) => ({
+              setting,
+              path,
+              sha256: (0, import_node_crypto3.createHash)("sha256").update(await (0, import_promises8.readFile)(path, "utf8")).digest("hex")
+            }))
+          )
+        }
+      });
+    }
     const panel = vscode3.window.createWebviewPanel(
       "aiDevWorkflow",
       workflow.label,
@@ -12828,14 +13034,14 @@ var TaskSession = class _TaskSession {
       {
         enableScripts: true,
         retainContextWhenHidden: true,
-        localResourceRoots: [vscode3.Uri.file((0, import_node_path13.join)(context.extensionPath, "out"))]
+        localResourceRoots: [vscode3.Uri.file((0, import_node_path14.join)(context.extensionPath, "out"))]
       }
     );
     const bridge = new WebviewBridge(panel.webview);
     panel.onDidChangeViewState(() => {
       if (!panel.visible) bridge.resetReady();
     });
-    const asset = (name) => panel.webview.asWebviewUri(vscode3.Uri.file((0, import_node_path13.join)(context.extensionPath, "out", name)));
+    const asset = (name) => panel.webview.asWebviewUri(vscode3.Uri.file((0, import_node_path14.join)(context.extensionPath, "out", name)));
     panel.webview.html = bridge.html(asset("webview.js"), asset("style.css"), randomNonce());
     const holder = { state };
     const ctx = {
@@ -12921,7 +13127,7 @@ var TaskSession = class _TaskSession {
         await this.rememberEdit(stepId, values);
         const { mechanism, outputPath } = await task.deliver(step, this.ctx, editedPrompt(values));
         this.pendingMechanism = mechanism;
-        this.outputFile = outputPath ? (0, import_node_path13.basename)(outputPath) : void 0;
+        this.outputFile = outputPath ? (0, import_node_path14.basename)(outputPath) : void 0;
         this.bridge.progress(
           stepId,
           this.outputFile ? `Prompt delivered (mechanism ${mechanism}). Waiting for ${this.outputFile}\u2026` : `Prompt delivered (mechanism ${mechanism}).`
@@ -12977,7 +13183,7 @@ var TaskSession = class _TaskSession {
       return;
     }
     const ws = await TaskWorkspace.open(this.ctx.taskDir, this.ctx.taskId);
-    const target = (0, import_node_path13.join)(this.ctx.taskDir, `${this.ctx.taskId}.code-workspace`);
+    const target = (0, import_node_path14.join)(this.ctx.taskDir, `${this.ctx.taskId}.code-workspace`);
     if (await exists(target)) return;
     const file = await ws.writeWorkspaceFile(repos);
     await this.audit.append({ kind: "workspace-generated", data: { file } });
@@ -13001,7 +13207,7 @@ var TaskSession = class _TaskSession {
       const expected = await task.outputPath?.(step, this.ctx).catch(() => void 0);
       if (!expected || uri.fsPath !== expected) return;
       this.outputPresent = true;
-      this.outputFile = (0, import_node_path13.basename)(expected);
+      this.outputFile = (0, import_node_path14.basename)(expected);
       await this.audit.append({ kind: "output-detected", stepId: step.id });
       await this.refresh();
     };
@@ -13034,14 +13240,19 @@ var TaskSession = class _TaskSession {
   }
 };
 function workflowsDir(context) {
-  return (0, import_node_path13.join)(context.extensionPath, "workflows");
+  return (0, import_node_path14.join)(context.extensionPath, "workflows");
 }
 function loadCatalog(context) {
-  return WorkflowCatalog.load(workflowsDir(context), (0, import_node_path13.join)(context.extensionPath, "config"));
+  const resolved = resolvedContent();
+  if (!resolved.ok) throw new Error(resolved.message);
+  return WorkflowCatalog.load(workflowsDir(context), {
+    platformConfig: resolved.platformConfig,
+    microserviceConfig: resolved.microserviceConfig
+  });
 }
 async function exists(path) {
   try {
-    await (0, import_promises7.access)(path);
+    await (0, import_promises8.access)(path);
     return true;
   } catch {
     return false;
@@ -13077,21 +13288,39 @@ function randomNonce() {
 }
 
 // src/session/SetupView.ts
-var import_node_path15 = require("node:path");
+var import_node_path16 = require("node:path");
 var vscode4 = __toESM(require("vscode"));
 
+// src/session/setupDescriptor.ts
+function unconfiguredDescriptor(message) {
+  return {
+    protocolVersion: PROTOCOL_VERSION,
+    task: { id: "", platform: "", epic: "", workflowLabel: "Task setup" },
+    progress: { index: 0, total: 0, steps: [] },
+    step: {
+      id: "setup",
+      kind: "form",
+      title: "Task setup",
+      fields: [],
+      text: message,
+      values: {},
+      actions: [{ id: "openSettings", label: "Open Settings", primary: true }]
+    }
+  };
+}
+
 // src/session/taskIndex.ts
-var import_promises8 = require("node:fs/promises");
-var import_node_path14 = require("node:path");
+var import_promises9 = require("node:fs/promises");
+var import_node_path15 = require("node:path");
 function isFinished(state) {
   return state.steps?.[state.currentStepId]?.status === "complete";
 }
 async function listUnfinishedTasks(tasksRoot2) {
-  const entries = await (0, import_promises8.readdir)(tasksRoot2, { withFileTypes: true }).catch(() => []);
+  const entries = await (0, import_promises9.readdir)(tasksRoot2, { withFileTypes: true }).catch(() => []);
   const found = [];
   for (const entry of entries) {
     if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
-    const file = (0, import_node_path14.join)(tasksRoot2, entry.name, ".engine", "_state.json");
+    const file = (0, import_node_path15.join)(tasksRoot2, entry.name, ".engine", "_state.json");
     const summary = await summarise2(entry.name, file);
     if (summary) found.push(summary);
   }
@@ -13103,14 +13332,14 @@ function taskLabel(summary, workflowLabel) {
 }
 async function summarise2(taskId, file) {
   try {
-    const state = JSON.parse(await (0, import_promises8.readFile)(file, "utf8"));
+    const state = JSON.parse(await (0, import_promises9.readFile)(file, "utf8"));
     if (!state.currentStepId || isFinished(state)) return void 0;
     return {
       taskId,
       epic: state.epic ?? "",
       workflowId: state.workflowId ?? "",
       currentStepId: state.currentStepId,
-      updatedAt: (await (0, import_promises8.stat)(file)).mtimeMs
+      updatedAt: (await (0, import_promises9.stat)(file)).mtimeMs
     };
   } catch {
     return void 0;
@@ -13131,10 +13360,10 @@ var SetupView = class {
   async resolveWebviewView(view) {
     view.webview.options = {
       enableScripts: true,
-      localResourceRoots: [vscode4.Uri.file((0, import_node_path15.join)(this.context.extensionPath, "out"))]
+      localResourceRoots: [vscode4.Uri.file((0, import_node_path16.join)(this.context.extensionPath, "out"))]
     };
     const script = view.webview.asWebviewUri(
-      vscode4.Uri.file((0, import_node_path15.join)(this.context.extensionPath, "out", "setup.js"))
+      vscode4.Uri.file((0, import_node_path16.join)(this.context.extensionPath, "out", "setup.js"))
     );
     view.webview.html = html(script.toString());
     this.bridge = new WebviewBridge(view.webview);
@@ -13144,6 +13373,10 @@ var SetupView = class {
     view.onDidChangeVisibility(() => {
       if (!view.visible) this.bridge?.resetReady();
     });
+    await this.render();
+  }
+  /** Redraw, for when a setting changes underneath the pane. */
+  async refresh() {
     await this.render();
   }
   async onAction(actionId, values) {
@@ -13159,6 +13392,13 @@ var SetupView = class {
     }
     if (actionId === "open") {
       await this.open();
+      return;
+    }
+    if (actionId === "openSettings") {
+      await vscode4.commands.executeCommand(
+        "workbench.action.openSettings",
+        "aiDevWorkflow.contentRoot"
+      );
       return;
     }
     if (actionId === "start") await this.start();
@@ -13225,10 +13465,21 @@ var SetupView = class {
   }
   async render() {
     if (!this.bridge) return;
-    const catalog = await WorkflowCatalog.load(
-      (0, import_node_path15.join)(this.context.extensionPath, "workflows"),
-      (0, import_node_path15.join)(this.context.extensionPath, "config")
-    );
+    const resolved = resolvedContent();
+    if (!resolved.ok) {
+      this.bridge.render(unconfiguredDescriptor(resolved.message));
+      return;
+    }
+    let catalog;
+    try {
+      catalog = await WorkflowCatalog.load((0, import_node_path16.join)(this.context.extensionPath, "workflows"), {
+        platformConfig: resolved.platformConfig,
+        microserviceConfig: resolved.microserviceConfig
+      });
+    } catch (err) {
+      this.bridge.render(unconfiguredDescriptor(err instanceof Error ? err.message : String(err)));
+      return;
+    }
     const modeField = {
       id: "mode",
       type: "select",
@@ -13406,12 +13657,34 @@ async function checkForUpdate(deps) {
   }
 }
 
+// src/session/derivedSettings.ts
+var vscode5 = __toESM(require("vscode"));
+var MEMENTO_KEY = "aiDevWorkflow.derivedPaths";
+async function writeDerivedSettings(context) {
+  const config2 = vscode5.workspace.getConfiguration("aiDevWorkflow");
+  const root = resolveContentRootSetting(config2.get("contentRoot") ?? "");
+  if (!root) return;
+  const workspaceScoped = config2.inspect("contentRoot")?.workspaceValue !== void 0;
+  const target = workspaceScoped ? vscode5.ConfigurationTarget.Workspace : vscode5.ConfigurationTarget.Global;
+  const memento = workspaceScoped ? context.workspaceState : context.globalState;
+  const current = Object.fromEntries(
+    PIECES.map((piece) => [piece, config2.get(piece) ?? ""])
+  );
+  const lastWritten = memento.get(MEMENTO_KEY) ?? {};
+  const pending = fieldsToWrite(current, derivedFrom(root), lastWritten);
+  if (Object.keys(pending).length === 0) return;
+  for (const [piece, value] of Object.entries(pending)) {
+    await config2.update(piece, value, target);
+  }
+  await memento.update(MEMENTO_KEY, { ...lastWritten, ...pending });
+}
+
 // src/extension.ts
 async function activate(context) {
   const resume = async (taskId2) => {
     const session = await TaskSession.resume(context, taskId2);
     if (!session) {
-      void vscode5.window.showErrorMessage(`Task ${taskId2} has no saved state.`);
+      void vscode6.window.showErrorMessage(`Task ${taskId2} has no saved state.`);
       return;
     }
     session.show();
@@ -13425,26 +13698,26 @@ async function activate(context) {
     resume
   );
   context.subscriptions.push(
-    vscode5.window.registerWebviewViewProvider(SetupView.viewId, setup)
+    vscode6.window.registerWebviewViewProvider(SetupView.viewId, setup)
   );
   context.subscriptions.push(
-    vscode5.commands.registerCommand("aiDevWorkflow.startTask", async () => {
+    vscode6.commands.registerCommand("aiDevWorkflow.startTask", async () => {
       try {
         const session = await TaskSession.start(context);
         session?.show();
       } catch (err) {
-        void vscode5.window.showErrorMessage(`Could not start task: ${String(err)}`);
+        void vscode6.window.showErrorMessage(`Could not start task: ${String(err)}`);
       }
     }),
-    vscode5.commands.registerCommand("aiDevWorkflow.resumeTask", async () => {
-      const ids = (await (0, import_promises9.readdir)(tasksRoot()).catch(() => [])).filter(
+    vscode6.commands.registerCommand("aiDevWorkflow.resumeTask", async () => {
+      const ids = (await (0, import_promises10.readdir)(tasksRoot()).catch(() => [])).filter(
         (n) => !n.startsWith(".")
       );
       if (ids.length === 0) {
-        void vscode5.window.showInformationMessage("No tasks found.");
+        void vscode6.window.showInformationMessage("No tasks found.");
         return;
       }
-      const chosen = await vscode5.window.showQuickPick(ids.reverse(), {
+      const chosen = await vscode6.window.showQuickPick(ids.reverse(), {
         placeHolder: "Resume which task?"
       });
       if (!chosen) return;
@@ -13452,26 +13725,44 @@ async function activate(context) {
     })
   );
   void notifyIfOutOfDate(context);
+  void warnAboutExternalWorkflows();
+  void writeDerivedSettings(context);
+  context.subscriptions.push(
+    vscode6.workspace.onDidChangeConfiguration(async (e) => {
+      if (e.affectsConfiguration("aiDevWorkflow.contentRoot")) {
+        await writeDerivedSettings(context);
+      }
+      if (e.affectsConfiguration("aiDevWorkflow")) await setup.refresh();
+    })
+  );
   const taskId = taskIdFromWorkspaceSettings({
-    "aiDevWorkflow.taskId": vscode5.workspace.getConfiguration("aiDevWorkflow").get("taskId") ?? ""
+    "aiDevWorkflow.taskId": vscode6.workspace.getConfiguration("aiDevWorkflow").get("taskId") ?? ""
   });
   if (taskId) {
     try {
       const session = await TaskSession.resume(context, taskId);
       session?.show();
     } catch (err) {
-      void vscode5.window.showErrorMessage(`Could not resume task ${taskId}: ${String(err)}`);
+      void vscode6.window.showErrorMessage(`Could not resume task ${taskId}: ${String(err)}`);
     }
   }
 }
+async function warnAboutExternalWorkflows() {
+  const root = contentRoot();
+  if (!root) return;
+  if (!await externalWorkflowsPresent(root, nodeProbe)) return;
+  void vscode6.window.showWarningMessage(
+    "Your content folder contains a workflows/ directory. Workflow definitions are bundled with the extension and cannot be overridden, so it is ignored."
+  );
+}
 async function notifyIfOutOfDate(context) {
   const latest = await checkForUpdate({
-    manifestUrl: vscode5.workspace.getConfiguration("aiDevWorkflow").get("updateManifestUrl") ?? "",
+    manifestUrl: vscode6.workspace.getConfiguration("aiDevWorkflow").get("updateManifestUrl") ?? "",
     currentVersion: context.extension.packageJSON.version,
     fetchJson: async (url) => await (await fetch(url)).json()
   });
   if (latest) {
-    void vscode5.window.showInformationMessage(
+    void vscode6.window.showInformationMessage(
       `AI Dev Workflow ${latest} is available. Install the new .vsix to update.`
     );
   }

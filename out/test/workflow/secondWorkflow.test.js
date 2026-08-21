@@ -16,6 +16,10 @@ const TaskType_1 = require("../../src/tasks/TaskType");
 const fixtures_1 = require("../support/fixtures");
 const noSink = { async copy() { }, async toTerminal() { } };
 const ROOT = (0, node_path_1.join)(__dirname, '../..');
+const CONFIG = {
+    platformConfig: (0, node_path_1.join)(ROOT, 'examples/content-template/config/platforms.json'),
+    microserviceConfig: (0, node_path_1.join)(ROOT, 'examples/content-template/config/microservices.json'),
+};
 const SECOND = {
     schemaVersion: 1,
     label: 'Throwaway Task',
@@ -57,7 +61,7 @@ Answer this for {{task.epic}}: {{requirement.story}}
         return dir;
     }
     (0, vitest_1.it)('is loaded alongside the bundled ones', async () => {
-        const catalog = await WorkflowCatalog_1.WorkflowCatalog.load((0, node_path_1.join)(await bundle(), 'workflows'), (0, node_path_1.join)(ROOT, 'config'));
+        const catalog = await WorkflowCatalog_1.WorkflowCatalog.load((0, node_path_1.join)(await bundle(), 'workflows'), CONFIG);
         (0, vitest_1.expect)(catalog.all().map((w) => w.id).sort()).toEqual([
             'bugFixWorkflow',
             'newFeatureWorkflow',
@@ -66,10 +70,10 @@ Answer this for {{task.epic}}: {{requirement.story}}
         ]);
     });
     (0, vitest_1.it)('names only taskTypes that already exist', async () => {
-        const catalog = await WorkflowCatalog_1.WorkflowCatalog.load((0, node_path_1.join)(await bundle(), 'workflows'), (0, node_path_1.join)(ROOT, 'config'));
+        const catalog = await WorkflowCatalog_1.WorkflowCatalog.load((0, node_path_1.join)(await bundle(), 'workflows'), CONFIG);
         const registry = new TaskType_1.TaskTypeRegistry([
             new CollectRequirement_1.CollectRequirement(),
-            new InvokeCopilot_1.InvokeCopilot(new PromptComposer_1.PromptComposer('/unused'), { async deliver() { return 'A'; } }, new AuditLog_1.AuditLog('/unused'), async () => true, noSink),
+            new InvokeCopilot_1.InvokeCopilot(new PromptComposer_1.PromptComposer((0, fixtures_1.bundledResolver)('/unused')), { async deliver() { return 'A'; } }, new AuditLog_1.AuditLog('/unused'), async () => true, noSink),
             new ManualReview_1.ManualReview(async () => { }, async () => 'h'),
         ]);
         const workflow = catalog.get('throwawayWorkflow');
@@ -78,10 +82,10 @@ Answer this for {{task.epic}}: {{requirement.story}}
     (0, vitest_1.it)('runs, using its own prompt template found by convention', async () => {
         const dir = await bundle();
         const taskDir = await (0, promises_1.mkdtemp)((0, node_path_1.join)((0, node_os_1.tmpdir)(), 'run2-'));
-        const catalog = await WorkflowCatalog_1.WorkflowCatalog.load((0, node_path_1.join)(dir, 'workflows'), (0, node_path_1.join)(ROOT, 'config'));
+        const catalog = await WorkflowCatalog_1.WorkflowCatalog.load((0, node_path_1.join)(dir, 'workflows'), CONFIG);
         const workflow = catalog.get('throwawayWorkflow');
         const delivered = [];
-        const handoff = new InvokeCopilot_1.InvokeCopilot(new PromptComposer_1.PromptComposer((0, node_path_1.join)(dir, 'prompts')), { async deliver(prompt) { delivered.push(prompt); return 'A'; } }, new AuditLog_1.AuditLog(taskDir), async () => true, noSink);
+        const handoff = new InvokeCopilot_1.InvokeCopilot(new PromptComposer_1.PromptComposer((0, fixtures_1.bundledResolver)((0, node_path_1.join)(dir, 'prompts'))), { async deliver(prompt) { delivered.push(prompt); return 'A'; } }, new AuditLog_1.AuditLog(taskDir), async () => true, noSink);
         const registry = new TaskType_1.TaskTypeRegistry([
             new CollectRequirement_1.CollectRequirement(),
             handoff,

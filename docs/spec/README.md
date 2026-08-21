@@ -1,8 +1,9 @@
 # AI Dev Workflow — Phase 1 Design
 
 **Date:** 2026-08-14
-**Status:** Implemented. Revised 2026-08-18 to match the code as built.
-**Scope:** Phase 1 only (see [Phasing](03-phasing.md))
+**Status:** Sections 1-15 implemented, revised 2026-08-18 to match the code as built.
+Section 16 is designed and not yet implemented.
+**Scope:** Phase 1 (see [Phasing](03-phasing.md)), plus Section 16, which post-dates it
 
 ---
 
@@ -23,6 +24,7 @@
 13. [Release and distribution](13-release-and-distribution.md)
 14. [Acceptance criteria for Phase 1](14-acceptance-criteria.md)
 15. [Repository status](15-repository-status.md)
+16. [External content](16-external-content.md)
 
 ---
 

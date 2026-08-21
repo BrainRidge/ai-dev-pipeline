@@ -13,10 +13,21 @@ const ctx = context()
 
 const composer = {
   async compose() {
-    return { prompt: 'COMPOSED PROMPT', outputFile: '02-analysis.md' }
+    return {
+      prompt: 'COMPOSED PROMPT',
+      outputFile: '02-analysis.md',
+      templatePath: '/ext/prompts/researchTaskWorkflow/aiHandoff.md',
+      templateSource: 'bundled' as const,
+    }
   },
   async outputFor() {
     return '02-analysis.md'
+  },
+  async resolved() {
+    return {
+      path: '/ext/prompts/researchTaskWorkflow/aiHandoff.md',
+      source: 'bundled' as const,
+    }
   },
 } as unknown as PromptComposer
 
@@ -220,5 +231,31 @@ describe('editing the composed prompt', () => {
     const t = new InvokeCopilot(composer, handoffReturning('A'), fakeAudit(), async () => true, sink)
     await t.copyPrompt(handoffStep, ctx, 'MY OWN WORDS')
     expect(copied).toEqual(['MY OWN WORDS'])
+  })
+})
+
+describe('the developer can see which template composed the prompt', () => {
+  it('captions the prompt block with the resolved template', async () => {
+    const view = await task().describe(handoffStep, ctx, {})
+    expect(view.commands?.[0]?.note).toBe(
+      'Template: /ext/prompts/researchTaskWorkflow/aiHandoff.md (bundled default)',
+    )
+  })
+
+  it('still captions the block when the developer has rewritten the prompt', async () => {
+    const view = await task().describe(handoffStep, ctx, { edited: { prompt: 'MY OWN WORDS' } })
+    expect(view.commands?.[0]?.note).toContain('aiHandoff.md')
+  })
+
+  // The log has always answered "what was asked". It now also answers
+  // "whose template asked it". See spec Section 16.
+  it('records the template path and source alongside the prompt', async () => {
+    const audit = fakeAudit()
+    const t = new InvokeCopilot(composer, handoffReturning('A'), audit, async () => true, noSink)
+    await t.deliver(handoffStep, ctx)
+    expect(audit.logged[0]!.data).toMatchObject({
+      templatePath: '/ext/prompts/researchTaskWorkflow/aiHandoff.md',
+      templateSource: 'bundled',
+    })
   })
 })

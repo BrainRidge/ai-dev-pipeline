@@ -1,12 +1,14 @@
 import { join } from 'node:path'
 import * as vscode from 'vscode'
 import { WorkflowCatalog } from '../engine/WorkflowCatalog'
+
+import { unconfiguredDescriptor, type SetupDescriptor } from './setupDescriptor'
 import { resolveCodeRoot } from './resume'
 import { listUnfinishedTasks, taskLabel } from './taskIndex'
-import { tasksRoot } from './TaskSession'
+import { resolvedContent, tasksRoot } from './TaskSession'
 import { PROTOCOL_VERSION } from '../engine/StepDescriptor'
 import { WebviewBridge } from '../bridge/WebviewBridge'
-import type { ActionDef, Answers, RenderField } from '../tasks/context'
+import type { RenderField } from '../tasks/context'
 import {
   needsFeatureStory,
   normaliseSetup,
@@ -14,26 +16,7 @@ import {
   type SetupSelection,
 } from './SetupSelection'
 
-/** The sidebar is a single form, not a workflow, so it has its own shape. */
-export interface SetupDescriptor {
-  protocolVersion: number
-  task: { id: string; platform: string; epic: string; workflowLabel: string }
-  progress: { index: number; total: number; steps: never[] }
-  step: {
-    id: string
-    kind: string
-    title: string
-    fields: RenderField[]
-    text?: string
-    values: Answers
-    errors?: Record<string, string>
-    actions: ActionDef[]
-  }
-  /** Machine-level settings, rendered below the primary action. */
-  footer?: { title?: string; fields: RenderField[]; actions: ActionDef[] }
-}
-
-export type { SetupSelection }
+export type { SetupDescriptor, SetupSelection }
 
 /** New starts a task; Existing picks up one already saved under the tasks root. */
 type Mode = 'new' | 'existing'
@@ -81,6 +64,11 @@ export class SetupView implements vscode.WebviewViewProvider {
     await this.render()
   }
 
+  /** Redraw, for when a setting changes underneath the pane. */
+  async refresh(): Promise<void> {
+    await this.render()
+  }
+
   private async onAction(actionId: string, values: Record<string, unknown>): Promise<void> {
     // Merged, not replaced: the form only reports the fields it is currently
     // showing, and switching modes must not throw away what has been typed.
@@ -103,6 +91,14 @@ export class SetupView implements vscode.WebviewViewProvider {
 
     if (actionId === 'open') {
       await this.open()
+      return
+    }
+
+    if (actionId === 'openSettings') {
+      await vscode.commands.executeCommand(
+        'workbench.action.openSettings',
+        'aiDevWorkflow.contentRoot',
+      )
       return
     }
 
@@ -185,10 +181,25 @@ export class SetupView implements vscode.WebviewViewProvider {
 
   private async render(): Promise<void> {
     if (!this.bridge) return
-    const catalog = await WorkflowCatalog.load(
-      join(this.context.extensionPath, 'workflows'),
-      join(this.context.extensionPath, 'config'),
-    )
+
+    const resolved = resolvedContent()
+    if (!resolved.ok) {
+      this.bridge.render(unconfiguredDescriptor(resolved.message))
+      return
+    }
+
+    let catalog: WorkflowCatalog
+    try {
+      catalog = await WorkflowCatalog.load(join(this.context.extensionPath, 'workflows'), {
+        platformConfig: resolved.platformConfig,
+        microserviceConfig: resolved.microserviceConfig,
+      })
+    } catch (err) {
+      // A missing file, malformed JSON, a duplicate shortCode. The loader's own
+      // wording is the most useful thing here, so it is shown as it comes.
+      this.bridge.render(unconfiguredDescriptor(err instanceof Error ? err.message : String(err)))
+      return
+    }
 
     const modeField: RenderField = {
       id: 'mode',
