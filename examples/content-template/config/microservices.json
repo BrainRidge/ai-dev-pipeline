@@ -1,0 +1,16 @@
+[
+  {
+    "microserviceName": "example-reference-data-service",
+    "shortCode": "ref",
+    "purpose": "REPLACE ME — one line on what this service is for.",
+    "gitLocation": "https://git.example.invalid/your-org/example-reference-data-service.git",
+    "category": "backend-service"
+  },
+  {
+    "microserviceName": "example-party-service",
+    "shortCode": "party",
+    "purpose": "REPLACE ME — one line on what this service is for.",
+    "gitLocation": "https://git.example.invalid/your-org/example-party-service.git",
+    "category": "backend-service"
+  }
+]
