@@ -18,6 +18,8 @@ const composer = {
             outputFile: undefined,
             templatePath: '/team/prompts/newFeatureWorkflow/CodeImplementation.md',
             templateSource: 'external',
+            includes: [],
+            references: [],
         };
     },
     async resolved() {
@@ -144,6 +146,8 @@ const task = (m = 'A') => new InvokeCopilotCoding_1.InvokeCopilotCoding(composer
         (0, vitest_1.expect)(audit.logged[0].data).toMatchObject({
             templatePath: '/team/prompts/newFeatureWorkflow/CodeImplementation.md',
             templateSource: 'external',
+            includes: [],
+            references: [],
         });
     });
     (0, vitest_1.it)('captions the prompt block so a team override is visible on screen', async () => {

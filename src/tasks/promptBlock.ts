@@ -1,8 +1,42 @@
 import type { StepDef } from '../engine/schema'
-import type { PromptComposer } from '../prompt/PromptComposer'
+import type { ComposedPrompt, PromptComposer } from '../prompt/PromptComposer'
 import type { Answers, CommandBlock, StepContext } from './context'
-import { templateNote } from '../content/ContentRoot'
+import { sourceLabel, templateNote } from '../content/ContentRoot'
 import { reposBefore } from './history'
+
+/**
+ * The caption above the composed prompt: every file that shaped it, and whose
+ * each one was.
+ *
+ * One line per kind rather than one per file, because the common case is a
+ * template and nothing else and the caption must not shout. A reference that is
+ * not on disk is named as missing here — the `#file:` is still in the prompt,
+ * so the panel is the only place that discrepancy can be seen.
+ * See spec Sections 8 and 16.
+ */
+export function provenanceNote(composed: ComposedPrompt): string {
+  const lines = [
+    templateNote({ path: composed.templatePath, source: composed.templateSource }),
+  ]
+
+  if (composed.includes.length > 0) {
+    lines.push(
+      `Includes: ${composed.includes
+        .map((i) => `${i.path} (${sourceLabel(i.source)})`)
+        .join('; ')}`,
+    )
+  }
+
+  if (composed.references.length > 0) {
+    lines.push(
+      `References: ${composed.references
+        .map((r) => (r.found ? r.path : `${r.path} (not found)`))
+        .join('; ')}`,
+    )
+  }
+
+  return lines.join('\n')
+}
 
 export interface PromptPreview {
   block?: CommandBlock
@@ -56,11 +90,7 @@ export async function composePreview(
     }
 
     const composed = await composer.compose(step, ctx, reposBefore(ctx, step.id))
-    const note = templateNote({
-      path: composed.templatePath,
-      source: composed.templateSource,
-    })
-    return { block: promptBlock(composed.prompt, false, note) }
+    return { block: promptBlock(composed.prompt, false, provenanceNote(composed)) }
   } catch (err) {
     return { failure: err instanceof Error ? err.message : String(err) }
   }

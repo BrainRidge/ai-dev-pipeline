@@ -23,6 +23,8 @@ const composer = {
       outputFile: undefined,
       templatePath: '/team/prompts/newFeatureWorkflow/CodeImplementation.md',
       templateSource: 'external' as const,
+      includes: [],
+      references: [],
     }
   },
   async resolved() {
@@ -178,6 +180,8 @@ describe('provenance on an editing handoff', () => {
     expect(audit.logged[0]!.data).toMatchObject({
       templatePath: '/team/prompts/newFeatureWorkflow/CodeImplementation.md',
       templateSource: 'external',
+      includes: [],
+      references: [],
     })
   })
 

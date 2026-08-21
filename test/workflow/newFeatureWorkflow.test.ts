@@ -188,6 +188,34 @@ describe('the bundled new feature workflow', () => {
     expect(delivered.at(-1)!.prompt).not.toContain('Create the file if it does not exist')
   })
 
+  // The shared file is real, bundled content, and this is the assertion that
+  // keeps it wired up. See spec Section 8.
+  it('quotes the shared house rules into the coding prompt', async () => {
+    const h = await upTo('CodeImplementation')
+    const task = h.registry.get('invokeCopilotCoding') as InvokeCopilotCoding
+    await task.deliver(h.workflow.steps.CodeImplementation!, h.ctx)
+
+    const prompt = delivered.at(-1)!.prompt
+    expect(prompt).toContain('## House rules')
+    expect(prompt).toContain('Do not push, do not open a pull request')
+    // Authored content first, generated parts after.
+    expect(prompt.indexOf('## Repositories in scope')).toBeGreaterThan(
+      prompt.indexOf('## House rules'),
+    )
+  })
+
+  it('records the shared file it quoted, so the log says whose wording it was', async () => {
+    const h = await upTo('CodeImplementation')
+    const composed = await new PromptComposer(bundledResolver(join(ROOT, 'prompts'))).compose(
+      h.workflow.steps.CodeImplementation!,
+      h.ctx,
+      [],
+    )
+    expect(composed.includes).toEqual([
+      { path: join(ROOT, 'prompts', '_shared', 'house-rules.md'), source: 'bundled' },
+    ])
+  })
+
   it('points the coding step at the plan the developer approved', async () => {
     const h = await upTo('CodeImplementation')
     const task = h.registry.get('invokeCopilotCoding') as InvokeCopilotCoding

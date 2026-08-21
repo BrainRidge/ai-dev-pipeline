@@ -10,6 +10,7 @@ exports.resolveAll = resolveAll;
 exports.fieldsToWrite = fieldsToWrite;
 exports.templateResolver = templateResolver;
 exports.externalWorkflowsPresent = externalWorkflowsPresent;
+exports.sourceLabel = sourceLabel;
 exports.templateNote = templateNote;
 const promises_1 = require("node:fs/promises");
 const node_path_1 = require("node:path");
@@ -185,8 +186,8 @@ exports.nodeProbe = {
     },
 };
 /**
- * Resolves `<promptsDir>/<workflowId>/<stepId>.md`, falling back to the bundled
- * template of the same name when the team has not supplied one.
+ * Resolves `<promptsDir>/<relativePath>`, falling back to the bundled template
+ * of the same name when the team has not supplied one.
  *
  * Fallback is per file on purpose: a team overriding one prompt keeps receiving
  * every other prompt a release adds. The cost is that a misnamed override would
@@ -198,15 +199,15 @@ exports.nodeProbe = {
  * filesystem even when the file on disk is `aiHandoff.MD`.
  */
 function templateResolver(opts, probe) {
-    return async (workflowId, stepId) => {
-        const expected = `${stepId}.md`;
+    return async (relativePath) => {
+        const expected = (0, node_path_1.basename)(relativePath);
         const bundled = {
-            path: (0, node_path_1.join)(opts.bundledPromptsDir, workflowId, expected),
+            path: (0, node_path_1.join)(opts.bundledPromptsDir, relativePath),
             source: 'bundled',
         };
         if (!opts.promptsDir)
             return bundled;
-        const dir = (0, node_path_1.join)(opts.promptsDir, workflowId);
+        const dir = (0, node_path_1.join)(opts.promptsDir, (0, node_path_1.dirname)(relativePath));
         const names = await probe.list(dir);
         if (!names)
             return bundled;
@@ -223,7 +224,11 @@ function templateResolver(opts, probe) {
 async function externalWorkflowsPresent(root, probe) {
     return (await probe.list((0, node_path_1.join)(root, 'workflows'))) !== undefined;
 }
+/** How a template's origin is worded wherever it is shown. */
+function sourceLabel(source) {
+    return source === 'external' ? 'external' : 'bundled default';
+}
 /** The caption above a composed prompt, so silent fallback is visible on screen. */
 function templateNote(t) {
-    return `Template: ${t.path} (${t.source === 'external' ? 'external' : 'bundled default'})`;
+    return `Template: ${t.path} (${sourceLabel(t.source)})`;
 }

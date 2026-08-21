@@ -164,6 +164,29 @@ code --install-extension ai-dev-workflow-0.1.0.vsix
       *Expected:* your wording appears, and the caption now says **(external)**.
       `audit.jsonl` records `templateSource` for both.
 
+- [ ] **13a. A shared file is quoted, and its origin is captioned.** Run a New
+      Feature task to the Implement the code step.
+      *Expected:* the prompt contains a **House rules** section, and the caption
+      above it has a second line — *"Includes: …/prompts/_shared/house-rules.md
+      (bundled default)"*. Copy `_shared/house-rules.md` into your content
+      folder, change a line, reopen the step.
+      *Expected:* your wording appears and that line now says **(external)**,
+      while the step's own template still says whatever it said before —
+      the fallback is per file.
+
+- [ ] **13b. A referenced file is named, not quoted.** Add
+      `reference: "{{task.dir}}/notes.md"` to a template's frontmatter and
+      reopen the step.
+      *Expected:* a **Further reading** section listing `#file:` for that path,
+      the caption naming it as *(not found)* while the file does not exist, and
+      the `#file:` line present either way. Create the file and reopen.
+      *Expected:* the *(not found)* marker goes; the prompt is unchanged.
+
+- [ ] **13c. A missing include stops the step, visibly.** Point `include:` at a
+      file that does not exist.
+      *Expected:* the step shows *"includes … which was not found at …"* and the
+      rest of the panel still renders. Unlike a reference, this one blocks.
+
 - [ ] **14. A case-mismatched override is refused.** Rename your override to
       `aiHandoff.MD`.
       *Expected:* the step shows *found "aiHandoff.MD" … expected

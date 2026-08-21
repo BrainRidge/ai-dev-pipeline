@@ -284,6 +284,9 @@ button:hover {
   font-size: .9em;
 }
 .cmd-note {
+  white-space: pre-line;
+}
+.cmd-note {
   padding: 0 .5rem .35rem;
   color: var(--vscode-descriptionForeground);
   font-size: .8em;

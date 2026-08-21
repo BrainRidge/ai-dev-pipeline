@@ -185,6 +185,15 @@ const noSink = { async copy() { }, async toTerminal() { } };
         (0, vitest_1.expect)(prompt).toMatch(/symptom, not cause/i);
         (0, vitest_1.expect)(prompt).not.toContain('{{');
     });
+    (0, vitest_1.it)('quotes the same shared house rules the feature workflow uses', async () => {
+        const h = await upTo('CodeFix');
+        const task = h.registry.get('invokeCopilotCoding');
+        await task.deliver(h.workflow.steps.CodeFix, h.ctx);
+        const prompt = delivered.at(-1).prompt;
+        (0, vitest_1.expect)(prompt).toContain('## House rules');
+        // Still specific to a defect: the shared file carries none of this.
+        (0, vitest_1.expect)(prompt).toContain('Write the failing test first');
+    });
     (0, vitest_1.it)('never asks for a feature story, which a defect does not have', async () => {
         const h = await upTo('CodeFix');
         const task = h.registry.get('invokeCopilotCoding');

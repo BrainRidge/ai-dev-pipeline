@@ -176,7 +176,7 @@ const PROMPTS = '/team/prompts'
 describe('resolving a prompt template', () => {
   it('uses the bundled template when no prompts folder is configured', async () => {
     const resolve = templateResolver({ bundledPromptsDir: BUNDLED }, probeOf({}))
-    expect(await resolve('researchTaskWorkflow', 'aiHandoff')).toEqual({
+    expect(await resolve('researchTaskWorkflow/aiHandoff.md')).toEqual({
       path: '/ext/prompts/researchTaskWorkflow/aiHandoff.md',
       source: 'bundled',
     })
@@ -184,7 +184,7 @@ describe('resolving a prompt template', () => {
 
   it('uses the bundled template when the team has no folder for that workflow', async () => {
     const resolve = templateResolver({ promptsDir: PROMPTS, bundledPromptsDir: BUNDLED }, probeOf({}))
-    expect((await resolve('researchTaskWorkflow', 'aiHandoff')).source).toBe('bundled')
+    expect((await resolve('researchTaskWorkflow/aiHandoff.md')).source).toBe('bundled')
   })
 
   // Per file, not per directory: overriding one prompt must not mean adopting
@@ -194,7 +194,7 @@ describe('resolving a prompt template', () => {
       { promptsDir: PROMPTS, bundledPromptsDir: BUNDLED },
       probeOf({ '/team/prompts/newFeatureWorkflow': ['CodeReview.md'] }),
     )
-    expect(await resolve('newFeatureWorkflow', 'aiHandoff')).toEqual({
+    expect(await resolve('newFeatureWorkflow/aiHandoff.md')).toEqual({
       path: '/ext/prompts/newFeatureWorkflow/aiHandoff.md',
       source: 'bundled',
     })
@@ -205,7 +205,7 @@ describe('resolving a prompt template', () => {
       { promptsDir: PROMPTS, bundledPromptsDir: BUNDLED },
       probeOf({ '/team/prompts/researchTaskWorkflow': ['aiHandoff.md'] }),
     )
-    expect(await resolve('researchTaskWorkflow', 'aiHandoff')).toEqual({
+    expect(await resolve('researchTaskWorkflow/aiHandoff.md')).toEqual({
       path: '/team/prompts/researchTaskWorkflow/aiHandoff.md',
       source: 'external',
     })
@@ -222,8 +222,42 @@ describe('resolving a prompt template', () => {
       { promptsDir: PROMPTS, bundledPromptsDir: BUNDLED },
       probeOf({ '/team/prompts/researchTaskWorkflow': ['aiHandoff.MD'] }),
     )
-    await expect(resolve('researchTaskWorkflow', 'aiHandoff')).rejects.toThrow(
+    await expect(resolve('researchTaskWorkflow/aiHandoff.md')).rejects.toThrow(
       'found "aiHandoff.MD" in /team/prompts/researchTaskWorkflow, expected "aiHandoff.md"',
+    )
+  })
+
+  // The same resolution now serves a file a template pulls in by name, which is
+  // why the signature is a path rather than a workflow and a step.
+  it('resolves a shared file outside any workflow folder', async () => {
+    const resolve = templateResolver(
+      { promptsDir: PROMPTS, bundledPromptsDir: BUNDLED },
+      probeOf({ '/team/prompts/_shared': ['house-rules.md'] }),
+    )
+    expect(await resolve('_shared/house-rules.md')).toEqual({
+      path: '/team/prompts/_shared/house-rules.md',
+      source: 'external',
+    })
+  })
+
+  it('falls back per file for a shared file the team has not overridden', async () => {
+    const resolve = templateResolver(
+      { promptsDir: PROMPTS, bundledPromptsDir: BUNDLED },
+      probeOf({ '/team/prompts/_shared': ['other.md'] }),
+    )
+    expect(await resolve('_shared/house-rules.md')).toEqual({
+      path: '/ext/prompts/_shared/house-rules.md',
+      source: 'bundled',
+    })
+  })
+
+  it('applies the case guard to a shared file too', async () => {
+    const resolve = templateResolver(
+      { promptsDir: PROMPTS, bundledPromptsDir: BUNDLED },
+      probeOf({ '/team/prompts/_shared': ['House-Rules.md'] }),
+    )
+    await expect(resolve('_shared/house-rules.md')).rejects.toThrow(
+      'found "House-Rules.md" in /team/prompts/_shared, expected "house-rules.md"',
     )
   })
 
@@ -232,7 +266,7 @@ describe('resolving a prompt template', () => {
       { promptsDir: PROMPTS, bundledPromptsDir: BUNDLED },
       probeOf({ '/team/prompts/researchTaskWorkflow': ['aiHandoff.MD', 'aiHandoff.md'] }),
     )
-    expect((await resolve('researchTaskWorkflow', 'aiHandoff')).source).toBe('external')
+    expect((await resolve('researchTaskWorkflow/aiHandoff.md')).source).toBe('external')
   })
 })
 

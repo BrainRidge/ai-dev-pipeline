@@ -147,9 +147,17 @@ non-empty; otherwise the path is derived from the content root on the spot. So e
 │   ├── microservices.json       required
 │   └── tools.json               optional, whole-file fallback
 └── prompts/
-    └── <workflowId>/
-        └── <stepId>.md          optional, per file
+    ├── <workflowId>/
+    │   └── <stepId>.md          optional, per file
+    └── _shared/
+        └── *.md                 optional, per file — pulled in with include:
 ```
+
+Anything under `prompts/` resolves the same way, not just a step's own template: a file a
+template pulls in with `include:` or `reference:` ([Section 8](08-ai-handoff-step.md)) gets
+the same per-file fallback and the same case guard. So a team may override
+`_shared/house-rules.md` alone and still receive every other shared file a later release
+adds.
 
 The layout mirrors the extension repository so that a team bootstraps by copying a folder
 rather than by reading this document. `examples/content-template/` ships inside the `.vsix`

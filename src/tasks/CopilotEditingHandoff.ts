@@ -87,6 +87,8 @@ export abstract class CopilotEditingHandoff implements TaskType, CopilotHandoff 
         chars: prompt.length,
         templatePath: composed.templatePath,
         templateSource: composed.templateSource,
+        includes: composed.includes,
+        references: composed.references,
       },
     })
 

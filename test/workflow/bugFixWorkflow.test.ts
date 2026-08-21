@@ -210,6 +210,17 @@ describe('the bundled bug fix workflow', () => {
     expect(prompt).not.toContain('{{')
   })
 
+  it('quotes the same shared house rules the feature workflow uses', async () => {
+    const h = await upTo('CodeFix')
+    const task = h.registry.get('invokeCopilotCoding') as InvokeCopilotCoding
+    await task.deliver(h.workflow.steps.CodeFix!, h.ctx)
+
+    const prompt = delivered.at(-1)!.prompt
+    expect(prompt).toContain('## House rules')
+    // Still specific to a defect: the shared file carries none of this.
+    expect(prompt).toContain('Write the failing test first')
+  })
+
   it('never asks for a feature story, which a defect does not have', async () => {
     const h = await upTo('CodeFix')
     const task = h.registry.get('invokeCopilotCoding') as InvokeCopilotCoding

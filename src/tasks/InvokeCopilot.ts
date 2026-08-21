@@ -97,11 +97,22 @@ export class InvokeCopilot implements TaskType, CopilotHandoff {
       )
     }
 
-    // Written BEFORE delivery so a crash still leaves the record.
+    // Written BEFORE delivery so a crash still leaves the record. `includes`
+    // are already inside `prompt` verbatim; recording their paths says whose
+    // wording it was. `references` are the one thing the log names without
+    // holding — see spec Section 8.
     await this.audit.append({
       kind: 'prompt-composed',
       stepId: step.id,
-      data: { prompt, chars: prompt.length, outputFile, templatePath, templateSource },
+      data: {
+        prompt,
+        chars: prompt.length,
+        outputFile,
+        templatePath,
+        templateSource,
+        includes: composed.includes,
+        references: composed.references,
+      },
     })
 
     const mechanism = await this.handoff.deliver(prompt, ctx.taskDir)

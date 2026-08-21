@@ -168,6 +168,25 @@ const noSink = { async copy() { }, async toTerminal() { } };
         (0, vitest_1.expect)(delivered.at(-1).prompt).toContain('Change the code in place');
         (0, vitest_1.expect)(delivered.at(-1).prompt).not.toContain('Create the file if it does not exist');
     });
+    // The shared file is real, bundled content, and this is the assertion that
+    // keeps it wired up. See spec Section 8.
+    (0, vitest_1.it)('quotes the shared house rules into the coding prompt', async () => {
+        const h = await upTo('CodeImplementation');
+        const task = h.registry.get('invokeCopilotCoding');
+        await task.deliver(h.workflow.steps.CodeImplementation, h.ctx);
+        const prompt = delivered.at(-1).prompt;
+        (0, vitest_1.expect)(prompt).toContain('## House rules');
+        (0, vitest_1.expect)(prompt).toContain('Do not push, do not open a pull request');
+        // Authored content first, generated parts after.
+        (0, vitest_1.expect)(prompt.indexOf('## Repositories in scope')).toBeGreaterThan(prompt.indexOf('## House rules'));
+    });
+    (0, vitest_1.it)('records the shared file it quoted, so the log says whose wording it was', async () => {
+        const h = await upTo('CodeImplementation');
+        const composed = await new PromptComposer_1.PromptComposer((0, fixtures_1.bundledResolver)((0, node_path_1.join)(ROOT, 'prompts'))).compose(h.workflow.steps.CodeImplementation, h.ctx, []);
+        (0, vitest_1.expect)(composed.includes).toEqual([
+            { path: (0, node_path_1.join)(ROOT, 'prompts', '_shared', 'house-rules.md'), source: 'bundled' },
+        ]);
+    });
     (0, vitest_1.it)('points the coding step at the plan the developer approved', async () => {
         const h = await upTo('CodeImplementation');
         const task = h.registry.get('invokeCopilotCoding');

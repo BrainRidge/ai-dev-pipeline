@@ -12209,14 +12209,14 @@ var nodeProbe = {
   }
 };
 function templateResolver(opts, probe) {
-  return async (workflowId, stepId) => {
-    const expected = `${stepId}.md`;
+  return async (relativePath) => {
+    const expected = (0, import_node_path6.basename)(relativePath);
     const bundled = {
-      path: (0, import_node_path6.join)(opts.bundledPromptsDir, workflowId, expected),
+      path: (0, import_node_path6.join)(opts.bundledPromptsDir, relativePath),
       source: "bundled"
     };
     if (!opts.promptsDir) return bundled;
-    const dir = (0, import_node_path6.join)(opts.promptsDir, workflowId);
+    const dir = (0, import_node_path6.join)(opts.promptsDir, (0, import_node_path6.dirname)(relativePath));
     const names = await probe.list(dir);
     if (!names) return bundled;
     if (names.includes(expected)) return { path: (0, import_node_path6.join)(dir, expected), source: "external" };
@@ -12230,8 +12230,11 @@ function templateResolver(opts, probe) {
 async function externalWorkflowsPresent(root, probe) {
   return await probe.list((0, import_node_path6.join)(root, "workflows")) !== void 0;
 }
+function sourceLabel(source) {
+  return source === "external" ? "external" : "bundled default";
+}
 function templateNote(t) {
-  return `Template: ${t.path} (${t.source === "external" ? "external" : "bundled default"})`;
+  return `Template: ${t.path} (${sourceLabel(t.source)})`;
 }
 
 // src/handoff/ChatHandoff.ts
@@ -12302,6 +12305,7 @@ function resolveText(text, ctx) {
 
 // src/prompt/PromptComposer.ts
 var FRONTMATTER = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/;
+var OWNER_KEYS = ["output", "include", "reference"];
 var PromptComposer = class {
   constructor(resolve) {
     this.resolve = resolve;
@@ -12313,7 +12317,7 @@ var PromptComposer = class {
    * error. See spec Section 16.
    */
   async resolved(step, ctx) {
-    return this.resolve(ctx.workflowId, step.id);
+    return this.resolve((0, import_node_path8.join)(ctx.workflowId, `${step.id}.md`));
   }
   /**
    * The artifact name is frontmatter rather than code, because which file a
@@ -12331,8 +12335,13 @@ var PromptComposer = class {
     return outputFile;
   }
   async compose(step, ctx, repos) {
-    const { body, outputFile, path, source } = await this.template(step, ctx);
-    const part1 = resolveText(body, ctx);
+    const main = await this.template(step, ctx);
+    const included = await this.readIncludes(main);
+    const references = await this.resolveReferences(main, ctx);
+    const part1 = [
+      resolveText(main.body, ctx).trimEnd(),
+      ...included.map((i) => resolveText(i.body, ctx).trimEnd())
+    ].join("\n\n");
     const part2 = [
       "",
       "## Repositories in scope",
@@ -12345,27 +12354,86 @@ var PromptComposer = class {
       "",
       "Work only within the repositories listed above. Do not modify files elsewhere."
     ].join("\n");
-    const part4 = outputFile ? [
+    const part4 = references.length > 0 ? [
+      "",
+      "## Further reading",
+      "",
+      "Read these before you start:",
+      ...references.map((r) => `- #file:${r.path}`)
+    ].join("\n") : "";
+    const part5 = main.outputFile ? [
       "",
       "## Required output",
       "",
-      `Write your result to \`${(0, import_node_path8.join)(ctx.taskDir, outputFile)}\`.`,
+      `Write your result to \`${(0, import_node_path8.join)(ctx.taskDir, main.outputFile)}\`.`,
       "Create the file if it does not exist. Do not write your result anywhere else."
     ].join("\n") : ["", "## Required output", "", "Change the code in place. Do not write a summary file."].join(
       "\n"
     );
     return {
-      prompt: [part1.trimEnd(), part2, part3, part4, ""].join("\n"),
-      outputFile,
-      templatePath: path,
-      templateSource: source
+      prompt: [part1, part2, part3, ...part4 ? [part4] : [], part5, ""].join("\n"),
+      outputFile: main.outputFile,
+      templatePath: main.path,
+      templateSource: main.source,
+      includes: included.map(({ path, source }) => ({ path, source })),
+      references
     };
+  }
+  /**
+   * The templates a prompt quotes, in declared order.
+   *
+   * A missing include is fatal, unlike a missing reference: its text is part of
+   * what is being asked, and dropping it would silently change the prompt while
+   * the panel still showed a caption saying it was there.
+   */
+  async readIncludes(main) {
+    const out = [];
+    for (const name of main.include) {
+      const resolved = await this.resolve(promptsRelative(name, main.path, "include"));
+      let raw;
+      try {
+        raw = await (0, import_promises6.readFile)(resolved.path, "utf8");
+      } catch {
+        throw new Error(
+          `prompt template "${main.path}" includes "${name}", which was not found at ${resolved.path}`
+        );
+      }
+      const meta = frontmatterOf(raw);
+      const owner = OWNER_KEYS.find((key) => meta?.[key] !== void 0);
+      if (owner) {
+        throw new Error(
+          `included template "${resolved.path}" declares "${owner}:", which only a step's own template may do`
+        );
+      }
+      out.push({ body: stripFrontmatter(raw), path: resolved.path, source: resolved.source });
+    }
+    return out;
+  }
+  /**
+   * The files the prompt points Copilot at.
+   *
+   * Placeholders are resolved first, so a template can name a document inside a
+   * repository the task has just cloned — `{{task.workDir}}/party-service/…`.
+   * An absolute result is used as it stands; anything else is a name under the
+   * prompts root, resolved with the same fallback as a template.
+   */
+  async resolveReferences(main, ctx) {
+    const out = [];
+    for (const entry of main.reference) {
+      const resolvedText = resolveText(entry, ctx).trim();
+      if (resolvedText === "") continue;
+      const path = (0, import_node_path8.isAbsolute)(resolvedText) ? resolvedText : (await this.resolve(promptsRelative(resolvedText, main.path, "reference"))).path;
+      out.push({ path, found: await exists(path) });
+    }
+    return out;
   }
   async template(step, ctx) {
     const { path, source } = await this.resolved(step, ctx);
     const raw = await (0, import_promises6.readFile)(path, "utf8");
     const match = FRONTMATTER.exec(raw);
-    if (!match) return { body: raw, path, source };
+    if (!match) {
+      return { body: raw, include: [], reference: [], path, source };
+    }
     const meta = (0, import_yaml.parse)(match[1]);
     const declared = meta?.output;
     if (declared !== void 0 && (typeof declared !== "string" || declared.trim() === "")) {
@@ -12374,11 +12442,48 @@ var PromptComposer = class {
     return {
       body: raw.slice(match[0].length),
       outputFile: typeof declared === "string" ? declared.trim() : void 0,
+      include: stringList(meta?.include, path, "include"),
+      reference: stringList(meta?.reference, path, "reference"),
       path,
       source
     };
   }
 };
+function frontmatterOf(raw) {
+  const match = FRONTMATTER.exec(raw);
+  if (!match) return null;
+  return (0, import_yaml.parse)(match[1]) ?? null;
+}
+function stripFrontmatter(raw) {
+  const match = FRONTMATTER.exec(raw);
+  return match ? raw.slice(match[0].length) : raw;
+}
+function stringList(value, path, key) {
+  if (value === void 0 || value === null) return [];
+  const items = Array.isArray(value) ? value : [value];
+  return items.map((item) => {
+    if (typeof item !== "string" || item.trim() === "") {
+      throw new Error(`prompt template "${path}" has an unusable entry under "${key}:"`);
+    }
+    return item.trim();
+  });
+}
+function promptsRelative(name, declaredIn, key) {
+  if ((0, import_node_path8.isAbsolute)(name) || name.split(/[\\/]/).includes("..")) {
+    throw new Error(
+      `prompt template "${declaredIn}" names "${name}" under "${key}:". Use a path relative to the prompts folder, such as "_shared/house-rules.md".`
+    );
+  }
+  return name;
+}
+async function exists(path) {
+  try {
+    await (0, import_promises6.access)(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 // src/engine/ToolCatalog.ts
 var import_promises7 = require("node:fs/promises");
@@ -12531,9 +12636,9 @@ var GitClone = class {
    * @param fallbackWorkDir used only by tasks started before the work
    *        directory was collected in the sidebar.
    */
-  constructor(fallbackWorkDir, exists2, sink) {
+  constructor(fallbackWorkDir, exists3, sink) {
     this.fallbackWorkDir = fallbackWorkDir;
-    this.exists = exists2;
+    this.exists = exists3;
     this.sink = sink;
   }
   name = "gitClone";
@@ -12628,6 +12733,22 @@ function reposBefore(ctx, stepId) {
 }
 
 // src/tasks/promptBlock.ts
+function provenanceNote(composed) {
+  const lines = [
+    templateNote({ path: composed.templatePath, source: composed.templateSource })
+  ];
+  if (composed.includes.length > 0) {
+    lines.push(
+      `Includes: ${composed.includes.map((i) => `${i.path} (${sourceLabel(i.source)})`).join("; ")}`
+    );
+  }
+  if (composed.references.length > 0) {
+    lines.push(
+      `References: ${composed.references.map((r) => r.found ? r.path : `${r.path} (not found)`).join("; ")}`
+    );
+  }
+  return lines.join("\n");
+}
 var PROMPT_BLOCK_ID = "prompt";
 function editedPrompt(values) {
   const edited = values.edited;
@@ -12638,15 +12759,11 @@ function editedPrompt(values) {
 async function composePreview(composer, step, ctx, override) {
   try {
     if (override !== void 0) {
-      const note2 = templateNote(await composer.resolved(step, ctx));
-      return { block: promptBlock(override, true, note2) };
+      const note = templateNote(await composer.resolved(step, ctx));
+      return { block: promptBlock(override, true, note) };
     }
     const composed = await composer.compose(step, ctx, reposBefore(ctx, step.id));
-    const note = templateNote({
-      path: composed.templatePath,
-      source: composed.templateSource
-    });
-    return { block: promptBlock(composed.prompt, false, note) };
+    return { block: promptBlock(composed.prompt, false, provenanceNote(composed)) };
   } catch (err) {
     return { failure: err instanceof Error ? err.message : String(err) };
   }
@@ -12733,7 +12850,15 @@ var InvokeCopilot = class {
     await this.audit.append({
       kind: "prompt-composed",
       stepId: step.id,
-      data: { prompt, chars: prompt.length, outputFile, templatePath, templateSource }
+      data: {
+        prompt,
+        chars: prompt.length,
+        outputFile,
+        templatePath,
+        templateSource,
+        includes: composed.includes,
+        references: composed.references
+      }
     });
     const mechanism = await this.handoff.deliver(prompt, ctx.taskDir);
     return { mechanism, promptChars: prompt.length, outputPath: (0, import_node_path10.join)(ctx.taskDir, outputFile) };
@@ -12796,7 +12921,9 @@ var CopilotEditingHandoff = class {
         prompt,
         chars: prompt.length,
         templatePath: composed.templatePath,
-        templateSource: composed.templateSource
+        templateSource: composed.templateSource,
+        includes: composed.includes,
+        references: composed.references
       }
     });
     const mechanism = await this.handoff.deliver(prompt, ctx.taskDir);
@@ -13553,7 +13680,7 @@ var TaskSession = class _TaskSession {
     }
     const ws = await TaskWorkspace.open(this.ctx.taskDir, this.ctx.taskId);
     const target = (0, import_node_path14.join)(this.ctx.taskDir, `${this.ctx.taskId}.code-workspace`);
-    if (await exists(target)) return;
+    if (await exists2(target)) return;
     const file = await ws.writeWorkspaceFile(repos);
     await this.audit.append({ kind: "workspace-generated", data: { file } });
     const choice = await vscode3.window.showInformationMessage(
@@ -13634,7 +13761,7 @@ async function hashOrNull(path) {
     return null;
   }
 }
-async function exists(path) {
+async function exists2(path) {
   try {
     await (0, import_promises9.access)(path);
     return true;

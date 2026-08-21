@@ -221,3 +221,236 @@ describe('where the template came from', () => {
     )
   })
 })
+
+/**
+ * A handoff may pull in more than one markdown file: `include:` quotes them
+ * into the prompt, `reference:` names them for Copilot to open itself. Both are
+ * declared in the template's own frontmatter, for the reason spec Section 8
+ * gives for `output:` living there. See spec Section 8.
+ */
+describe('a template that pulls in other files', () => {
+  /** A prompts root holding a step template plus whatever else is asked for. */
+  async function tree(files: Record<string, string>): Promise<PromptComposer> {
+    const dir = await mkdtemp(join(tmpdir(), 'inc-'))
+    for (const [rel, body] of Object.entries(files)) {
+      const path = join(dir, rel)
+      await mkdir(join(path, '..'), { recursive: true })
+      await writeFile(path, body)
+    }
+    return new PromptComposer(bundledResolver(dir))
+  }
+
+  const MAIN = `---
+output: 02-analysis.md
+include:
+  - _shared/house-rules.md
+  - _shared/java.md
+---
+The step's own thinking.
+`
+
+  it('quotes each included file, in the order declared', async () => {
+    const c = await tree({
+      'researchTaskWorkflow/aiHandoff.md': MAIN,
+      '_shared/house-rules.md': 'RULES',
+      '_shared/java.md': 'JAVA',
+    })
+    const { prompt } = await c.compose(handoff, ctx, repos)
+    expect(prompt.indexOf('RULES')).toBeGreaterThan(prompt.indexOf("step's own thinking"))
+    expect(prompt.indexOf('JAVA')).toBeGreaterThan(prompt.indexOf('RULES'))
+  })
+
+  it('keeps the generated parts after everything authored', async () => {
+    const c = await tree({
+      'researchTaskWorkflow/aiHandoff.md': MAIN,
+      '_shared/house-rules.md': 'RULES',
+      '_shared/java.md': 'JAVA',
+    })
+    const { prompt } = await c.compose(handoff, ctx, repos)
+    expect(prompt.indexOf('## Repositories in scope')).toBeGreaterThan(prompt.indexOf('JAVA'))
+  })
+
+  it('resolves placeholders inside an included file too', async () => {
+    const c = await tree({
+      'researchTaskWorkflow/aiHandoff.md': `---\ninclude: _shared/x.md\n---\nBody.`,
+      '_shared/x.md': 'Working on {{task.platform}} for {{task.epic}}.',
+    })
+    const { prompt } = await c.compose(handoff, ctx, repos)
+    expect(prompt).toContain('Working on canada-assisted for PLAT-1234.')
+    expect(prompt).not.toContain('{{')
+  })
+
+  // One file is the common case, and making it a list would be ceremony.
+  it('accepts a single name where a list would do', async () => {
+    const c = await tree({
+      'researchTaskWorkflow/aiHandoff.md': `---\ninclude: _shared/x.md\n---\nBody.`,
+      '_shared/x.md': 'ONE',
+    })
+    expect((await c.compose(handoff, ctx, repos)).prompt).toContain('ONE')
+  })
+
+  it('records each included file and whose it was, for the caption and the log', async () => {
+    const c = await tree({
+      'researchTaskWorkflow/aiHandoff.md': `---\ninclude: _shared/x.md\n---\nBody.`,
+      '_shared/x.md': 'ONE',
+    })
+    const { includes } = await c.compose(handoff, ctx, repos)
+    expect(includes).toEqual([
+      { path: expect.stringContaining('_shared/x.md'), source: 'bundled' },
+    ])
+  })
+
+  // Fatal, unlike a missing reference: its text is part of what is being asked,
+  // and dropping it would change the prompt while the caption still claimed it.
+  it('fails when an included file is not there, naming both files', async () => {
+    const c = await tree({
+      'researchTaskWorkflow/aiHandoff.md': `---\ninclude: _shared/gone.md\n---\nBody.`,
+    })
+    await expect(c.compose(handoff, ctx, repos)).rejects.toThrow(
+      /includes "_shared\/gone\.md", which was not found at/,
+    )
+  })
+
+  // One level only, so there are no cycles to detect.
+  it('refuses an included file that declares include: of its own', async () => {
+    const c = await tree({
+      'researchTaskWorkflow/aiHandoff.md': `---\ninclude: _shared/a.md\n---\nBody.`,
+      '_shared/a.md': `---\ninclude: _shared/b.md\n---\nA`,
+      '_shared/b.md': 'B',
+    })
+    await expect(c.compose(handoff, ctx, repos)).rejects.toThrow(
+      /declares "include:", which only a step's own template may do/,
+    )
+  })
+
+  it('refuses an included file that declares an output artifact', async () => {
+    const c = await tree({
+      'researchTaskWorkflow/aiHandoff.md': `---\ninclude: _shared/a.md\n---\nBody.`,
+      '_shared/a.md': `---\noutput: other.md\n---\nA`,
+    })
+    await expect(c.compose(handoff, ctx, repos)).rejects.toThrow(/declares "output:"/)
+  })
+
+  it('strips an included file’s frontmatter rather than quoting it', async () => {
+    const c = await tree({
+      'researchTaskWorkflow/aiHandoff.md': `---\ninclude: _shared/a.md\n---\nBody.`,
+      '_shared/a.md': `---\ntitle: unrelated key\n---\nVISIBLE`,
+    })
+    const { prompt } = await c.compose(handoff, ctx, repos)
+    expect(prompt).toContain('VISIBLE')
+    expect(prompt).not.toContain('unrelated key')
+  })
+
+  // Every quoted file has to be either the team's or the bundled default, or
+  // the caption and the audit entry stop meaning anything.
+  it('refuses an absolute path', async () => {
+    const c = await tree({
+      'researchTaskWorkflow/aiHandoff.md': `---\ninclude: /etc/passwd\n---\nBody.`,
+    })
+    await expect(c.compose(handoff, ctx, repos)).rejects.toThrow(
+      /Use a path relative to the prompts folder/,
+    )
+  })
+
+  it('refuses a path that climbs out of the prompts folder', async () => {
+    const c = await tree({
+      'researchTaskWorkflow/aiHandoff.md': `---\ninclude: ../../secrets.md\n---\nBody.`,
+    })
+    await expect(c.compose(handoff, ctx, repos)).rejects.toThrow(
+      /Use a path relative to the prompts folder/,
+    )
+  })
+
+  it('refuses an entry that is not a usable name', async () => {
+    const c = await tree({
+      'researchTaskWorkflow/aiHandoff.md': `---\ninclude:\n  - ""\n---\nBody.`,
+    })
+    await expect(c.compose(handoff, ctx, repos)).rejects.toThrow(
+      /unusable entry under "include:"/,
+    )
+  })
+})
+
+describe('files a template points Copilot at', () => {
+  async function tree(files: Record<string, string>): Promise<PromptComposer> {
+    const dir = await mkdtemp(join(tmpdir(), 'ref-'))
+    for (const [rel, body] of Object.entries(files)) {
+      const path = join(dir, rel)
+      await mkdir(join(path, '..'), { recursive: true })
+      await writeFile(path, body)
+    }
+    return new PromptComposer(bundledResolver(dir))
+  }
+
+  it('emits a further-reading section of #file: lines', async () => {
+    const c = await tree({
+      'researchTaskWorkflow/aiHandoff.md': `---\nreference: _shared/api.md\n---\nBody.`,
+      '_shared/api.md': 'API',
+    })
+    const { prompt } = await c.compose(handoff, ctx, repos)
+    expect(prompt).toMatch(/## Further reading/)
+    expect(prompt).toMatch(/- #file:.*_shared\/api\.md/)
+  })
+
+  it('does not quote what it references', async () => {
+    const c = await tree({
+      'researchTaskWorkflow/aiHandoff.md': `---\nreference: _shared/api.md\n---\nBody.`,
+      '_shared/api.md': 'SECRET SAUCE',
+    })
+    expect((await c.compose(handoff, ctx, repos)).prompt).not.toContain('SECRET SAUCE')
+  })
+
+  it('omits the section entirely when nothing is referenced', async () => {
+    const c = await tree({ 'researchTaskWorkflow/aiHandoff.md': 'Body.' })
+    expect((await c.compose(handoff, ctx, repos)).prompt).not.toContain('Further reading')
+  })
+
+  it('reads before the output contract, which is the last thing asked', async () => {
+    const c = await tree({
+      'researchTaskWorkflow/aiHandoff.md': `---\noutput: a.md\nreference: _shared/api.md\n---\nBody.`,
+      '_shared/api.md': 'API',
+    })
+    const { prompt } = await c.compose(handoff, ctx, repos)
+    expect(prompt.indexOf('## Required output')).toBeGreaterThan(
+      prompt.indexOf('## Further reading'),
+    )
+  })
+
+  // The point of references: a document inside a repository the task has just
+  // cloned, named through the same placeholders everything else uses.
+  it('resolves a placeholder into an absolute path and uses it as it stands', async () => {
+    const c = await tree({
+      'researchTaskWorkflow/aiHandoff.md':
+        `---\nreference: "{{task.dir}}/notes.md"\n---\nBody.`,
+    })
+    const { references, prompt } = await c.compose(handoff, ctx, repos)
+    expect(references).toEqual([{ path: '/tasks/T-1/notes.md', found: false }])
+    expect(prompt).toContain('#file:/tasks/T-1/notes.md')
+  })
+
+  // Emitted either way: what is sent must be what the panel shows, and the
+  // caption is where the developer is told it is missing.
+  it('still emits a reference that is not on disk, and says so in the result', async () => {
+    const c = await tree({
+      'researchTaskWorkflow/aiHandoff.md': `---\nreference: _shared/gone.md\n---\nBody.`,
+    })
+    const { references, prompt } = await c.compose(handoff, ctx, repos)
+    expect(references[0]!.found).toBe(false)
+    expect(prompt).toContain('#file:')
+  })
+
+  it('marks a reference that is there as found', async () => {
+    const c = await tree({
+      'researchTaskWorkflow/aiHandoff.md': `---\nreference: _shared/api.md\n---\nBody.`,
+      '_shared/api.md': 'API',
+    })
+    expect((await c.compose(handoff, ctx, repos)).references[0]!.found).toBe(true)
+  })
+
+  it('drops an entry whose placeholders all resolve to nothing', async () => {
+    const c = await tree({
+      'researchTaskWorkflow/aiHandoff.md': `---\nreference: "{{task.nothing}}"\n---\nBody.`,
+    })
+    expect((await c.compose(handoff, ctx, repos)).references).toEqual([])
+  })
+})

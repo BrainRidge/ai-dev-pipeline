@@ -130,27 +130,27 @@ const PROMPTS = '/team/prompts';
 (0, vitest_1.describe)('resolving a prompt template', () => {
     (0, vitest_1.it)('uses the bundled template when no prompts folder is configured', async () => {
         const resolve = (0, ContentRoot_1.templateResolver)({ bundledPromptsDir: BUNDLED }, probeOf({}));
-        (0, vitest_1.expect)(await resolve('researchTaskWorkflow', 'aiHandoff')).toEqual({
+        (0, vitest_1.expect)(await resolve('researchTaskWorkflow/aiHandoff.md')).toEqual({
             path: '/ext/prompts/researchTaskWorkflow/aiHandoff.md',
             source: 'bundled',
         });
     });
     (0, vitest_1.it)('uses the bundled template when the team has no folder for that workflow', async () => {
         const resolve = (0, ContentRoot_1.templateResolver)({ promptsDir: PROMPTS, bundledPromptsDir: BUNDLED }, probeOf({}));
-        (0, vitest_1.expect)((await resolve('researchTaskWorkflow', 'aiHandoff')).source).toBe('bundled');
+        (0, vitest_1.expect)((await resolve('researchTaskWorkflow/aiHandoff.md')).source).toBe('bundled');
     });
     // Per file, not per directory: overriding one prompt must not mean adopting
     // every other one and letting them go stale. See spec Section 16.
     (0, vitest_1.it)('falls back per file when the folder exists but that template does not', async () => {
         const resolve = (0, ContentRoot_1.templateResolver)({ promptsDir: PROMPTS, bundledPromptsDir: BUNDLED }, probeOf({ '/team/prompts/newFeatureWorkflow': ['CodeReview.md'] }));
-        (0, vitest_1.expect)(await resolve('newFeatureWorkflow', 'aiHandoff')).toEqual({
+        (0, vitest_1.expect)(await resolve('newFeatureWorkflow/aiHandoff.md')).toEqual({
             path: '/ext/prompts/newFeatureWorkflow/aiHandoff.md',
             source: 'bundled',
         });
     });
     (0, vitest_1.it)("uses the team's template when they have supplied one", async () => {
         const resolve = (0, ContentRoot_1.templateResolver)({ promptsDir: PROMPTS, bundledPromptsDir: BUNDLED }, probeOf({ '/team/prompts/researchTaskWorkflow': ['aiHandoff.md'] }));
-        (0, vitest_1.expect)(await resolve('researchTaskWorkflow', 'aiHandoff')).toEqual({
+        (0, vitest_1.expect)(await resolve('researchTaskWorkflow/aiHandoff.md')).toEqual({
             path: '/team/prompts/researchTaskWorkflow/aiHandoff.md',
             source: 'external',
         });
@@ -163,11 +163,31 @@ const PROMPTS = '/team/prompts';
      */
     (0, vitest_1.it)('refuses a template that differs only by case, naming both names', async () => {
         const resolve = (0, ContentRoot_1.templateResolver)({ promptsDir: PROMPTS, bundledPromptsDir: BUNDLED }, probeOf({ '/team/prompts/researchTaskWorkflow': ['aiHandoff.MD'] }));
-        await (0, vitest_1.expect)(resolve('researchTaskWorkflow', 'aiHandoff')).rejects.toThrow('found "aiHandoff.MD" in /team/prompts/researchTaskWorkflow, expected "aiHandoff.md"');
+        await (0, vitest_1.expect)(resolve('researchTaskWorkflow/aiHandoff.md')).rejects.toThrow('found "aiHandoff.MD" in /team/prompts/researchTaskWorkflow, expected "aiHandoff.md"');
+    });
+    // The same resolution now serves a file a template pulls in by name, which is
+    // why the signature is a path rather than a workflow and a step.
+    (0, vitest_1.it)('resolves a shared file outside any workflow folder', async () => {
+        const resolve = (0, ContentRoot_1.templateResolver)({ promptsDir: PROMPTS, bundledPromptsDir: BUNDLED }, probeOf({ '/team/prompts/_shared': ['house-rules.md'] }));
+        (0, vitest_1.expect)(await resolve('_shared/house-rules.md')).toEqual({
+            path: '/team/prompts/_shared/house-rules.md',
+            source: 'external',
+        });
+    });
+    (0, vitest_1.it)('falls back per file for a shared file the team has not overridden', async () => {
+        const resolve = (0, ContentRoot_1.templateResolver)({ promptsDir: PROMPTS, bundledPromptsDir: BUNDLED }, probeOf({ '/team/prompts/_shared': ['other.md'] }));
+        (0, vitest_1.expect)(await resolve('_shared/house-rules.md')).toEqual({
+            path: '/ext/prompts/_shared/house-rules.md',
+            source: 'bundled',
+        });
+    });
+    (0, vitest_1.it)('applies the case guard to a shared file too', async () => {
+        const resolve = (0, ContentRoot_1.templateResolver)({ promptsDir: PROMPTS, bundledPromptsDir: BUNDLED }, probeOf({ '/team/prompts/_shared': ['House-Rules.md'] }));
+        await (0, vitest_1.expect)(resolve('_shared/house-rules.md')).rejects.toThrow('found "House-Rules.md" in /team/prompts/_shared, expected "house-rules.md"');
     });
     (0, vitest_1.it)('prefers an exact match over a case variant sitting beside it', async () => {
         const resolve = (0, ContentRoot_1.templateResolver)({ promptsDir: PROMPTS, bundledPromptsDir: BUNDLED }, probeOf({ '/team/prompts/researchTaskWorkflow': ['aiHandoff.MD', 'aiHandoff.md'] }));
-        (0, vitest_1.expect)((await resolve('researchTaskWorkflow', 'aiHandoff')).source).toBe('external');
+        (0, vitest_1.expect)((await resolve('researchTaskWorkflow/aiHandoff.md')).source).toBe('external');
     });
 });
 (0, vitest_1.describe)('externalWorkflowsPresent', () => {

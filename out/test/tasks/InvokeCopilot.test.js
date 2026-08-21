@@ -13,6 +13,8 @@ const composer = {
             outputFile: '02-analysis.md',
             templatePath: '/ext/prompts/researchTaskWorkflow/aiHandoff.md',
             templateSource: 'bundled',
+            includes: [],
+            references: [],
         };
     },
     async outputFor() {
@@ -179,6 +181,52 @@ function task(mechanism = 'A', present = true) {
     });
 });
 (0, vitest_1.describe)('the developer can see which template composed the prompt', () => {
+    // Every file that shaped the prompt is named, one line per kind. See spec
+    // Section 8.
+    (0, vitest_1.it)('adds a line for included templates, saying whose each one was', async () => {
+        const withIncludes = {
+            ...composer,
+            async compose() {
+                return {
+                    prompt: 'P',
+                    outputFile: '02-analysis.md',
+                    templatePath: '/team/prompts/w/s.md',
+                    templateSource: 'external',
+                    includes: [
+                        { path: '/ext/prompts/_shared/house-rules.md', source: 'bundled' },
+                        { path: '/team/prompts/_shared/java.md', source: 'external' },
+                    ],
+                    references: [],
+                };
+            },
+        };
+        const view = await new InvokeCopilot_1.InvokeCopilot(withIncludes, handoffReturning('A'), fakeAudit(), async () => true, noSink).describe(handoffStep, ctx, {});
+        (0, vitest_1.expect)(view.commands[0].note).toBe('Template: /team/prompts/w/s.md (external)\n' +
+            'Includes: /ext/prompts/_shared/house-rules.md (bundled default); ' +
+            '/team/prompts/_shared/java.md (external)');
+    });
+    // The #file: is in the prompt either way, so the caption is the only place a
+    // developer can see that there is nothing behind it.
+    (0, vitest_1.it)('marks a reference that is not on disk', async () => {
+        const withRefs = {
+            ...composer,
+            async compose() {
+                return {
+                    prompt: 'P',
+                    outputFile: '02-analysis.md',
+                    templatePath: '/ext/prompts/w/s.md',
+                    templateSource: 'bundled',
+                    includes: [],
+                    references: [
+                        { path: '/code/party/docs/api.md', found: true },
+                        { path: '/code/party/docs/gone.md', found: false },
+                    ],
+                };
+            },
+        };
+        const view = await new InvokeCopilot_1.InvokeCopilot(withRefs, handoffReturning('A'), fakeAudit(), async () => true, noSink).describe(handoffStep, ctx, {});
+        (0, vitest_1.expect)(view.commands[0].note).toContain('References: /code/party/docs/api.md; /code/party/docs/gone.md (not found)');
+    });
     (0, vitest_1.it)('captions the prompt block with the resolved template', async () => {
         const view = await task().describe(handoffStep, ctx, {});
         (0, vitest_1.expect)(view.commands?.[0]?.note).toBe('Template: /ext/prompts/researchTaskWorkflow/aiHandoff.md (bundled default)');

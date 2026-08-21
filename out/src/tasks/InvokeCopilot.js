@@ -76,11 +76,22 @@ class InvokeCopilot {
             throw new Error(`prompt template "${path}" must declare "output:" — ` +
                 `step "${step.id}" completes only when that file appears`);
         }
-        // Written BEFORE delivery so a crash still leaves the record.
+        // Written BEFORE delivery so a crash still leaves the record. `includes`
+        // are already inside `prompt` verbatim; recording their paths says whose
+        // wording it was. `references` are the one thing the log names without
+        // holding — see spec Section 8.
         await this.audit.append({
             kind: 'prompt-composed',
             stepId: step.id,
-            data: { prompt, chars: prompt.length, outputFile, templatePath, templateSource },
+            data: {
+                prompt,
+                chars: prompt.length,
+                outputFile,
+                templatePath,
+                templateSource,
+                includes: composed.includes,
+                references: composed.references,
+            },
         });
         const mechanism = await this.handoff.deliver(prompt, ctx.taskDir);
         return { mechanism, promptChars: prompt.length, outputPath: (0, node_path_1.join)(ctx.taskDir, outputFile) };

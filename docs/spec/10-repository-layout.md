@@ -58,7 +58,9 @@ ai-dev-workflow/
 │   ├── researchTaskWorkflow_1_0.json
 │   ├── newFeatureWorkflow_1_0.json
 │   └── bugFixWorkflow_1_0.json
-├── prompts/<workflowId>/<stepId>.md   the per-file fallback; still bundled
+├── prompts/
+│   ├── <workflowId>/<stepId>.md   the per-file fallback; still bundled
+│   └── _shared/*.md               files a template pulls in with include:
 ├── examples/content-template/    what a team copies; config/ lives here now
 ├── .vscodeignore                 what ships in the .vsix — excludes all, names each file back
 ├── .vscode-test.mjs              points @vscode/test-cli at out/test/integration/
@@ -75,8 +77,8 @@ because `vsce` applies negations as a union at the end rather than in order: a b
 followed by carve-outs does not work, the carve-outs lose. Naming each file has the side
 benefit that new junk at the repository root cannot leak into a release by default.
 
-The package is 20 files: four bundles, three workflows, seven prompt templates, the four
-under `examples/content-template/`, the icon and `package.json`. `npx vsce ls` prints
+The package is 21 files: four bundles, three workflows, seven prompt templates, one shared
+prompt fragment, the four under `examples/content-template/`, the icon and `package.json`. `npx vsce ls` prints
 exactly that list, and is the cheapest way to catch the file going missing again.
 
 `out/` is tracked because `package.json`'s `main` points into it, so a checkout stays

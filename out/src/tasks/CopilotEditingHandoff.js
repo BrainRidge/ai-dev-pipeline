@@ -66,6 +66,8 @@ class CopilotEditingHandoff {
                 chars: prompt.length,
                 templatePath: composed.templatePath,
                 templateSource: composed.templateSource,
+                includes: composed.includes,
+                references: composed.references,
             },
         });
         const mechanism = await this.handoff.deliver(prompt, ctx.taskDir);

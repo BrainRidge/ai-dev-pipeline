@@ -1,5 +1,5 @@
 import { readdir } from 'node:fs/promises'
-import { join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 import { isAbsolutePath } from '../session/SetupSelection'
 
 export type TemplateSource = 'external' | 'bundled'
@@ -243,11 +243,16 @@ export const nodeProbe: DirectoryProbe = {
   },
 }
 
-export type TemplateResolver = (workflowId: string, stepId: string) => Promise<ResolvedTemplate>
+/**
+ * Resolves a path relative to the prompts root — `<workflowId>/<stepId>.md` for
+ * a step's own template, or anything else a template pulls in by name, such as
+ * `_shared/house-rules.md`. See spec Section 8.
+ */
+export type TemplateResolver = (relativePath: string) => Promise<ResolvedTemplate>
 
 /**
- * Resolves `<promptsDir>/<workflowId>/<stepId>.md`, falling back to the bundled
- * template of the same name when the team has not supplied one.
+ * Resolves `<promptsDir>/<relativePath>`, falling back to the bundled template
+ * of the same name when the team has not supplied one.
  *
  * Fallback is per file on purpose: a team overriding one prompt keeps receiving
  * every other prompt a release adds. The cost is that a misnamed override would
@@ -262,16 +267,16 @@ export function templateResolver(
   opts: { promptsDir?: string; bundledPromptsDir: string },
   probe: DirectoryProbe,
 ): TemplateResolver {
-  return async (workflowId, stepId) => {
-    const expected = `${stepId}.md`
+  return async (relativePath) => {
+    const expected = basename(relativePath)
     const bundled: ResolvedTemplate = {
-      path: join(opts.bundledPromptsDir, workflowId, expected),
+      path: join(opts.bundledPromptsDir, relativePath),
       source: 'bundled',
     }
 
     if (!opts.promptsDir) return bundled
 
-    const dir = join(opts.promptsDir, workflowId)
+    const dir = join(opts.promptsDir, dirname(relativePath))
     const names = await probe.list(dir)
     if (!names) return bundled
 
@@ -294,7 +299,12 @@ export async function externalWorkflowsPresent(
   return (await probe.list(join(root, 'workflows'))) !== undefined
 }
 
+/** How a template's origin is worded wherever it is shown. */
+export function sourceLabel(source: TemplateSource): string {
+  return source === 'external' ? 'external' : 'bundled default'
+}
+
 /** The caption above a composed prompt, so silent fallback is visible on screen. */
 export function templateNote(t: ResolvedTemplate): string {
-  return `Template: ${t.path} (${t.source === 'external' ? 'external' : 'bundled default'})`
+  return `Template: ${t.path} (${sourceLabel(t.source)})`
 }

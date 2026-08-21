@@ -67,6 +67,12 @@ Additionally:
     locations are unresolvable by design. The `content-resolved` audit entry records
     `source: "sample"` ([Section 16](16-external-content.md)).
 
+21. A **tool developer** can give a handoff step more than one markdown file: `include:` in
+    the template's frontmatter quotes a shared file into the prompt, `reference:` names a
+    document for Copilot to open, and the panel caption and the audit log both record every
+    file that shaped the prompt and whose it was. Adding either takes no TypeScript
+    ([Section 8](08-ai-handoff-step.md)).
+
 ## Status
 
 All of the above are implemented, and each is covered by tests.
@@ -82,7 +88,10 @@ prompt templates and the service catalogue, which a team owns
 ([Section 16](16-external-content.md)). What it still guarantees is the part the tool was
 built for: every developer on a team passes through the same steps in the same order.
 
-Criteria 14–20 are implemented and covered by tests. Criterion 18 was the second
+Criteria 14–21 are implemented and covered by tests. Criterion 21 is demonstrated on real
+bundled content rather than a fixture: `_shared/house-rules.md` is what removed the wording
+that used to be duplicated at the bottom of `CodeImplementation.md` and `CodeFix.md`, and a
+test per workflow asserts it is still quoted into both. Criterion 18 was the second
 demonstration that adding a *kind* of step costs one class: `SystemCheck` needed
 no change to `render/fields.ts` at all, only a badge colour in the stylesheet.
 
