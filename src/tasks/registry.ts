@@ -1,12 +1,14 @@
 import { createHash } from 'node:crypto'
+import { dirname } from 'node:path'
 import { existsSync } from 'node:fs'
-import { access, readFile } from 'node:fs/promises'
+import { access, copyFile, mkdir, readFile } from 'node:fs/promises'
 import * as vscode from 'vscode'
 import { AuditLog } from '../audit/AuditLog'
 import { nodeProbe, templateResolver } from '../content/ContentRoot'
 import { ChatHandoff } from '../handoff/ChatHandoff'
 import { PromptComposer } from '../prompt/PromptComposer'
 import { DEFAULT_TOOLS, loadTools, type ResolvedTools } from '../engine/ToolCatalog'
+import { defaultProviders } from '../providers/registry'
 import { CollectRequirement } from './CollectRequirement'
 import { GitClone } from './GitClone'
 import { InvokeCopilot } from './InvokeCopilot'
@@ -17,6 +19,7 @@ import { SystemCheck } from './SystemCheck'
 import { TaskTypeRegistry } from './TaskType'
 import type { CommandSink } from './CommandSink'
 import { nodeToolProbe } from './ToolProbe'
+import type { EnvironmentReader } from './Environment'
 
 async function fileExists(p: string): Promise<boolean> {
   try {
@@ -31,7 +34,30 @@ async function hashFile(p: string): Promise<string> {
   return createHash('sha256').update(await readFile(p, 'utf8')).digest('hex')
 }
 
+/** Keeps what was approved, so the audit trail holds more than a hash. */
+async function keepCopy(from: string, to: string): Promise<void> {
+  await mkdir(dirname(to), { recursive: true })
+  await copyFile(from, to)
+}
+
 const TERMINAL = 'AI Dev Workflow'
+
+/**
+ * What the editor can be asked about itself. Two one-liners, so that the
+ * judgement of what the answers mean stays in `Environment.ts` where it can be
+ * tested without an extension host. See spec Section 17.
+ */
+const editorEnvironment: EnvironmentReader = {
+  setting(id) {
+    // Split on the last dot: getConfiguration wants the section and the key
+    // separately, and `chat.agent.enabled` is section `chat`, key `agent.enabled`.
+    const cut = id.indexOf('.')
+    return vscode.workspace.getConfiguration(id.slice(0, cut)).get<boolean>(id.slice(cut + 1))
+  },
+  async commands() {
+    return vscode.commands.getCommands(true)
+  },
+}
 
 async function openInEditor(p: string): Promise<void> {
   const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(p))
@@ -90,8 +116,10 @@ export function buildTaskTypes(opts: {
   }
 
   return new TaskTypeRegistry([
-    new SystemCheck(loadToolList, nodeToolProbe, sink),
-    new CollectRequirement(),
+    new SystemCheck(loadToolList, nodeToolProbe, sink, editorEnvironment),
+    // Providers are passed in rather than defaulted, so the one place that wires
+    // the vocabulary is also the one place P3 adds an MCP provider.
+    new CollectRequirement(defaultProviders()),
     new GitClone(opts.codeRoot, existsSync, sink),
     new InvokeCopilot(
       composer,
@@ -112,6 +140,6 @@ export function buildTaskTypes(opts: {
       new AuditLog(opts.taskDir),
       sink,
     ),
-    new ManualReview(openInEditor, hashFile),
+    new ManualReview(openInEditor, hashFile, keepCopy),
   ])
 }

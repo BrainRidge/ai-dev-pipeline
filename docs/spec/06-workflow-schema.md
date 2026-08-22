@@ -112,7 +112,18 @@ of them. The original design had this step run clone and checkout and complete w
 operation exited 0.
 
 The plan is rebuilt on every render, so cloning a repository by hand and returning shows that
-block in its already-cloned form: `cd` and `git fetch` rather than `git clone`.
+block in its already-cloned form: `git -C … fetch origin` rather than `git clone`.
+
+**Every line is a plain git invocation against a quoted absolute path**, and that is a
+correctness requirement rather than a style. The plan used to open with `mkdir -p` and `cd`,
+which are POSIX idioms: `mkdir -p` means something else in PowerShell, and a Windows path
+built by Node's `join` and pasted unquoted into Git Bash has its backslashes eaten as escape
+characters. So the emitted block was unusable in at least one shell on the platform half a
+team may be working on, and nothing in the tool could notice — it never sees the output.
+
+`git -C` removes the need to `cd`, and `git clone` creates the leading directories of the
+path it is given, which removes the need to `mkdir`. What is left runs unchanged in bash,
+zsh, PowerShell and cmd, and is three lines per repository instead of six.
 
 ## The bundled workflows
 

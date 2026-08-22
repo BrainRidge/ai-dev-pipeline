@@ -46,7 +46,11 @@ ai-dev-workflow/
 │   ├── handoff/ChatHandoff.ts    the A → B → C ladder
 │   ├── audit/AuditLog.ts
 │   ├── bridge/WebviewBridge.ts   the only caller of postMessage
-│   ├── providers/                the MCP seam; nothing imports it yet
+│   ├── audit/summary.ts          what the session logs say, for V1
+│   ├── providers/                the MCP seam
+│   │   ├── Provider.ts           interface + registry
+│   │   ├── ManualProvider.ts     offers no choices, so a field is free entry
+│   │   └── registry.ts           where P3 registers a JiraMcpProvider
 │   └── update/UpdateCheck.ts
 ├── webview/                      may not import src/**, enforced by ESLint
 │   ├── main.ts                   the workflow panel
@@ -62,9 +66,13 @@ ai-dev-workflow/
 │   ├── <workflowId>/<stepId>.md   the per-file fallback; still bundled
 │   └── _shared/*.md               files a template pulls in with include:
 ├── examples/content-template/    what a team copies; config/ lives here now
+├── .github/workflows/verify.yml  the gate on every pull request
+├── release.mjs                   verify, bump, build, check, package, manifest
+├── package-check.mjs             what must and must not be in the .vsix
+├── update-manifest.json          what the startup update check reads
 ├── .vscodeignore                 what ships in the .vsix — excludes all, names each file back
 ├── .vscode-test.mjs              points @vscode/test-cli at out/test/integration/
-├── out/                          built bundles; tracked deliberately
+├── out/                          the four bundles + stylesheet are tracked; the rest is not
 ├── test/
 └── docs/
 ```
@@ -81,6 +89,13 @@ The package is 21 files: four bundles, three workflows, seven prompt templates, 
 prompt fragment, the four under `examples/content-template/`, the icon and `package.json`. `npx vsce ls` prints
 exactly that list, and is the cheapest way to catch the file going missing again.
 
-`out/` is tracked because `package.json`'s `main` points into it, so a checkout stays
-installable without a build step. The cost is that a source change is not finished until the
-bundles are rebuilt in the same commit.
+The four bundles and the stylesheet in `out/` are tracked because `package.json`'s `main`
+points into it, so a checkout stays installable without a build step. The cost is that a
+source change is not finished until the bundles are rebuilt in the same commit — which CI now
+checks ([Section 11](11-build-test-and-enforcement.md)) rather than trusting.
+
+**Nothing else in `out/` is tracked.** The sourcemaps never ship and rewrite themselves on
+every build, and the unbundled `tsc` output under `out/src`, `out/test` and `out/webview` is
+rewritten by `pretest:integration` — so running the integration tier used to dirty a hundred
+tracked files. `.gitignore` names the five that belong and excludes the rest, which is the
+same shape as `.vscodeignore`'s rule and for the same reason.

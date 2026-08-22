@@ -181,10 +181,12 @@ available evidence for [D6](04-decisions.md) since the two P2 workflows: a whole
 new step type, and the frontend did not move.
 
 ```
-Git         ✓  2.50.1
-Java (JDK)  ✗  not found
-Maven       –  not found (optional)
-Gradle      ⚠  7.6 — needs 8.0 or newer
+Copilot agent mode  ✓  enabled
+One-click handoff   ✓  workbench.action.chat.open is available
+Git                 ✓  2.50.1
+Java (JDK)          ✗  not found
+Maven               –  not found (optional)
+Gradle              ⚠  7.6 — needs 8.0 or newer
 
 Java (JDK) — required
   Why      Copilot compiles and tests the code it changes.
@@ -208,6 +210,50 @@ many machines, and which required entry in the list is stopping work most often.
 An entry that blocks constantly is usually a list that is wrong rather than an
 estate that is broken.
 
+## Two checks that are not tools
+
+The report opens with two things that are not programs on a PATH and are not
+team-configurable:
+
+| Check | Reads | Required |
+|---|---|---|
+| Copilot agent mode | `chat.agent.enabled` | Yes |
+| One-click handoff | whether `workbench.action.chat.open` is registered | No |
+
+They are built in rather than part of `config/tools.json` because they are not team facts.
+Every team using this extension depends on Copilot agent mode — that is
+[D1](04-decisions.md) — so there is nothing for a team to configure and no version of this
+tool where the answer does not matter.
+
+**Agent mode is required, and this is the gap [Section 8](08-ai-handoff-step.md) recorded from
+P1 onwards.** The check was specified for P1, never implemented, and a developer with agent
+mode off discovered it when Copilot answered in chat instead of editing files — several steps
+into a task, after the requirement, the clone and the plan. It is required rather than advisory
+because the implementation and review steps are contracted to produce edits, and with agent
+mode off they produce conversation.
+
+`chat.agent.enabled` defaults to true and arrived in VS Code 1.99. Three states, and the third
+is the one that needed care:
+
+- `true` — passes.
+- `false` — blocks, with the likelier cause named: an organisation can disable agents, and then
+  no amount of clicking in Settings will help.
+- **`undefined`** — the setting does not exist in this version of VS Code, which is not the
+  same as off. Reported as *could not be checked*, and it never blocks. A check that could not
+  be made must not become a verdict; that is the whole reason `unknown` is a status of its own
+  rather than being folded into one of the others.
+
+**The one-click handoff is not required**, because the ladder degrades to the clipboard and
+then to a file and both rungs work ([Section 8](08-ai-handoff-step.md)). Its absence costs a
+paste per handoff, not a task, so the report says exactly that: *"Nothing breaks; each one
+costs a paste."* Reporting it at all is worth doing because it is the difference between a
+developer thinking the tool is broken and knowing it is degraded.
+
+What neither check can establish is whether the chat session in front of the developer is in
+agent mode *at that moment*. They can switch a session to Ask after the check passes, and no
+extension can see that. This reduces the friction rather than removing it, which is the honest
+end state for a design built on [D1](04-decisions.md).
+
 ## What it deliberately does not do
 
 - **It installs nothing.** Same reasoning as `gitClone`
@@ -219,8 +265,6 @@ estate that is broken.
   in it might.
 - **It does not check the repositories.** Nothing is cloned yet at this point in
   the workflow, and nothing this step runs touches one.
-- **It does not verify agent mode.** That remains the gap
-  [Section 8](08-ai-handoff-step.md) records and V1 in
-  [Section 12](12-verification-tasks.md) has not closed. It is a Copilot setting
-  rather than a program on the PATH, so it is not a probe of this kind — but this
-  step is where the check would belong once someone works out how to make it.
+- **It does not check that Copilot is installed.** If it were not, the chat command would not
+  be registered, which the one-click check already reports — more precisely, and without a
+  second thing to keep true.

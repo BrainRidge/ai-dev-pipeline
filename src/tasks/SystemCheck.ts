@@ -2,11 +2,18 @@ import type { StepDef, ToolDef } from '../engine/schema'
 import type { ResolvedTools } from '../engine/ToolCatalog'
 import { meetsMinimum, versionIn } from '../engine/ToolCatalog'
 import type { CommandSink } from './CommandSink'
+import { readEnvironment, type EnvironmentReader } from './Environment'
 import type { Answers, CommandBlock, StepContext, ValidationResult } from './context'
 import type { TaskType, TaskView } from './TaskType'
 import type { ToolProbe } from './ToolProbe'
 
-export type FindingStatus = 'ok' | 'missing' | 'outdated'
+/**
+ * `off` and `unknown` belong to the editor checks rather than to tools: a
+ * setting can be turned off, and a setting that does not exist in this version
+ * cannot be judged at all. `unknown` never blocks — refusing to let somebody
+ * work because we could not tell would be worse than not checking.
+ */
+export type FindingStatus = 'ok' | 'missing' | 'outdated' | 'off' | 'unknown'
 
 export interface Finding {
   id: string
@@ -17,8 +24,13 @@ export interface Finding {
   version?: string
   minVersion?: string
   why: string
-  /** The hint for this machine's platform, when the list gives one. */
+  /** The hint for this machine's platform, or what to do about a setting. */
   install?: string
+  /**
+   * Overrides the right-hand column. Set by the editor checks, which are not
+   * tools and do not read as ones.
+   */
+  state?: string
 }
 
 /** The block id the report is shown under. The renderer never knows this name. */
@@ -57,6 +69,8 @@ export class SystemCheck implements TaskType, SystemReporter {
   readonly name = 'systemCheck'
   readonly stepType = 'systemCheck' as const
   readonly title = 'System check'
+  /** Re-check and Copy report act on this step without advancing it. */
+  readonly transitions = ['submit'] as const
 
   private cached: { resolved: ResolvedTools; findings: Finding[] } | undefined
   private failure: string | undefined
@@ -65,6 +79,8 @@ export class SystemCheck implements TaskType, SystemReporter {
     private readonly loadTools: ToolsLoader,
     private readonly probe: ToolProbe,
     private readonly sink: CommandSink,
+    /** What the editor says about agent mode and the chat command. */
+    private readonly environment: EnvironmentReader,
     /** Injected so the report reads the same in a test on any machine. */
     private readonly platform: string = process.platform,
   ) {}
@@ -95,7 +111,7 @@ export class SystemCheck implements TaskType, SystemReporter {
     return {
       text: blocked.length
         ? `${count(blocked.length, 'problem')} to fix before this task can continue. ` +
-          'Install what is missing, then Re-check.'
+          'Fix what the report names, then Re-check.'
         : 'Everything this workflow needs is installed. Nothing was run against your repositories.',
       commands: [this.reportBlock(state)],
       actions,
@@ -118,13 +134,15 @@ export class SystemCheck implements TaskType, SystemReporter {
     const blocked = blockers(this.cached.findings)
     if (blocked.length === 0) return { ok: true, errors: {} }
 
+    // Named individually with what is wrong with each: "is turned off" and "is
+    // missing" call for different actions, and a message that blurs them makes
+    // the developer go back and read the report to find out which they have.
     return {
       ok: false,
       errors: {
         tools:
-          `${blocked.map((f) => f.label).join(', ')} ` +
-          `${blocked.length === 1 ? 'is' : 'are'} still missing or too old. ` +
-          'Install what the report names, then press Re-check.',
+          `${blocked.map((f) => `${f.label} ${wrongWith(f.status)}`).join('; ')}. ` +
+          'Fix what the report names, then press Re-check.',
       },
     }
   }
@@ -163,8 +181,22 @@ export class SystemCheck implements TaskType, SystemReporter {
       return undefined
     }
 
-    const findings = await Promise.all(resolved.tools.map((tool) => this.examine(tool)))
-    this.cached = { resolved, findings }
+    // The editor first: it is the most consequential thing on the list, and
+    // unlike a missing build tool it cannot be fixed by installing something.
+    const editor = (await readEnvironment(this.environment)).map(
+      (f): Finding => ({
+        id: f.id,
+        label: f.label,
+        required: f.required,
+        status: f.status,
+        state: f.state,
+        why: f.detail,
+        install: f.fix,
+      }),
+    )
+
+    const tools = await Promise.all(resolved.tools.map((tool) => this.examine(tool)))
+    this.cached = { resolved, findings: [...editor, ...tools] }
     return this.cached
   }
 
@@ -206,11 +238,33 @@ export class SystemCheck implements TaskType, SystemReporter {
   }
 }
 
-const MARK: Record<FindingStatus, string> = { ok: '✓', missing: '✗', outdated: '⚠' }
+const MARK: Record<FindingStatus, string> = {
+  ok: '✓',
+  missing: '✗',
+  outdated: '⚠',
+  off: '✗',
+  unknown: '?',
+}
 
-/** Required tools that are absent or too old — the only things that block. */
+/**
+ * What stops the step: anything required that is absent, too old, or switched
+ * off. `unknown` is excluded on purpose — it means the check could not be made,
+ * and a check that cannot be made must not become a verdict.
+ */
 export function blockers(findings: Finding[]): Finding[] {
-  return findings.filter((f) => f.required && f.status !== 'ok')
+  return findings.filter((f) => f.required && f.status !== 'ok' && f.status !== 'unknown')
+}
+
+/** What is wrong, in words that suit a setting as well as a program. */
+function wrongWith(status: FindingStatus): string {
+  switch (status) {
+    case 'off':
+      return 'is turned off'
+    case 'outdated':
+      return 'is too old'
+    default:
+      return 'is missing'
+  }
 }
 
 function count(n: number, noun: string): string {
@@ -233,19 +287,27 @@ export function reportLines(findings: Finding[]): string[] {
 
   for (const f of findings.filter((f) => f.status !== 'ok')) {
     lines.push('', `${f.label} — ${f.required ? 'required' : 'optional'}`)
-    if (f.why) lines.push(`  Why      ${f.why}`)
-    if (f.install) lines.push(`  Install  ${f.install}`)
+    if (f.why) lines.push(`  ${'Why'.padEnd(7)}  ${f.why}`)
+    // Editor checks are fixed, not installed.
+    if (f.install) lines.push(`  ${(f.state ? 'Fix' : 'Install').padEnd(7)}  ${f.install}`)
   }
 
   return lines
 }
 
 function describeFinding(f: Finding): string {
+  // A check that worded itself, worded itself for a reason.
+  if (f.state) return f.state
+
   switch (f.status) {
     case 'ok':
-      return f.version ?? 'installed'
+      return f.version ?? 'enabled'
     case 'outdated':
       return `${f.version ?? 'unknown'} — needs ${f.minVersion} or newer`
+    case 'off':
+      return 'turned off'
+    case 'unknown':
+      return 'could not be checked'
     default:
       return f.required ? 'not found' : 'not found (optional)'
   }

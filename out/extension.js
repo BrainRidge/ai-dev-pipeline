@@ -7365,13 +7365,8 @@ __export(extension_exports, {
 });
 module.exports = __toCommonJS(extension_exports);
 var import_promises11 = require("node:fs/promises");
+var import_node_path18 = require("node:path");
 var vscode6 = __toESM(require("vscode"));
-
-// src/session/TaskSession.ts
-var import_node_crypto3 = require("node:crypto");
-var import_promises9 = require("node:fs/promises");
-var import_node_path14 = require("node:path");
-var vscode3 = __toESM(require("vscode"));
 
 // src/audit/AuditLog.ts
 var import_promises = require("node:fs/promises");
@@ -7394,6 +7389,145 @@ var AuditLog = class {
     return raw.trim().split("\n").filter(Boolean).map((l) => JSON.parse(l));
   }
 };
+
+// src/audit/summary.ts
+function summarise(perTask) {
+  const summary = {
+    tasks: perTask.length,
+    handoffs: 0,
+    byMechanism: { A: 0, B: 0, C: 0 },
+    templates: { external: 0, bundled: 0 },
+    unresolved: {},
+    outputsDetected: 0,
+    sampleCatalogue: 0,
+    snapshotsModified: 0
+  };
+  for (const entries of perTask) {
+    for (const entry of entries) {
+      const data = entry.data ?? {};
+      switch (entry.kind) {
+        case "prompt-delivered": {
+          summary.handoffs += 1;
+          const mechanism = data.mechanism;
+          if (mechanism === "A" || mechanism === "B" || mechanism === "C") {
+            summary.byMechanism[mechanism] += 1;
+          }
+          break;
+        }
+        case "prompt-composed": {
+          if (data.templateSource === "external") summary.templates.external += 1;
+          if (data.templateSource === "bundled") summary.templates.bundled += 1;
+          for (const name of Array.isArray(data.unresolved) ? data.unresolved : []) {
+            const key = String(name);
+            summary.unresolved[key] = (summary.unresolved[key] ?? 0) + 1;
+          }
+          break;
+        }
+        case "output-detected":
+          summary.outputsDetected += 1;
+          break;
+        case "content-resolved":
+          if (data.source === "sample") summary.sampleCatalogue += 1;
+          break;
+        case "snapshot-modified":
+          summary.snapshotsModified += 1;
+          break;
+      }
+    }
+  }
+  return summary;
+}
+function report(summary) {
+  const { byMechanism: m, handoffs } = summary;
+  const share = (n) => handoffs === 0 ? "\u2014" : `${Math.round(n / handoffs * 100)}%`;
+  const lines = [
+    "# Handoff report",
+    "",
+    `${summary.tasks} task${summary.tasks === 1 ? "" : "s"} on this machine, ${handoffs} prompt${handoffs === 1 ? "" : "s"} delivered to Copilot.`,
+    "",
+    "## Which handoff mechanism worked",
+    "",
+    "The A \u2192 B \u2192 C ladder from spec Section 8. This is the question V1 asks.",
+    "",
+    "| Mechanism | How it delivers | Times | Share |",
+    "|---|---|---|---|",
+    `| A | chat opened with the prompt prefilled | ${m.A} | ${share(m.A)} |`,
+    `| B | prompt on the clipboard, chat opened | ${m.B} | ${share(m.B)} |`,
+    `| C | prompt written to a file and opened | ${m.C} | ${share(m.C)} |`,
+    ""
+  ];
+  if (handoffs === 0) {
+    lines.push("No prompts have been delivered yet, so there is nothing to conclude.", "");
+  } else if (m.A === handoffs) {
+    lines.push(
+      "Mechanism A has never failed on this machine, which is the answer V1 wanted.",
+      'It does **not** tell you whether `mode: "agent"` was honoured \u2014 that is still',
+      "unrecorded, and remains the gap Section 8 describes under known friction.",
+      ""
+    );
+  } else if (m.A === 0) {
+    lines.push(
+      "**Mechanism A has never succeeded here.** Every handoff fell through to a rung",
+      "that needs the developer to paste. Worth raising: the ladder is working as",
+      "designed, but the one-click path never does.",
+      ""
+    );
+  } else {
+    lines.push(
+      `Mechanism A works ${share(m.A)} of the time on this machine, so it is neither`,
+      "reliable nor useless. That is the least convenient answer and the one most",
+      "worth reporting \u2014 it suggests something about the environment rather than",
+      "about the code.",
+      ""
+    );
+  }
+  lines.push(
+    "## Prompt templates",
+    "",
+    `- composed from a team template: ${summary.templates.external}`,
+    `- composed from the bundled default: ${summary.templates.bundled}`,
+    "",
+    "## Artifacts",
+    "",
+    `- declared output files seen to appear: ${summary.outputsDetected}`,
+    ""
+  );
+  const unresolved = Object.entries(summary.unresolved).sort((a, b) => b[1] - a[1]);
+  if (unresolved.length > 0) {
+    lines.push(
+      "## Placeholders that resolved to nothing",
+      "",
+      "Each of these is a misspelling in a prompt template. The prompt was sent with",
+      "a blank where the text should have been.",
+      "",
+      ...unresolved.map(([name, count2]) => `- \`{{${name}}}\` \u2014 ${count2} time(s)`),
+      ""
+    );
+  }
+  if (summary.sampleCatalogue > 0) {
+    lines.push(
+      "## Tasks run on the bundled sample",
+      "",
+      `${summary.sampleCatalogue} task${summary.sampleCatalogue === 1 ? "" : "s"} started with no microservice catalogue configured, so the placeholder services were used and nothing could have been cloned. See spec Section 16.`,
+      ""
+    );
+  }
+  if (summary.snapshotsModified > 0) {
+    lines.push(
+      "## Workflow snapshots edited mid-task",
+      "",
+      `${summary.snapshotsModified} \u2014 detection, not prevention, by design. See spec Section 7.`,
+      ""
+    );
+  }
+  return lines.join("\n");
+}
+
+// src/session/TaskSession.ts
+var import_node_crypto3 = require("node:crypto");
+var import_promises9 = require("node:fs/promises");
+var import_node_path15 = require("node:path");
+var vscode3 = __toESM(require("vscode"));
 
 // src/bridge/WebviewBridge.ts
 var WebviewBridge = class {
@@ -7474,7 +7608,7 @@ function badgeFor(step, fields) {
     }
   }
 }
-function summarise(step, record, fields) {
+function summarise2(step, record, fields) {
   if (!record || record.status !== "complete") return void 0;
   switch (step.stepType) {
     case "commandExecution": {
@@ -7494,7 +7628,7 @@ function summarise(step, record, fields) {
       const findings = record.result?.findings ?? [];
       if (findings.length === 0) return "Checked";
       const ok = findings.filter((f) => f.status === "ok").length;
-      return `${ok} of ${findings.length} tools found`;
+      return `${ok} of ${findings.length} checks passed`;
     }
     default: {
       const answers = record.answers ?? {};
@@ -7539,7 +7673,7 @@ async function buildWorkflowDescriptor(args) {
       badge: badgeFor(step, view.fields),
       status,
       documentation: step.documentation || void 0,
-      summary: summarise(step, record, view.fields),
+      summary: summarise2(step, record, view.fields),
       answers: detailAnswers(step, record, view.fields)
     };
     if (status !== "current") {
@@ -11924,6 +12058,14 @@ var WorkflowEngine = class {
       }
       return { ok: true, done: false };
     }
+    if (!task.transitions.includes(actionId)) {
+      return {
+        ok: false,
+        errors: {
+          action: `"${actionId}" does not complete this step. ${task.name} completes on ${task.transitions.map((t) => `"${t}"`).join(" or ")}. This is a defect in the extension rather than anything you did.`
+        }
+      };
+    }
     const validation = task.validate(step, values);
     if (!validation.ok) return { ok: false, errors: validation.errors };
     const result = await task.execute(step, this.ctx, values);
@@ -12053,6 +12195,7 @@ var TaskWorkspace = class _TaskWorkspace {
 
 // src/tasks/registry.ts
 var import_node_crypto2 = require("node:crypto");
+var import_node_path12 = require("node:path");
 var import_node_fs = require("node:fs");
 var import_promises8 = require("node:fs/promises");
 var vscode2 = __toESM(require("vscode"));
@@ -12302,6 +12445,30 @@ function resolveText(text, ctx) {
     (_full, ns, field) => renderValue(resolveValue(ns, field, ctx))
   );
 }
+var PLACEHOLDER = /\{\{([A-Za-z0-9_]+)\.([A-Za-z0-9_]+)\}\}/g;
+var TASK_INTRINSICS = ["platform", "epic", "dir", "id"];
+function unresolvedIn(text, ctx) {
+  const found = /* @__PURE__ */ new Set();
+  for (const [, ns, field] of text.matchAll(PLACEHOLDER)) {
+    const namespace = ns;
+    const name = field;
+    if (namespace === "task") {
+      if (!TASK_INTRINSICS.includes(name) && !(name in ctx.inputs)) {
+        found.add(`task.${name}`);
+      }
+      continue;
+    }
+    if (!ctx.order.includes(namespace)) {
+      found.add(`${namespace}.${name}`);
+      continue;
+    }
+    const answers = ctx.answersOf(namespace);
+    if (Object.keys(answers).length > 0 && !(name in answers)) {
+      found.add(`${namespace}.${name}`);
+    }
+  }
+  return [...found];
+}
 
 // src/prompt/PromptComposer.ts
 var FRONTMATTER = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/;
@@ -12338,6 +12505,8 @@ var PromptComposer = class {
     const main = await this.template(step, ctx);
     const included = await this.readIncludes(main);
     const references = await this.resolveReferences(main, ctx);
+    const authored = [main.body, ...included.map((i) => i.body)];
+    const unresolved = [...new Set(authored.flatMap((body) => unresolvedIn(body, ctx)))];
     const part1 = [
       resolveText(main.body, ctx).trimEnd(),
       ...included.map((i) => resolveText(i.body, ctx).trimEnd())
@@ -12376,7 +12545,8 @@ var PromptComposer = class {
       templatePath: main.path,
       templateSource: main.source,
       includes: included.map(({ path, source }) => ({ path, source })),
-      references
+      references,
+      unresolved
     };
   }
   /**
@@ -12593,6 +12763,42 @@ function meetsMinimum(found, min) {
   return true;
 }
 
+// src/providers/ManualProvider.ts
+var ManualProvider = class {
+  name = "manual";
+  async options(_field) {
+    return void 0;
+  }
+};
+
+// src/providers/Provider.ts
+var ProviderRegistry = class {
+  providers = /* @__PURE__ */ new Map();
+  constructor(providers = []) {
+    for (const p of providers) this.register(p);
+  }
+  register(p) {
+    this.providers.set(p.name, p);
+  }
+  get(name) {
+    const p = this.providers.get(name);
+    if (!p) {
+      throw new Error(
+        `unknown provider "${name}". Known: ${[...this.providers.keys()].sort().join(", ")}`
+      );
+    }
+    return p;
+  }
+  has(name) {
+    return this.providers.has(name);
+  }
+};
+
+// src/providers/registry.ts
+function defaultProviders() {
+  return new ProviderRegistry([new ManualProvider()]);
+}
+
 // src/tasks/CollectRequirement.ts
 function isEmpty(v) {
   if (v === void 0 || v === null) return true;
@@ -12601,21 +12807,44 @@ function isEmpty(v) {
   return false;
 }
 var CollectRequirement = class {
+  constructor(providers = defaultProviders()) {
+    this.providers = providers;
+  }
   name = "CollectRequirement";
   stepType = "task";
   title = "Collect the requirement";
+  transitions = ["submit"];
   fields = [
-    { id: "story", type: "textarea", label: "JIRA story acceptance criteria as is", provider: "manual", required: true },
+    {
+      id: "story",
+      type: "textarea",
+      label: "JIRA story acceptance criteria as is",
+      provider: "manual",
+      required: true
+    },
     { id: "notes", type: "textarea", label: "Meeting notes from call or conversation" }
   ];
   async describe(_step, _ctx, _values) {
     return {
-      fields: this.fields,
+      fields: await Promise.all(this.fields.map((field) => this.offer(field))),
       actions: [
         { id: "back", label: "Back" },
         { id: "submit", label: "Continue", primary: true }
       ]
     };
+  }
+  /**
+   * A field's provider decides whether it is free entry or a choice.
+   *
+   * `ManualProvider` returns nothing, so a manual field stays as authored. A
+   * provider that *does* return options — a JIRA one listing the stories on an
+   * epic — turns the same field into a selection, which is the migration D5
+   * describes: a new provider, a new name in the field, and no other change.
+   */
+  async offer(field) {
+    if (!field.provider) return field;
+    const options = await this.providers.get(field.provider).options(field);
+    return options ? { ...field, type: "select", options } : field;
   }
   validate(_step, values) {
     const errors = {};
@@ -12644,11 +12873,13 @@ var GitClone = class {
   name = "gitClone";
   stepType = "commandExecution";
   title = "Get the code";
+  /** Copy and Terminal are affordances; only this completes the step. */
+  transitions = ["submit"];
   async describe(_step, ctx, _values) {
     const blocks = this.plan(ctx);
     const base = baseBranchOf(ctx);
     return {
-      text: blocks.length ? `Run these in a terminal${base ? ` to put each repository on \`${base}\`` : ""} under \`${this.workDirOf(ctx)}\`, then mark the step done. Nothing here runs on its own.` : "No microservice in the catalogue matched what was selected, so there is nothing to run.",
+      text: blocks.length ? `Run these in a terminal${base ? ` to put each repository on \`${base}\`` : ""} under \`${this.workDirOf(ctx)}\`, then mark the step done. Every line is a plain git command against a full path, so it runs the same in any shell. Nothing here runs on its own.` : "No microservice in the catalogue matched what was selected, so there is nothing to run.",
       commands: blocks,
       actions: [
         { id: "back", label: "Back" },
@@ -12658,16 +12889,10 @@ var GitClone = class {
   }
   plan(ctx) {
     const base = baseBranchOf(ctx);
-    const workDir = this.workDirOf(ctx);
     return this.selected(ctx).map((service) => {
-      const repo = folderFor(service);
-      const lines = this.exists(this.pathOf(ctx, service)) ? [`cd ${(0, import_node_path9.join)(workDir, repo)}`, "git fetch origin"] : [
-        `mkdir -p ${workDir}`,
-        `cd ${workDir}`,
-        `git clone ${service.gitLocation} ${repo}`,
-        `cd ${repo}`
-      ];
-      if (base) lines.push(`git checkout ${base}`, "git pull");
+      const path = this.pathOf(ctx, service);
+      const lines = this.exists(path) ? [`git -C "${path}" fetch origin`] : [`git clone "${service.gitLocation}" "${path}"`];
+      if (base) lines.push(`git -C "${path}" checkout ${base}`, `git -C "${path}" pull`);
       return {
         id: service.shortCode,
         label: `${service.microserviceName} (${service.shortCode})`,
@@ -12747,6 +12972,11 @@ function provenanceNote(composed) {
       `References: ${composed.references.map((r) => r.found ? r.path : `${r.path} (not found)`).join("; ")}`
     );
   }
+  if (composed.unresolved.length > 0) {
+    lines.push(
+      `\u26A0 Nothing to put in: ${composed.unresolved.map((u) => `{{${u}}}`).join(", ")} \u2014 these rendered as nothing. Check the template for a misspelling.`
+    );
+  }
   return lines.join("\n");
 }
 var PROMPT_BLOCK_ID = "prompt";
@@ -12795,6 +13025,8 @@ var InvokeCopilot = class {
   name = "invokeCopilot";
   stepType = "aiHandoff";
   title = "Hand off to Copilot";
+  /** Send delivers the prompt; Done is what completes the step (spec D9). */
+  transitions = ["done"];
   async describe(step, ctx, values) {
     const { block, failure } = await composePreview(
       this.composer,
@@ -12857,10 +13089,16 @@ var InvokeCopilot = class {
         templatePath,
         templateSource,
         includes: composed.includes,
-        references: composed.references
+        references: composed.references,
+        unresolved: composed.unresolved
       }
     });
     const mechanism = await this.handoff.deliver(prompt, ctx.taskDir);
+    await this.audit.append({
+      kind: "prompt-delivered",
+      stepId: step.id,
+      data: { mechanism, chars: prompt.length }
+    });
     return { mechanism, promptChars: prompt.length, outputPath: (0, import_node_path10.join)(ctx.taskDir, outputFile) };
   }
   async execute(step, ctx, values) {
@@ -12883,6 +13121,8 @@ var CopilotEditingHandoff = class {
     this.sink = sink;
   }
   stepType = "aiHandoff";
+  /** Same as InvokeCopilot: Send delivers, Done completes. */
+  transitions = ["done"];
   async describe(step, ctx, values) {
     const { block, failure } = await composePreview(
       this.composer,
@@ -12923,10 +13163,16 @@ var CopilotEditingHandoff = class {
         templatePath: composed.templatePath,
         templateSource: composed.templateSource,
         includes: composed.includes,
-        references: composed.references
+        references: composed.references,
+        unresolved: composed.unresolved
       }
     });
     const mechanism = await this.handoff.deliver(prompt, ctx.taskDir);
+    await this.audit.append({
+      kind: "prompt-delivered",
+      stepId: step.id,
+      data: { mechanism, chars: prompt.length }
+    });
     return { mechanism, promptChars: prompt.length };
   }
   async execute(_step, _ctx, values) {
@@ -12951,13 +13197,16 @@ var InvokeCopilotCodeReview = class extends CopilotEditingHandoff {
 // src/tasks/ManualReview.ts
 var import_node_path11 = require("node:path");
 var ManualReview = class {
-  constructor(openFile, hashFile2) {
+  constructor(openFile, hashFile2, keepCopy2) {
     this.openFile = openFile;
     this.hashFile = hashFile2;
+    this.keepCopy = keepCopy2;
   }
   name = "manualReview";
   stepType = "manual";
   title = "Review the result";
+  /** Revise is handled by the engine, since it moves backwards. */
+  transitions = ["approve"];
   async describe(step, ctx, _values) {
     const path = this.artifactPath(step, ctx);
     return {
@@ -12975,10 +13224,34 @@ var ManualReview = class {
     const path = this.artifactPath(step, ctx);
     if (path) await this.openFile(path);
   }
+  /**
+   * Approval keeps a copy, not just a hash.
+   *
+   * Spec Section 8 recorded the gap: the hash proves the file was not altered
+   * after approval, but it cannot reconstruct what was approved — and the
+   * artifact lives at the root of the task folder, which the developer is
+   * invited to open and edit. A later edit therefore left an audit trail that
+   * could prove something had changed and nothing about what it used to say.
+   *
+   * The copy goes under `.engine/`, away from the files the developer works on,
+   * and is named after the step so a second pass through the same review does
+   * not overwrite the first — it is a record, and a record that can be
+   * overwritten is not one.
+   */
   async execute(step, ctx, _values) {
     const artifactPath = this.artifactPath(step, ctx);
     if (!artifactPath) return { approved: true };
-    return { artifactPath, artifactHash: await this.hashFile(artifactPath), approved: true };
+    const approvedCopy = (0, import_node_path11.join)(ctx.taskDir, ".engine", "approved", `${step.id}-${(0, import_node_path11.basename)(artifactPath)}`);
+    const kept = await this.keepCopy(artifactPath, approvedCopy).then(
+      () => true,
+      () => false
+    );
+    return {
+      artifactPath,
+      artifactHash: await this.hashFile(artifactPath),
+      approvedCopy: kept ? approvedCopy : null,
+      approved: true
+    };
   }
   /** The nearest artifact behind this step in the traversal order. */
   artifactPath(step, ctx) {
@@ -12992,18 +13265,54 @@ var ManualReview = class {
   }
 };
 
+// src/tasks/Environment.ts
+var AGENT_SETTING = "chat.agent.enabled";
+var CHAT_COMMAND = "workbench.action.chat.open";
+async function readEnvironment(reader) {
+  const agent = reader.setting(AGENT_SETTING);
+  const commands6 = await reader.commands();
+  return [
+    {
+      id: "agentMode",
+      label: "Copilot agent mode",
+      // Required, because the coding and review steps expect Copilot to edit
+      // files. With agent mode off it answers in chat and nothing changes.
+      required: true,
+      status: agent === false ? "off" : agent === true ? "ok" : "unknown",
+      state: agent === false ? "turned off" : agent === true ? "enabled" : "could not be checked",
+      detail: agent === void 0 ? `${AGENT_SETTING} is not a setting in this version of VS Code, so this could not be checked. It needs 1.99 or later.` : "The implementation and review steps expect Copilot to edit files rather than answer in chat.",
+      fix: agent === false ? `Turn on ${AGENT_SETTING} in Settings. If it will not stay on, your organisation may have disabled agents and an administrator has to enable them.` : void 0
+    },
+    {
+      id: "chatCommand",
+      label: "One-click handoff",
+      // Not required: the handoff ladder degrades to the clipboard and then to
+      // a file, and both work. This only decides whether Send to Copilot is one
+      // click or one paste. See spec Section 8.
+      required: false,
+      status: commands6.includes(CHAT_COMMAND) ? "ok" : "missing",
+      state: commands6.includes(CHAT_COMMAND) ? "available" : "not available",
+      detail: commands6.includes(CHAT_COMMAND) ? `${CHAT_COMMAND} is available, so a prompt can be sent straight into chat.` : `${CHAT_COMMAND} is not registered in this window, so every handoff will fall back to the clipboard. Nothing breaks; each one costs a paste.`,
+      fix: commands6.includes(CHAT_COMMAND) ? void 0 : "Install and sign in to GitHub Copilot Chat."
+    }
+  ];
+}
+
 // src/tasks/SystemCheck.ts
 var REPORT_BLOCK_ID = "systemCheck";
 var SystemCheck = class {
-  constructor(loadTools2, probe, sink, platform = process.platform) {
+  constructor(loadTools2, probe, sink, environment, platform = process.platform) {
     this.loadTools = loadTools2;
     this.probe = probe;
     this.sink = sink;
+    this.environment = environment;
     this.platform = platform;
   }
   name = "systemCheck";
   stepType = "systemCheck";
   title = "System check";
+  /** Re-check and Copy report act on this step without advancing it. */
+  transitions = ["submit"];
   cached;
   failure;
   invalidate() {
@@ -13024,7 +13333,7 @@ var SystemCheck = class {
     }
     const blocked = blockers(state.findings);
     return {
-      text: blocked.length ? `${count(blocked.length, "problem")} to fix before this task can continue. Install what is missing, then Re-check.` : "Everything this workflow needs is installed. Nothing was run against your repositories.",
+      text: blocked.length ? `${count(blocked.length, "problem")} to fix before this task can continue. Fix what the report names, then Re-check.` : "Everything this workflow needs is installed. Nothing was run against your repositories.",
       commands: [this.reportBlock(state)],
       actions
     };
@@ -13046,7 +13355,7 @@ var SystemCheck = class {
     return {
       ok: false,
       errors: {
-        tools: `${blocked.map((f) => f.label).join(", ")} ${blocked.length === 1 ? "is" : "are"} still missing or too old. Install what the report names, then press Re-check.`
+        tools: `${blocked.map((f) => `${f.label} ${wrongWith(f.status)}`).join("; ")}. Fix what the report names, then press Re-check.`
       }
     };
   }
@@ -13076,8 +13385,19 @@ var SystemCheck = class {
       this.failure = err instanceof Error ? err.message : String(err);
       return void 0;
     }
-    const findings = await Promise.all(resolved.tools.map((tool) => this.examine(tool)));
-    this.cached = { resolved, findings };
+    const editor = (await readEnvironment(this.environment)).map(
+      (f) => ({
+        id: f.id,
+        label: f.label,
+        required: f.required,
+        status: f.status,
+        state: f.state,
+        why: f.detail,
+        install: f.fix
+      })
+    );
+    const tools = await Promise.all(resolved.tools.map((tool) => this.examine(tool)));
+    this.cached = { resolved, findings: [...editor, ...tools] };
     return this.cached;
   }
   async examine(tool) {
@@ -13107,9 +13427,25 @@ var SystemCheck = class {
     };
   }
 };
-var MARK = { ok: "\u2713", missing: "\u2717", outdated: "\u26A0" };
+var MARK = {
+  ok: "\u2713",
+  missing: "\u2717",
+  outdated: "\u26A0",
+  off: "\u2717",
+  unknown: "?"
+};
 function blockers(findings) {
-  return findings.filter((f) => f.required && f.status !== "ok");
+  return findings.filter((f) => f.required && f.status !== "ok" && f.status !== "unknown");
+}
+function wrongWith(status) {
+  switch (status) {
+    case "off":
+      return "is turned off";
+    case "outdated":
+      return "is too old";
+    default:
+      return "is missing";
+  }
 }
 function count(n, noun) {
   return `${n} ${noun}${n === 1 ? "" : "s"}`;
@@ -13123,17 +13459,22 @@ function reportLines(findings) {
   });
   for (const f of findings.filter((f2) => f2.status !== "ok")) {
     lines.push("", `${f.label} \u2014 ${f.required ? "required" : "optional"}`);
-    if (f.why) lines.push(`  Why      ${f.why}`);
-    if (f.install) lines.push(`  Install  ${f.install}`);
+    if (f.why) lines.push(`  ${"Why".padEnd(7)}  ${f.why}`);
+    if (f.install) lines.push(`  ${(f.state ? "Fix" : "Install").padEnd(7)}  ${f.install}`);
   }
   return lines;
 }
 function describeFinding(f) {
+  if (f.state) return f.state;
   switch (f.status) {
     case "ok":
-      return f.version ?? "installed";
+      return f.version ?? "enabled";
     case "outdated":
       return `${f.version ?? "unknown"} \u2014 needs ${f.minVersion} or newer`;
+    case "off":
+      return "turned off";
+    case "unknown":
+      return "could not be checked";
     default:
       return f.required ? "not found" : "not found (optional)";
   }
@@ -13167,6 +13508,11 @@ var TaskTypeRegistry = class {
       if (t.stepType !== step.stepType) {
         throw new Error(
           `${workflowId}: step "${step.id}" declares stepType "${step.stepType}" but taskType "${step.taskType}" is a "${t.stepType}" step`
+        );
+      }
+      if (t.transitions.length === 0) {
+        throw new Error(
+          `${workflowId}: step "${step.id}" uses taskType "${step.taskType}", which declares no transitions, so the step could never be completed`
         );
       }
     }
@@ -13215,7 +13561,20 @@ async function fileExists(p) {
 async function hashFile(p) {
   return (0, import_node_crypto2.createHash)("sha256").update(await (0, import_promises8.readFile)(p, "utf8")).digest("hex");
 }
+async function keepCopy(from, to) {
+  await (0, import_promises8.mkdir)((0, import_node_path12.dirname)(to), { recursive: true });
+  await (0, import_promises8.copyFile)(from, to);
+}
 var TERMINAL = "AI Dev Workflow";
+var editorEnvironment = {
+  setting(id) {
+    const cut = id.indexOf(".");
+    return vscode2.workspace.getConfiguration(id.slice(0, cut)).get(id.slice(cut + 1));
+  },
+  async commands() {
+    return vscode2.commands.getCommands(true);
+  }
+};
 async function openInEditor(p) {
   const doc = await vscode2.workspace.openTextDocument(vscode2.Uri.file(p));
   await vscode2.window.showTextDocument(doc, { preview: false });
@@ -13247,8 +13606,10 @@ function buildTaskTypes(opts) {
     return { tools: DEFAULT_TOOLS, source: "bundled" };
   };
   return new TaskTypeRegistry([
-    new SystemCheck(loadToolList, nodeToolProbe, sink),
-    new CollectRequirement(),
+    new SystemCheck(loadToolList, nodeToolProbe, sink, editorEnvironment),
+    // Providers are passed in rather than defaulted, so the one place that wires
+    // the vocabulary is also the one place P3 adds an MCP provider.
+    new CollectRequirement(defaultProviders()),
     new GitClone(opts.codeRoot, import_node_fs.existsSync, sink),
     new InvokeCopilot(
       composer,
@@ -13269,15 +13630,15 @@ function buildTaskTypes(opts) {
       new AuditLog(opts.taskDir),
       sink
     ),
-    new ManualReview(openInEditor, hashFile)
+    new ManualReview(openInEditor, hashFile, keepCopy)
   ]);
 }
 
 // src/session/openFolders.ts
-var import_node_path12 = require("node:path");
+var import_node_path13 = require("node:path");
 function isInside(path, folder) {
-  const root = folder.endsWith(import_node_path12.sep) ? folder.slice(0, -import_node_path12.sep.length) : folder;
-  return path === root || path.startsWith(root + import_node_path12.sep);
+  const root = folder.endsWith(import_node_path13.sep) ? folder.slice(0, -import_node_path13.sep.length) : folder;
+  return path === root || path.startsWith(root + import_node_path13.sep);
 }
 function allInsideOpenFolders(repoPaths, openFolders) {
   if (repoPaths.length === 0 || openFolders.length === 0) return false;
@@ -13286,16 +13647,16 @@ function allInsideOpenFolders(repoPaths, openFolders) {
 
 // src/session/resume.ts
 var import_node_os = require("node:os");
-var import_node_path13 = require("node:path");
+var import_node_path14 = require("node:path");
 function taskIdFromWorkspaceSettings(settings) {
   const v = settings["aiDevWorkflow.taskId"];
   return typeof v === "string" && v.length > 0 ? v : void 0;
 }
 function resolveTasksRoot(configured) {
-  return configured && configured.length > 0 ? configured : (0, import_node_path13.join)((0, import_node_os.homedir)(), "ai-dev-workflow", "tasks");
+  return configured && configured.length > 0 ? configured : (0, import_node_path14.join)((0, import_node_os.homedir)(), "ai-dev-workflow", "tasks");
 }
 function resolveCodeRoot(configured) {
-  return configured && configured.length > 0 ? configured : (0, import_node_path13.join)((0, import_node_os.homedir)(), "ai-dev-workflow", "code");
+  return configured && configured.length > 0 ? configured : (0, import_node_path14.join)((0, import_node_os.homedir)(), "ai-dev-workflow", "code");
 }
 
 // src/session/TaskSession.ts
@@ -13315,7 +13676,7 @@ function contentSettings() {
   };
 }
 function sampleRoot(context) {
-  return (0, import_node_path14.join)(context.extensionPath, "examples", "content-template");
+  return (0, import_node_path15.join)(context.extensionPath, "examples", "content-template");
 }
 function resolvedContent(context) {
   return resolveAll(contentSettings(), sampleRoot(context));
@@ -13415,7 +13776,7 @@ var TaskSession = class _TaskSession {
     const { platform, epic, workflowId } = selection;
     const workflow = catalog.get(workflowId);
     const source = await (0, import_promises9.readFile)(
-      (0, import_node_path14.join)(workflowsDir(context), workflowFilename(workflow.id, workflow.version)),
+      (0, import_node_path15.join)(workflowsDir(context), workflowFilename(workflow.id, workflow.version)),
       "utf8"
     );
     const ws = await TaskWorkspace.create({
@@ -13455,7 +13816,7 @@ var TaskSession = class _TaskSession {
     return session;
   }
   static async resume(context, taskId) {
-    const dir = (0, import_node_path14.join)(tasksRoot(), taskId);
+    const dir = (0, import_node_path15.join)(tasksRoot(), taskId);
     const store = new TaskStateStore(dir);
     if (!await store.exists()) return void 0;
     const state = await store.read();
@@ -13479,7 +13840,7 @@ var TaskSession = class _TaskSession {
     const resolved = resolvedContent(context);
     const registry = buildTaskTypes({
       promptsDir: resolved.ok ? resolved.promptsDir : void 0,
-      bundledPromptsDir: (0, import_node_path14.join)(context.extensionPath, "prompts"),
+      bundledPromptsDir: (0, import_node_path15.join)(context.extensionPath, "prompts"),
       toolsConfig: resolved.ok ? resolved.toolsConfig : void 0,
       taskDir: ws.dir,
       codeRoot: resolveCodeRoot(config("codeRoot"))
@@ -13513,14 +13874,14 @@ var TaskSession = class _TaskSession {
       {
         enableScripts: true,
         retainContextWhenHidden: true,
-        localResourceRoots: [vscode3.Uri.file((0, import_node_path14.join)(context.extensionPath, "out"))]
+        localResourceRoots: [vscode3.Uri.file((0, import_node_path15.join)(context.extensionPath, "out"))]
       }
     );
     const bridge = new WebviewBridge(panel.webview);
     panel.onDidChangeViewState(() => {
       if (!panel.visible) bridge.resetReady();
     });
-    const asset = (name) => panel.webview.asWebviewUri(vscode3.Uri.file((0, import_node_path14.join)(context.extensionPath, "out", name)));
+    const asset = (name) => panel.webview.asWebviewUri(vscode3.Uri.file((0, import_node_path15.join)(context.extensionPath, "out", name)));
     panel.webview.html = bridge.html(asset("webview.js"), asset("style.css"), randomNonce());
     const holder = { state };
     const ctx = {
@@ -13623,7 +13984,7 @@ var TaskSession = class _TaskSession {
         await this.rememberEdit(stepId, values);
         const { mechanism, outputPath } = await task.deliver(step, this.ctx, editedPrompt(values));
         this.pendingMechanism = mechanism;
-        this.outputFile = outputPath ? (0, import_node_path14.basename)(outputPath) : void 0;
+        this.outputFile = outputPath ? (0, import_node_path15.basename)(outputPath) : void 0;
         this.bridge.progress(
           stepId,
           this.outputFile ? `Prompt delivered (mechanism ${mechanism}). Waiting for ${this.outputFile}\u2026` : `Prompt delivered (mechanism ${mechanism}).`
@@ -13679,7 +14040,7 @@ var TaskSession = class _TaskSession {
       return;
     }
     const ws = await TaskWorkspace.open(this.ctx.taskDir, this.ctx.taskId);
-    const target = (0, import_node_path14.join)(this.ctx.taskDir, `${this.ctx.taskId}.code-workspace`);
+    const target = (0, import_node_path15.join)(this.ctx.taskDir, `${this.ctx.taskId}.code-workspace`);
     if (await exists2(target)) return;
     const file = await ws.writeWorkspaceFile(repos);
     await this.audit.append({ kind: "workspace-generated", data: { file } });
@@ -13703,7 +14064,7 @@ var TaskSession = class _TaskSession {
       const expected = await task.outputPath?.(step, this.ctx).catch(() => void 0);
       if (!expected || uri.fsPath !== expected) return;
       this.outputPresent = true;
-      this.outputFile = (0, import_node_path14.basename)(expected);
+      this.outputFile = (0, import_node_path15.basename)(expected);
       await this.audit.append({ kind: "output-detected", stepId: step.id });
       await this.refresh();
     };
@@ -13736,7 +14097,7 @@ var TaskSession = class _TaskSession {
   }
 };
 function workflowsDir(context) {
-  return (0, import_node_path14.join)(context.extensionPath, "workflows");
+  return (0, import_node_path15.join)(context.extensionPath, "workflows");
 }
 function loadCatalog(context) {
   const resolved = resolvedContent(context);
@@ -13799,7 +14160,7 @@ function randomNonce() {
 }
 
 // src/session/SetupView.ts
-var import_node_path16 = require("node:path");
+var import_node_path17 = require("node:path");
 var vscode4 = __toESM(require("vscode"));
 
 // src/session/setupDescriptor.ts
@@ -13823,7 +14184,7 @@ function unconfiguredDescriptor(message) {
 
 // src/session/taskIndex.ts
 var import_promises10 = require("node:fs/promises");
-var import_node_path15 = require("node:path");
+var import_node_path16 = require("node:path");
 function isFinished(state) {
   return state.steps?.[state.currentStepId]?.status === "complete";
 }
@@ -13832,8 +14193,8 @@ async function listUnfinishedTasks(tasksRoot2) {
   const found = [];
   for (const entry of entries) {
     if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
-    const file = (0, import_node_path15.join)(tasksRoot2, entry.name, ".engine", "_state.json");
-    const summary = await summarise2(entry.name, file);
+    const file = (0, import_node_path16.join)(tasksRoot2, entry.name, ".engine", "_state.json");
+    const summary = await summarise3(entry.name, file);
     if (summary) found.push(summary);
   }
   return found.sort((a, b) => b.updatedAt - a.updatedAt);
@@ -13842,7 +14203,7 @@ function taskLabel(summary, workflowLabel) {
   const day = new Date(summary.updatedAt).toISOString().slice(0, 10);
   return `${summary.epic} \xB7 ${workflowLabel ?? summary.workflowId} \xB7 ${day}`;
 }
-async function summarise2(taskId, file) {
+async function summarise3(taskId, file) {
   try {
     const state = JSON.parse(await (0, import_promises10.readFile)(file, "utf8"));
     if (!state.currentStepId || isFinished(state)) return void 0;
@@ -13872,10 +14233,10 @@ var SetupView = class {
   async resolveWebviewView(view) {
     view.webview.options = {
       enableScripts: true,
-      localResourceRoots: [vscode4.Uri.file((0, import_node_path16.join)(this.context.extensionPath, "out"))]
+      localResourceRoots: [vscode4.Uri.file((0, import_node_path17.join)(this.context.extensionPath, "out"))]
     };
     const script = view.webview.asWebviewUri(
-      vscode4.Uri.file((0, import_node_path16.join)(this.context.extensionPath, "out", "setup.js"))
+      vscode4.Uri.file((0, import_node_path17.join)(this.context.extensionPath, "out", "setup.js"))
     );
     view.webview.html = html(script.toString());
     this.bridge = new WebviewBridge(view.webview);
@@ -13985,7 +14346,7 @@ var SetupView = class {
     const notice = resolved.source === "sample" ? SAMPLE_NOTICE : void 0;
     let catalog;
     try {
-      catalog = await WorkflowCatalog.load((0, import_node_path16.join)(this.context.extensionPath, "workflows"), {
+      catalog = await WorkflowCatalog.load((0, import_node_path17.join)(this.context.extensionPath, "workflows"), {
         platformConfig: resolved.platformConfig,
         microserviceConfig: resolved.microserviceConfig
       });
@@ -14231,6 +14592,13 @@ async function activate(context) {
         void vscode6.window.showErrorMessage(`Could not start task: ${String(err)}`);
       }
     }),
+    vscode6.commands.registerCommand("aiDevWorkflow.handoffReport", async () => {
+      const doc = await vscode6.workspace.openTextDocument({
+        content: await handoffReport(),
+        language: "markdown"
+      });
+      await vscode6.window.showTextDocument(doc, { preview: false });
+    }),
     vscode6.commands.registerCommand("aiDevWorkflow.resumeTask", async () => {
       const ids = (await (0, import_promises11.readdir)(tasksRoot()).catch(() => [])).filter(
         (n) => !n.startsWith(".")
@@ -14268,6 +14636,14 @@ async function activate(context) {
       void vscode6.window.showErrorMessage(`Could not resume task ${taskId}: ${String(err)}`);
     }
   }
+}
+async function handoffReport() {
+  const root = tasksRoot();
+  const ids = (await (0, import_promises11.readdir)(root).catch(() => [])).filter((n) => !n.startsWith("."));
+  const perTask = await Promise.all(
+    ids.map((id) => new AuditLog((0, import_node_path18.join)(root, id)).entries().catch(() => []))
+  );
+  return report(summarise(perTask.filter((entries) => entries.length > 0)));
 }
 async function warnAboutExternalWorkflows() {
   const root = contentRoot();

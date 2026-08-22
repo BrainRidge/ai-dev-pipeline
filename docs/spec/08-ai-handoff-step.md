@@ -140,13 +140,33 @@ exposed under the `task` namespace. No step re-asks for them. This keeps task-le
 of any single step's answers, so *any* workflow can reference them — and it is what makes the
 sidebar and the workflow one system rather than two.
 
-**An unresolved placeholder renders as empty.** The original design said referencing a step
-that has not completed would be a load-time validation error raised by `WorkflowCatalog`. It
-is not implemented: `resolveText` substitutes the empty string and composition continues. A
-typo in a placeholder therefore produces a quietly incomplete prompt rather than a failure,
-and the only thing that catches it is a test asserting the composed text, or a developer
-reading the prompt in the panel before sending it. That is the strongest argument for showing
-the composed prompt rather than hiding it.
+**An unresolved placeholder still renders as empty — but it is now reported.** `resolveText`
+substitutes the empty string and composition continues, as it always did. What changed is that
+`unresolvedIn` names the placeholders that could not resolve, and the caption above the prompt
+says so: *"⚠ Nothing to put in: `{{requirement.stroy}}` — these rendered as nothing."* The
+audit entry records them too.
+
+It reports three things, and each is a mistake rather than a matter of timing:
+
+- a namespace that is neither `task` nor a step in this workflow;
+- a `task` field that is not among the inputs, which are all set before the workflow begins;
+- a field missing from a step that has answered. Submission carries every field a step
+  declared, including the ones left blank, so an absent key is a misspelling.
+
+It deliberately says nothing about a field on a step with **no** answers yet. `StepDescriptor`
+composes every handoff on every render, including while an earlier step is still being filled
+in, and at that moment "not answered yet" and "misspelled" are indistinguishable. Flagging it
+would put a warning on a correct template for as long as the developer was typing, which is
+how a warning gets ignored.
+
+**It warns rather than blocks**, which is a departure from how a broken `include:` or a
+missing `output:` behave. The reason is who can fix it: those are structural faults that stop
+the step from meaning anything, while a misspelt placeholder leaves a prompt that is merely
+thinner than intended — and the prompt box is editable, so the developer can put the missing
+sentence in by hand and get on with their task. Blocking a whole team on one typo in a
+template none of them owns would be worse than the typo. The original design said this would
+be a load-time error raised by `WorkflowCatalog`; that was never implementable, because
+whether a placeholder resolves depends on the run rather than on the workflow.
 
 ## Pointing Copilot at code
 
@@ -193,8 +213,34 @@ taking down the whole panel.
 | C | Write `.engine/prompt.md` and open it in an editor tab | Copy from the editor |
 
 All three are functional: the value lies in the composed prompt, not in how it reaches the
-chat box. The step degrades from A to B to C inside `ChatHandoff` and nowhere else. Which
-mechanism succeeded is recorded on the step result and in the audit log.
+chat box. The step degrades from A to B to C inside `ChatHandoff` and nowhere else.
+
+Which mechanism succeeded is recorded on the step result **and in the audit log**, as a
+`prompt-delivered` entry written after delivery — the rung that worked is not knowable until
+then. This section and [Section 12](12-verification-tasks.md) both claimed that for a long
+time while it was untrue: the mechanism reached only the step result in `_state.json`, which a
+revise loop overwrites. So the evidence V1 was supposedly accumulating was being thrown away.
+`AI Dev Workflow: Handoff Report` reads it back across every task on the machine.
+
+## A second pass reads the first
+
+A `manual` step offers Revise, which reopens the handoff behind it
+([Section 6](06-workflow-schema.md)). The handoff then recomposes — and because composition is
+deterministic, it recomposes *the same prompt*, which is not what the workflows' own
+documentation promises: *"send it back for another pass and Copilot will run again with your
+edits included."*
+
+That promise is kept by the template, not by the engine. Every template contracted to write a
+reviewable artifact carries a section saying what to do if that artifact is already there:
+read it first, treat the developer's edits as instructions rather than as text to replace, and
+improve it rather than starting again. The engine needs no notion of a second pass, and the
+artifact's existence is the only signal required — which is available to the prompt as an
+ordinary path.
+
+This is worth stating as a rule for anyone adding a workflow: **a step whose artifact a later
+step reviews must say what a second pass means, or Revise silently does nothing.** A test per
+bundled workflow asserts it, because the failure is invisible — the prompt is composed, sent,
+and answered as though it were the first time.
 
 ## Completion detection
 
@@ -217,18 +263,23 @@ put a false promise in the audit log.
 
 **Captured:** workflow id and version, every developer input, every action the panel sent,
 the exact prompt as delivered, the handoff mechanism used, timestamps, the reviewed
-artifact's path and content hash, every approval and every revise loop, any detected
-tampering with the workflow snapshot, and — for each handoff — the path of the template the
-prompt was composed from, the path and origin of every file it included, the path of every
-file it referenced, and whether each of those was the team's or the bundled default.
+artifact's path and content hash **and a copy of the artifact itself**, every approval and
+every revise loop, the handoff mechanism that delivered each prompt, any detected tampering
+with the workflow snapshot, and — for each handoff — the path of the template the prompt was
+composed from, the path and origin of every file it included, the path of every file it
+referenced, any placeholder that resolved to nothing, and whether each of those files was the
+team's or the bundled default.
+
+**The approved artifact is now kept, not just hashed.** Approving copies the file to
+`.engine/approved/<stepId>-<name>`, away from the artifacts the developer works on and named
+after the step so a second pass does not overwrite the first. For a long time only the hash
+was stored, which could prove the file had changed since approval and say nothing about what
+it used to say — a likely loss rather than a theoretical one, since the artifact sits at the
+root of a folder the developer is invited to edit. A copy that cannot be written is recorded
+as absent rather than claimed, and never costs the developer their approval.
 
 **Not captured:** anything inside Copilot Chat — follow-up turns, or unrelated conversation.
 **Nor the contents of a referenced file**, only its path — see the cost noted above.
-**Nor a copy of the artifact.** The original design said the returned artifact was stored
-alongside its hash; only the hash is recorded. The hash proves the file was not altered after
-approval, but it cannot reconstruct what was approved if the file is later edited or deleted,
-and the artifact lives in a folder the developer is invited to edit. Storing a copy at
-approval time is a small change and would close that gap.
 
 This gap is the accepted cost of [D1](04-decisions.md). Input, output and approvals still
 cover the question the tool exists to answer.
@@ -236,10 +287,23 @@ cover the question the tool exists to answer.
 ## Known friction
 
 Agent mode must be enabled in the developer's Copilot settings, and it requests confirmation
-before editing files or running commands. The extension cannot suppress either.
+before editing files or running commands. The extension cannot suppress the confirmations.
 
 The original design said P1 would check the setting at task start and report it up front
-rather than letting the developer discover it mid-workflow. **That check is not implemented.**
-Mechanism A requests agent mode in its arguments, and if the request is not honoured the
-handoff still appears to succeed — the developer finds out when Copilot answers in chat
-instead of editing files.
+rather than letting the developer discover it mid-workflow. **That check is now implemented**,
+in the System Check step ([Section 17](17-system-check.md)): `chat.agent.enabled` is read
+before a task begins, and a task cannot start while it is off.
+
+Two things are worth being precise about, because the earlier wording here was misleading.
+
+**Mechanism A does not request agent mode in any supported sense.**
+`workbench.action.chat.open` is not in VS Code's built-in commands reference; it is internal,
+and its argument shape is not a contract. `query` is what everything observable suggests it
+reads. `mode: 'agent'` is a hope, kept because an ignored extra property costs nothing and a
+version that honours it gains something. It was never assurance, and this section previously
+implied it was.
+
+**What replaced it is a check rather than a request.** Reading the setting is the difference
+between asking politely and knowing. It still does not prove the *chat session* the developer
+happens to have open is in agent mode — they can switch a session to Ask afterwards, and no
+extension can see that — so the friction is reduced rather than removed.

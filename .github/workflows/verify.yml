@@ -1,0 +1,70 @@
+# The gate on every pull request. Spec Section 13 has always said the .vsix is
+# "built in CI"; until now there was no CI, so `npm run verify` was enforced by
+# nothing but habit — in a repository whose whole standardisation story is that
+# changes arrive by pull request.
+name: verify
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    name: typecheck, lint, unit tests, packaging
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # An LTS line. @types/node is ^22 and VS Code 1.96's extension host is
+          # Node 20.x, so this is the range the code is actually written against.
+          node-version: 22
+          cache: npm
+
+      # Not `npm install`: the lockfile is the point, and node_modules is
+      # currently committed with one platform's native binaries in it.
+      - run: npm ci
+
+      - run: npm run verify
+
+      # The check this repository needs more than most. `out/` is tracked and
+      # package.json's `main` points into it, so a commit that edits src/ without
+      # rebuilding ships stale code while every test passes. See spec Section 10.
+      - name: rebuild the bundles
+        run: npm run build
+
+      - name: bundles match source
+        run: |
+          git diff --exit-code -- \
+            out/extension.js out/webview.js out/setup.js out/dev.js out/style.css \
+          || {
+            echo "::error::out/ is stale. Run 'npm run build' and commit the bundles with the source change."
+            exit 1
+          }
+        # The .map files are deliberately not compared: they are excluded from the
+        # .vsix anyway, and comparing them would make this fail on a path
+        # difference between a runner and a laptop rather than on a real drift.
+
+      # Packaging regressed silently once, from 20 files to 1,093, and nothing
+      # failed. See spec Section 13.
+      - run: npm run check:package
+
+  integration:
+    name: extension-host tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # A real VS Code, so it needs a display. xvfb-run is the supported way;
+      # without it the extension host cannot start at all.
+      - name: integration tests
+        run: xvfb-run -a npm run test:integration

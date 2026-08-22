@@ -92,7 +92,7 @@ describe('a second workflow', () => {
         async () => true,
         noSink,
       ),
-      new ManualReview(async () => {}, async () => 'h'),
+      new ManualReview(async () => {}, async () => 'h', async () => {}),
     ])
     const workflow = catalog.get('throwawayWorkflow')
     expect(() => registry.validateWorkflow(workflow.id, workflow.steps)).not.toThrow()
@@ -115,7 +115,7 @@ describe('a second workflow', () => {
     const registry = new TaskTypeRegistry([
       new CollectRequirement(),
       handoff,
-      new ManualReview(async () => {}, async () => 'h'),
+      new ManualReview(async () => {}, async () => 'h', async () => {}),
     ])
 
     const store = new TaskStateStore(taskDir)

@@ -9,6 +9,13 @@ import {
 import { SystemCheck } from '../../src/tasks/SystemCheck'
 import type { CommandSink } from '../../src/tasks/CommandSink'
 import type { ToolProbe } from '../../src/tasks/ToolProbe'
+import { CHAT_COMMAND, type EnvironmentReader } from '../../src/tasks/Environment'
+
+/** An editor with agent mode on and the chat command registered. */
+export const healthyEditor: EnvironmentReader = {
+  setting: () => true,
+  commands: async () => [CHAT_COMMAND],
+}
 
 /** One required tool with no version floor — enough to exercise the step. */
 export const TOOLS: ToolDef[] = [
@@ -41,6 +48,7 @@ export function systemCheck(
     source?: 'external' | 'bundled'
     path?: string
     sink?: CommandSink
+    environment?: EnvironmentReader
   } = {},
 ): SystemCheck {
   const sink: CommandSink = opts.sink ?? { async copy() {}, async toTerminal() {} }
@@ -52,6 +60,7 @@ export function systemCheck(
     }),
     opts.probe ?? foundProbe,
     sink,
+    opts.environment ?? healthyEditor,
     'darwin',
   )
 }

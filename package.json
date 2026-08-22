@@ -2,7 +2,7 @@
   "name": "ai-dev-workflow",
   "displayName": "AI Dev Workflow",
   "description": "Interactive, standardised AI-assisted development workflows",
-  "version": "0.1.0",
+  "version": "0.4.0",
   "publisher": "internal",
   "engines": {
     "vscode": "^1.96.0"
@@ -41,6 +41,10 @@
       {
         "command": "aiDevWorkflow.resumeTask",
         "title": "AI Dev Workflow: Resume Task"
+      },
+      {
+        "command": "aiDevWorkflow.handoffReport",
+        "title": "AI Dev Workflow: Handoff Report"
       }
     ],
     "configuration": {
@@ -56,13 +60,13 @@
           "type": "string",
           "default": "",
           "order": 2,
-          "markdownDescription": "**Required.** Absolute path to a JSON file describing your microservices and their git locations. There is no default — the extension ships no service catalogue, because one belonging to another team would be cloned onto your disk."
+          "markdownDescription": "**Required for real work.** Absolute path to a JSON file describing your microservices and their git locations. Leave it unset and the extension uses the bundled sample instead — two placeholder services that cannot be cloned — and says so in the sidebar until you point this at your own catalogue."
         },
         "aiDevWorkflow.platformConfig": {
           "type": "string",
           "default": "",
           "order": 3,
-          "markdownDescription": "**Required.** Absolute path to a JSON file listing your platforms."
+          "markdownDescription": "**Required for real work.** Absolute path to a JSON file listing your platforms. Leave it unset and the four sample platforms are used instead."
         },
         "aiDevWorkflow.customPrompts": {
           "type": "string",
@@ -113,7 +117,9 @@
     "pretest:integration": "npm run compile:test",
     "test:integration": "vscode-test",
     "lint": "eslint .",
-    "package": "vsce package"
+    "check:package": "node package-check.mjs",
+    "package": "vsce package --allow-missing-repository --skip-license",
+    "release": "node release.mjs"
   },
   "dependencies": {
     "yaml": "^2.5.0",

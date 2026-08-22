@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { CollectRequirement } from '../../src/tasks/CollectRequirement'
+import { ProviderRegistry, type Provider } from '../../src/providers/Provider'
 import { context, step } from '../support/fixtures'
 
 const requirement = step('requirement')
@@ -51,5 +52,73 @@ describe('CollectRequirement', () => {
   it('returns the submitted values from execute', async () => {
     const values = { story: 'PLAT-1 body', notes: 'from refinement' }
     expect(await task.execute(requirement, ctx, values)).toEqual(values)
+  })
+})
+
+/**
+ * The seam D5 promised, exercised. Until P3 there is one provider and it offers
+ * no choices, so the field renders as it always did — but the resolution path is
+ * live, which is what stops P3 being planned as "implement a provider" when it
+ * is really "build the seam, then implement a provider". See spec Section 5.
+ */
+describe('a field resolves its provider', () => {
+  const requirement = step('requirement', { stepType: 'task', taskType: 'CollectRequirement' })
+  const ctx = context({ order: ['requirement'] })
+
+  function registryOf(provider: Provider): ProviderRegistry {
+    return new ProviderRegistry([provider])
+  }
+
+  it('asks the provider the field names, by name', async () => {
+    const asked: string[] = []
+    const spy: Provider = {
+      name: 'manual',
+      async options(field) {
+        asked.push(field.id)
+        return undefined
+      },
+    }
+
+    await new CollectRequirement(registryOf(spy)).describe(requirement, ctx, {})
+    // The story field names a provider; the notes field does not.
+    expect(asked).toEqual(['story'])
+  })
+
+  it('leaves the field as authored when the provider offers no choices', async () => {
+    const view = await new CollectRequirement().describe(requirement, ctx, {})
+    const story = view.fields!.find((f) => f.id === 'story')!
+    expect(story.type).toBe('textarea')
+    expect(story.options).toBeUndefined()
+  })
+
+  // The migration in one test: a provider that returns options turns free entry
+  // into a selection, and nothing else in the tool changes.
+  it('turns the field into a selection when the provider offers choices', async () => {
+    const jira: Provider = {
+      name: 'manual',
+      async options() {
+        return [
+          { value: 'PLAT-1', label: 'PLAT-1 Checkout is slow' },
+          { value: 'PLAT-2', label: 'PLAT-2 Promo codes double' },
+        ]
+      },
+    }
+
+    const view = await new CollectRequirement(registryOf(jira)).describe(requirement, ctx, {})
+    const story = view.fields!.find((f) => f.id === 'story')!
+    expect(story.type).toBe('select')
+    expect(story.options).toHaveLength(2)
+  })
+
+  it('leaves a field with no provider alone entirely', async () => {
+    const view = await new CollectRequirement().describe(requirement, ctx, {})
+    expect(view.fields!.find((f) => f.id === 'notes')!.type).toBe('textarea')
+  })
+
+  it('names the providers it knows when a field asks for one that is missing', async () => {
+    const empty = new ProviderRegistry([])
+    await expect(new CollectRequirement(empty).describe(requirement, ctx, {})).rejects.toThrow(
+      /unknown provider "manual"/,
+    )
   })
 })

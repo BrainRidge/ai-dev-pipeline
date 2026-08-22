@@ -62,7 +62,7 @@ describe('the bundled new feature workflow', () => {
       new InvokeCopilot(composer, record('aiHandoff'), new AuditLog(taskDir), async () => outputWritten, noSink),
       new InvokeCopilotCoding(composer, record('CodeImplementation'), new AuditLog(taskDir), noSink),
       new InvokeCopilotCodeReview(composer, record('CodeReview'), new AuditLog(taskDir), noSink),
-      new ManualReview(async () => {}, async () => 'deadbeef'),
+      new ManualReview(async () => {}, async () => 'deadbeef', async () => {}),
     ])
     registry.validateWorkflow(workflow.id, workflow.steps)
 
@@ -303,7 +303,10 @@ describe('the bundled new feature workflow', () => {
     const h = await upTo('gitClone')
     const task = h.registry.get('gitClone') as GitClone
     const lines = task.plan(h.ctx).flatMap((b) => b.lines)
-    expect(lines).toContain('git checkout develop')
+    // One checkout per repository, each addressed by its own absolute path.
+    const checkouts = lines.filter((l) => l.includes('checkout develop'))
+    expect(checkouts).toHaveLength(task.plan(h.ctx).length)
+    for (const line of checkouts) expect(line).toMatch(/^git -C "/)
     expect(lines.join('\n')).not.toContain('checkout -b')
   })
 

@@ -17,6 +17,17 @@ export interface Handoff {
 export class ChatHandoff implements Handoff {
   async deliver(prompt: string, taskDir: string): Promise<Mechanism> {
     // A: chat opens with the prompt already filled in.
+    //
+    // `workbench.action.chat.open` is not in VS Code's built-in commands
+    // reference — it is internal, and its argument shape is not a contract.
+    // `query` is what everything observable suggests it reads; `mode` is a hope
+    // rather than a documented parameter, kept because an ignored extra property
+    // costs nothing and a version that honours it gains something.
+    //
+    // So agent mode is not assured by this argument, and never was. It is
+    // assured by `chat.agent.enabled`, which the System Check step reads before
+    // a task starts — see spec Sections 12 and 17. That is the difference
+    // between asking politely and checking.
     try {
       await vscode.commands.executeCommand('workbench.action.chat.open', {
         query: prompt,

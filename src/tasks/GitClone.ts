@@ -21,6 +21,8 @@ export class GitClone implements TaskType, CommandPlanner {
   readonly name = 'gitClone'
   readonly stepType = 'commandExecution' as const
   readonly title = 'Get the code'
+  /** Copy and Terminal are affordances; only this completes the step. */
+  readonly transitions = ['submit'] as const
 
   /**
    * @param fallbackWorkDir used only by tasks started before the work
@@ -37,7 +39,7 @@ export class GitClone implements TaskType, CommandPlanner {
     const base = baseBranchOf(ctx)
     return {
       text: blocks.length
-        ? `Run these in a terminal${base ? ` to put each repository on \`${base}\`` : ''} under \`${this.workDirOf(ctx)}\`, then mark the step done. Nothing here runs on its own.`
+        ? `Run these in a terminal${base ? ` to put each repository on \`${base}\`` : ''} under \`${this.workDirOf(ctx)}\`, then mark the step done. Every line is a plain git command against a full path, so it runs the same in any shell. Nothing here runs on its own.`
         : 'No microservice in the catalogue matched what was selected, so there is nothing to run.',
       commands: blocks,
       actions: [
@@ -49,27 +51,27 @@ export class GitClone implements TaskType, CommandPlanner {
 
   plan(ctx: StepContext): CommandBlock[] {
     const base = baseBranchOf(ctx)
-    const workDir = this.workDirOf(ctx)
 
     return this.selected(ctx).map((service) => {
-      // Already cloned: go straight there. Otherwise move into the work
-      // directory first — mkdir because cd into a missing directory fails, and
-      // this step creates nothing itself.
+      // Every line is a plain git invocation against a quoted absolute path:
+      // no `cd`, no `mkdir`, nothing a shell has to interpret. That is
+      // deliberate. The plan used to open with `mkdir -p` and `cd`, which are
+      // POSIX idioms — `mkdir -p` means something else in PowerShell, and an
+      // unquoted Windows path pasted into Git Bash has its backslashes eaten as
+      // escapes. `git -C` needs neither, and `git clone` creates missing parent
+      // directories itself, so the same block now runs unchanged in bash, zsh,
+      // PowerShell and cmd. See spec Section 6.
+      //
       // The folder is the repository's own name, not the shortCode: that is
       // what a developer sees on disk and what git would choose unaided.
-      const repo = folderFor(service)
-      const lines = this.exists(this.pathOf(ctx, service))
-        ? [`cd ${join(workDir, repo)}`, 'git fetch origin']
-        : [
-            `mkdir -p ${workDir}`,
-            `cd ${workDir}`,
-            `git clone ${service.gitLocation} ${repo}`,
-            `cd ${repo}`,
-          ]
+      const path = this.pathOf(ctx, service)
+      const lines = this.exists(path)
+        ? [`git -C "${path}" fetch origin`]
+        : [`git clone "${service.gitLocation}" "${path}"`]
 
       // Without a base branch there is nothing safe to check out, and guessing
       // one would put the developer on a branch they did not choose.
-      if (base) lines.push(`git checkout ${base}`, 'git pull')
+      if (base) lines.push(`git -C "${path}" checkout ${base}`, `git -C "${path}" pull`)
 
       return {
         id: service.shortCode,

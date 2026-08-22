@@ -24,6 +24,8 @@ import type { TaskType, TaskView } from './TaskType'
  */
 export abstract class CopilotEditingHandoff implements TaskType, CopilotHandoff {
   readonly stepType: StepType = 'aiHandoff'
+  /** Same as InvokeCopilot: Send delivers, Done completes. */
+  readonly transitions = ['done'] as const
   abstract readonly name: string
   abstract readonly title: string
   /** The sentence under the step, in the imperative the developer will act on. */
@@ -89,10 +91,24 @@ export abstract class CopilotEditingHandoff implements TaskType, CopilotHandoff 
         templateSource: composed.templateSource,
         includes: composed.includes,
         references: composed.references,
+        unresolved: composed.unresolved,
       },
     })
 
     const mechanism = await this.handoff.deliver(prompt, ctx.taskDir)
+
+    // After delivery rather than before, because the rung that worked is not
+    // knowable until it has. The prompt itself is logged before it leaves; this
+    // records what happened to it. Spec Sections 8 and 12 both claimed the
+    // mechanism reached the audit log, and until now it only reached the step
+    // result in _state.json — which a revise loop overwrites, so the question
+    // V1 asks could not have been answered from a session log.
+    await this.audit.append({
+      kind: 'prompt-delivered',
+      stepId: step.id,
+      data: { mechanism, chars: prompt.length },
+    })
+
     return { mechanism, promptChars: prompt.length }
   }
 

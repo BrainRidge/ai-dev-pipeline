@@ -62,7 +62,7 @@ describe('the bundled bug fix workflow', () => {
       new InvokeCopilot(composer, record('diagnosis'), new AuditLog(taskDir), async () => outputWritten, noSink),
       new InvokeCopilotCoding(composer, record('CodeFix'), new AuditLog(taskDir), noSink),
       new InvokeCopilotCodeReview(composer, record('CodeReview'), new AuditLog(taskDir), noSink),
-      new ManualReview(async () => {}, async () => 'deadbeef'),
+      new ManualReview(async () => {}, async () => 'deadbeef', async () => {}),
     ])
     registry.validateWorkflow(workflow.id, workflow.steps)
 

@@ -13,6 +13,16 @@ The work will be based on `{{task.baseBranch}}`.
 
 {{requirement.notes}}
 
+## If the developer has sent this back
+
+If `{{task.dir}}/02-implementation-plan.md` already exists, this is not the first
+pass: the developer read it, edited it, and sent it back for another. Read that
+file before anything else.
+Their edits are the most direct statement of what was wrong with it, so treat
+them as instructions rather than as text to replace, keep what they kept, and
+say in your reply what you changed and why. Do not start again from nothing —
+they are asking for it to be better, not different.
+
 ## What to produce
 
 Read the repositories in scope and write an implementation plan. Do not change

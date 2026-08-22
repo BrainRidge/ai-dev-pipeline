@@ -3,7 +3,7 @@ import { isAbsolute, join } from 'node:path'
 import { parse } from 'yaml'
 import type { StepDef } from '../engine/schema'
 import type { StepContext } from '../tasks/context'
-import { resolveText } from '../engine/placeholders'
+import { resolveText, unresolvedIn } from '../engine/placeholders'
 import type { ResolvedTemplate, TemplateResolver, TemplateSource } from '../content/ContentRoot'
 
 /** A file the prompt points Copilot at, rather than one it quotes. */
@@ -27,6 +27,11 @@ export interface ComposedPrompt {
   includes: ResolvedTemplate[]
   /** Files the prompt names for Copilot to open itself. */
   references: PromptReference[]
+  /**
+   * Placeholders that named something this run does not have, so they rendered
+   * as nothing. Empty on a correct template. See spec Section 8.
+   */
+  unresolved: string[]
 }
 
 interface Template {
@@ -102,9 +107,16 @@ export class PromptComposer {
     const included = await this.readIncludes(main)
     const references = await this.resolveReferences(main, ctx)
 
+    // Checked before substitution, since afterwards there is nothing left to
+    // see: an unresolved placeholder becomes an empty string. Included files are
+    // checked too — a typo is no less likely in a file three workflows share.
+    const authored = [main.body, ...included.map((i) => i.body)]
+    const unresolved = [...new Set(authored.flatMap((body) => unresolvedIn(body, ctx)))]
+
     // Part 1: the step's own thinking first, then whatever it leans on. Most
     // specific at the top, which is what this part is for — the shared files
     // are constraints on the work, and read naturally after it is described.
+
     const part1 = [
       resolveText(main.body, ctx).trimEnd(),
       ...included.map((i) => resolveText(i.body, ctx).trimEnd()),
@@ -160,6 +172,7 @@ export class PromptComposer {
       templateSource: main.source,
       includes: included.map(({ path, source }) => ({ path, source })),
       references,
+      unresolved,
     }
   }
 

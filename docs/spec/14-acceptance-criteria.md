@@ -73,6 +73,48 @@ Additionally:
     file that shaped the prompt and whose it was. Adding either takes no TypeScript
     ([Section 8](08-ai-handoff-step.md)).
 
+22. **Revise means something.** Sending an artifact back reopens the handoff, and the prompt it
+    recomposes tells Copilot to read the edited artifact and improve it rather than starting
+    again — which is what the step's own documentation promises
+    ([Section 8](08-ai-handoff-step.md)).
+
+23. **A misspelt placeholder is named rather than silently blank.** The caption above the
+    prompt lists any placeholder that resolved to nothing, and the audit entry records them.
+    A field on a step that has not answered yet is not reported, so a correct template is
+    never warned about mid-typing.
+
+24. **Only an action a primitive nominates can complete a step.** `TaskType.transitions`
+    declares them and the engine refuses anything else, so a new affordance whose handler is
+    missing does nothing instead of advancing the workflow
+    ([Section 5](05-architecture.md)).
+
+25. Every pull request runs typecheck, lint, the unit tiers, the extension-host tier, a check
+    that the tracked bundles match their source, and a check on what the `.vsix` would contain
+    ([Section 11](11-build-test-and-enforcement.md)).
+
+26. **Approving keeps the artifact, not just its hash.** A copy lands in
+    `.engine/approved/`, named after the step, and a copy that cannot be written is recorded
+    as absent rather than claimed ([Section 8](08-ai-handoff-step.md)).
+
+27. **The handoff mechanism is in the audit log**, and
+    `AI Dev Workflow: Handoff Report` reports its distribution across every task on the
+    machine — which is what closes V1 ([Section 12](12-verification-tasks.md)).
+
+28. **The git plan runs in any shell.** Every line is a plain git invocation against a quoted
+    absolute path, with no `cd`, no `mkdir` and nothing else a shell has to interpret
+    ([Section 6](06-workflow-schema.md)).
+
+29. **A field's provider is resolved rather than ignored.** `CollectRequirement` asks the
+    registry for its story field's options; a provider returning none leaves free entry, and
+    one returning options turns the field into a selection with no other change
+    ([Section 5](05-architecture.md)).
+
+30. **Agent mode is checked before a task starts, not discovered mid-workflow.** System Check
+    reads `chat.agent.enabled` and refuses to continue while it is off, naming the
+    organisation-policy case; a version of VS Code without the setting reports that it could
+    not be checked and does not block ([Section 17](17-system-check.md)). This closes the P1
+    check that Section 8 recorded as unimplemented.
+
 ## Status
 
 All of the above are implemented, and each is covered by tests.
@@ -88,7 +130,10 @@ prompt templates and the service catalogue, which a team owns
 ([Section 16](16-external-content.md)). What it still guarantees is the part the tool was
 built for: every developer on a team passes through the same steps in the same order.
 
-Criteria 14–21 are implemented and covered by tests. Criterion 21 is demonstrated on real
+Criteria 14–30 are implemented and covered by tests. Criteria 22–24 each close a failure that
+was found by reading the code rather than by anything failing: a promise in the workflow
+documentation that nothing kept, a typo class that rendered as blank, and an engine that
+treated an unrecognised button as a submission. Criterion 21 is demonstrated on real
 bundled content rather than a fixture: `_shared/house-rules.md` is what removed the wording
 that used to be duplicated at the bottom of `CodeImplementation.md` and `CodeFix.md`, and a
 test per workflow asserts it is still quoted into both. Criterion 18 was the second

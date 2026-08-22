@@ -50,3 +50,38 @@ The integration tier is configured by `.vscode-test.mjs`, which points
 `pretest:integration` runs `tsc` to produce them. Without that file the tier
 cannot run at all, which is how it sat for a while — it is now covered by the
 same command it always claimed.
+
+## Continuous integration
+
+`.github/workflows/verify.yml` runs on every pull request and on pushes to
+`main`. Two jobs, split so a slow VS Code download cannot delay the fast
+feedback:
+
+| Job | Runs |
+|---|---|
+| `verify` | `npm ci`, `npm run verify`, the bundle-freshness check, `npm run check:package` |
+| `integration` | `xvfb-run -a npm run test:integration` — a real extension host needs a display |
+
+Two of those checks exist because of failures that had already happened rather
+than out of caution.
+
+**The bundles must match their source.** `out/` is tracked and `package.json`'s
+`main` points into it ([Section 10](10-repository-layout.md)), so a commit that
+edits `src/` without rebuilding ships stale code *while every test passes* —
+the tests run against TypeScript, and the extension runs the bundle. CI rebuilds
+and fails on any diff in the four bundles and the stylesheet. It rests on esbuild
+being deterministic for the same inputs and version, which `npm ci` pins and
+which is worth knowing is the assumption. The `.map` files are deliberately not
+compared: they never ship, and comparing them would fail on a path difference
+between a runner and a laptop rather than on real drift.
+
+**The package must contain what the extension needs, and nothing else.**
+`package-check.mjs` names every file that must ship and describes what must not —
+sources, tests, docs, dependencies, sourcemaps, the browser dev harness. A file
+count would be brittle, since adding one prompt changes it. The same module is
+called by `release.mjs` before it writes an artifact, so CI and a release cannot
+disagree about what a correct package looks like. This exists because packaging
+regressed from 20 files to 1,093 with nothing failing.
+
+What CI deliberately does **not** do is publish. See
+[Section 13](13-release-and-distribution.md).

@@ -28,11 +28,16 @@ workflow — is unaffected. JSON was chosen during implementation because the sc
 validated with zod either way and JSON needs no parser at the boundary. Prompt templates are
 markdown with YAML frontmatter, so the YAML dependency remains, for that.
 
-**D5 — the provider seam is built but unreferenced.** `ProviderRegistry` and `ManualProvider`
-exist in `src/providers/` and nothing imports them. Fields carry a `provider` key that no
-code reads. The seam is therefore a design intention with a placeholder, not a working
-indirection: whether it survives contact with a real MCP provider is untested. Treat P3 as
-including the work of making the seam real, not merely of implementing a provider behind it.
+**D5 — the provider seam is now referenced, and shallow.** For a while `ProviderRegistry` and
+`ManualProvider` existed in `src/providers/` and nothing imported them, which made the seam a
+design intention rather than an indirection. `CollectRequirement` now resolves its story
+field's `provider` key through the registry on every render, and a test proves that a provider
+returning options turns that field into a selection with no other change anywhere. So the
+substance of D5 holds: P3 adds an implementation and a name, not a mechanism.
+
+What is still untested is a provider that does real I/O. `ManualProvider` cannot fail, cannot
+be slow and needs no credentials, so P3 still owns every question about latency, error
+handling and authentication — it simply no longer owns the seam itself.
 
 **D9 — weakened for handoffs that produce edits rather than a file.** A step contracted to
 write an artifact still requires both signals. `invokeCopilotCoding` and

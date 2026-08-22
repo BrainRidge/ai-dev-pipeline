@@ -33,14 +33,11 @@ describe('GitClone', () => {
     expect(task().stepType).toBe('commandExecution')
   })
 
-  it('moves into the work directory, then clones with a short name', () => {
+  it('clones straight to the full path, with no cd and no mkdir', () => {
     expect(lines(task().plan(ctx))).toEqual([
-      `mkdir -p ${WORK}`,
-      `cd ${WORK}`,
-      'git clone https://abc.github/payment-service.ui payment-service.ui',
-      'cd payment-service.ui',
-      'git checkout develop',
-      'git pull',
+      `git clone "https://abc.github/payment-service.ui" "${WORK}/payment-service.ui"`,
+      `git -C "${WORK}/payment-service.ui" checkout develop`,
+      `git -C "${WORK}/payment-service.ui" pull`,
     ])
   })
 
@@ -49,23 +46,24 @@ describe('GitClone', () => {
     expect(lines.join('\n')).not.toMatch(/(^|[ /])pis($|[ /])/)
   })
 
-  it('makes the work directory first, because cd into a missing one fails', () => {
-    expect(lines(task().plan(ctx))[0]).toBe(`mkdir -p ${WORK}`)
+  // git clone creates the leading directories itself, which is what let mkdir
+  // and cd go — and with them every shell-specific idiom. See spec Section 6.
+  it('needs no mkdir, because git clone creates the path it is given', () => {
+    expect(lines(task().plan(ctx)).join('\n')).not.toContain('mkdir')
   })
 
   it('plans a fetch instead when the repository is already cloned', () => {
     expect(lines(task([`${WORK}/payment-service.ui`]).plan(ctx))).toEqual([
-      `cd ${WORK}/payment-service.ui`,
-      'git fetch origin',
-      'git checkout develop',
-      'git pull',
+      `git -C "${WORK}/payment-service.ui" fetch origin`,
+      `git -C "${WORK}/payment-service.ui" checkout develop`,
+      `git -C "${WORK}/payment-service.ui" pull`,
     ])
   })
 
   it('re-plans per render, so cloning one by hand changes what is shown', () => {
-    expect(task([]).plan(ctx)[0]!.lines[0]).toMatch(/^mkdir -p/)
+    expect(task([]).plan(ctx)[0]!.lines[0]).toMatch(/^git clone /)
     expect(task([`${WORK}/payment-service.ui`]).plan(ctx)[0]!.lines[0]).toBe(
-      `cd ${WORK}/payment-service.ui`,
+      `git -C "${WORK}/payment-service.ui" fetch origin`,
     )
   })
 
@@ -73,19 +71,19 @@ describe('GitClone', () => {
     const elsewhere = context({
       inputs: { services: ['pis'], baseBranch: 'develop', workDir: '/srv/repos' },
     })
-    expect(lines(task().plan(elsewhere))).toContain('cd /srv/repos')
+    expect(lines(task().plan(elsewhere)).join('\n')).toContain('/srv/repos/payment-service.ui')
   })
 
   it('falls back to the configured root for a task started before work dirs existed', () => {
     const old = context({ inputs: { services: ['pis'], baseBranch: 'develop' } })
-    expect(lines(task().plan(old))).toContain('cd /code')
+    expect(lines(task().plan(old)).join('\n')).toContain('/code/payment-service.ui')
   })
 
   it('checks out the base branch chosen in the sidebar, not the epic', () => {
     const other = context({
       inputs: { services: ['pis'], baseBranch: 'release/2026.08', workDir: WORK },
     })
-    expect(lines(task().plan(other))).toContain('git checkout release/2026.08')
+    expect(lines(task().plan(other)).join('\n')).toContain('checkout release/2026.08')
   })
 
   it('creates no branch, because the developer said to stop on the base', () => {
@@ -110,10 +108,7 @@ describe('GitClone', () => {
   it('omits the checkout when no base branch was collected, rather than guessing one', () => {
     const bare = context({ inputs: { services: ['pis'], workDir: WORK } })
     expect(lines(task().plan(bare))).toEqual([
-      `mkdir -p ${WORK}`,
-      `cd ${WORK}`,
-      'git clone https://abc.github/payment-service.ui payment-service.ui',
-      'cd payment-service.ui',
+      `git clone "https://abc.github/payment-service.ui" "${WORK}/payment-service.ui"`,
     ])
   })
 
@@ -134,7 +129,8 @@ describe('delivering the commands', () => {
     const { text, label } = await task([], s.impl).deliver('pis', 'copy', ctx)
     expect(s.copied).toEqual([text])
     expect(label).toBe('Payment Service (pis)')
-    expect(text.split('\n')).toHaveLength(6)
+    // clone, checkout, pull — three lines where the cd-and-mkdir plan took six.
+    expect(text.split('\n')).toHaveLength(3)
   })
 
   it('stages a block at the terminal prompt instead', async () => {
@@ -147,8 +143,10 @@ describe('delivering the commands', () => {
   it('joins every block for "all", separated by a blank line', async () => {
     const s = sink()
     const { text } = await task([], s.impl).deliver('all', 'copy', both)
-    expect(text).toContain('git clone https://abc.github/payment-service.ui payment-service.ui')
-    expect(text).toContain('git clone https://abc.github/orders-service orders-service')
+    expect(text).toContain(
+      `git clone "https://abc.github/payment-service.ui" "${WORK}/payment-service.ui"`,
+    )
+    expect(text).toContain(`git clone "https://abc.github/orders-service" "${WORK}/orders-service"`)
     expect(text).toContain('\n\n')
   })
 
@@ -179,6 +177,48 @@ describe('completing the step', async () => {
   it('records the exact commands it showed, which is all the audit can prove', async () => {
     const result = await task().execute(clone, ctx, {})
     const shown = result.commands as { lines: string[] }[]
-    expect(shown[0]!.lines[0]).toBe(`mkdir -p ${WORK}`)
+    expect(shown[0]!.lines[0]).toBe(
+      `git clone "https://abc.github/payment-service.ui" "${WORK}/payment-service.ui"`,
+    )
+  })
+})
+
+/**
+ * The plan used to open with `mkdir -p` and `cd`. Both are POSIX idioms:
+ * `mkdir -p` means something else in PowerShell, and a Windows path pasted
+ * unquoted into Git Bash has its backslashes eaten as escapes — so the plan was
+ * unusable in at least one shell on the platform half the team may be using.
+ * Every line is now a plain git invocation against a quoted absolute path.
+ * See spec Section 6.
+ */
+describe('the plan runs in any shell', () => {
+  const shown = () => lines(task().plan(ctx)).join('\n')
+
+  it('uses no shell built-ins at all', () => {
+    for (const builtin of ['mkdir', 'cd ', '&&', ';', '|']) {
+      expect(shown()).not.toContain(builtin)
+    }
+  })
+
+  it('is nothing but git commands', () => {
+    for (const line of lines(task().plan(ctx))) {
+      expect(line.startsWith('git ')).toBe(true)
+    }
+  })
+
+  it('quotes every path, so a directory with a space in it still works', () => {
+    const spaced = context({
+      inputs: { services: ['pis'], baseBranch: 'develop', workDir: '/Users/you/My Work' },
+    })
+    for (const line of lines(task().plan(spaced))) {
+      expect(line).toContain('"/Users/you/My Work/payment-service.ui"')
+    }
+  })
+
+  it('addresses each repository absolutely, so order and working directory cannot matter', () => {
+    const blocks = task().plan(both)
+    for (const block of blocks) {
+      for (const line of block.lines) expect(line).toContain(WORK)
+    }
   })
 })

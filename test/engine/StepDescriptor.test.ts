@@ -39,7 +39,7 @@ const workflow = buildWorkflow('researchTaskWorkflow', '1.0', {
 const registry = new TaskTypeRegistry([
   new CollectRequirement(),
   new GitClone('/code', () => false, noSink),
-  new ManualReview(async () => {}, async () => 'h'),
+  new ManualReview(async () => {}, async () => 'h', async () => {}),
 ])
 
 const state = taskState({

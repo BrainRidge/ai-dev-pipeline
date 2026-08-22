@@ -226,10 +226,11 @@ the path [Section 8](08-ai-handoff-step.md) already established: composition fai
 returned rather than thrown, and the descriptor shows the error on the step that owns the
 broken template instead of taking down the panel.
 
-This is the same class of failure as the unresolved placeholder in
-[Section 8](08-ai-handoff-step.md), which renders as empty and is caught by nothing. That one
-is a known regret. Repeating it in a new feature, when the guard costs a directory listing,
-would not be defensible.
+This was the same class of failure as the unresolved placeholder in
+[Section 8](08-ai-handoff-step.md), which used to render as empty and be caught by nothing.
+Repeating it in a new feature, when the guard costs a directory listing, would not have been
+defensible — and the older regret has since been closed too: an unresolved placeholder is now
+named in the caption above the prompt.
 
 ## Provenance
 

@@ -31,7 +31,7 @@
     "reviewDiagnosis": {
       "stepType": "manual",
       "taskType": "manualReview",
-      "documentation": "Read the diagnosis before any code changes. A confident but wrong root cause is the expensive failure here: it produces a plausible fix that leaves the real defect in place. If the evidence does not convince you, send it back rather than proceeding.",
+      "documentation": "Read the diagnosis before any code changes. A confident but wrong root cause is the expensive failure here: it produces a plausible fix that leaves the real defect in place. If the evidence does not convince you, edit it to say what is missing and send it back — the next pass reads your edits rather than starting again.",
       "nextStep": "CodeFix"
     },
     "CodeFix": {

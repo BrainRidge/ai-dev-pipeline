@@ -79,6 +79,23 @@ export class WorkflowEngine {
       return { ok: true, done: false }
     }
 
+    // Only an action the primitive nominates may complete a step. This used to
+    // fall through — anything not named above was treated as a submission — so
+    // an affordance whose handler nobody wrote silently advanced the workflow
+    // instead of doing nothing. Reported rather than thrown, so it surfaces on
+    // the step as a defect the developer can report rather than as a dead panel.
+    if (!task.transitions.includes(actionId)) {
+      return {
+        ok: false,
+        errors: {
+          action:
+            `"${actionId}" does not complete this step. ${task.name} completes on ` +
+            `${task.transitions.map((t) => `"${t}"`).join(' or ')}. This is a defect in the ` +
+            `extension rather than anything you did.`,
+        },
+      }
+    }
+
     const validation = task.validate(step, values)
     if (!validation.ok) return { ok: false, errors: validation.errors }
 

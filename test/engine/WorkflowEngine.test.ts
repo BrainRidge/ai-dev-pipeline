@@ -203,3 +203,76 @@ describe('saveAnswers', () => {
     await expect(engine.saveAnswers('nope', {})).rejects.toThrow(/unknown step/)
   })
 })
+
+/**
+ * `submit` used to treat any action it did not recognise as a submission, so an
+ * affordance whose handler nobody remembered to write completed the step instead
+ * of doing nothing. Two of those handlers had to be written for the System Check
+ * step alone, which is what made this worth closing. See spec Section 5.
+ */
+describe('only a nominated action completes a step', () => {
+  it('refuses an action the primitive does not nominate', async () => {
+    const { engine } = await harness()
+    const r = await engine.submit('a', 'copy', answered)
+    expect(r.ok).toBe(false)
+  })
+
+  it('does not advance on one', async () => {
+    const { engine } = await harness()
+    await engine.submit('a', 'copy', answered)
+    expect((await engine.current()).id).toBe('a')
+  })
+
+  it('does not record the step as complete either', async () => {
+    const { engine, store } = await harness()
+    await engine.submit('a', 'copy', answered)
+    expect((await store.read()).steps.a).toBeUndefined()
+  })
+
+  it('names the action and what would have worked, since it is a defect report', async () => {
+    const { engine } = await harness()
+    const r = await engine.submit('a', 'recheck', answered)
+    expect(r.ok === false && r.errors.action).toContain('"recheck" does not complete this step')
+    expect(r.ok === false && r.errors.action).toContain('"submit"')
+  })
+
+  it('still lets the nominated action through', async () => {
+    const { engine } = await harness()
+    expect(await engine.submit('a', 'submit', answered)).toEqual({ ok: true, done: false })
+  })
+
+  // Revise and Back are the engine's own, so they never appear in a
+  // primitive's transitions.
+  it('still handles the engine’s own backward moves', async () => {
+    const { engine } = await harness()
+    await engine.submit('a', 'submit', answered)
+    expect(await engine.submit('b', 'back', {})).toEqual({ ok: true, done: false })
+    expect((await engine.current()).id).toBe('a')
+  })
+})
+
+describe('a primitive that could never complete', () => {
+  const stuck: TaskType = {
+    name: 'stuck',
+    stepType: 'task',
+    title: 'Stuck',
+    transitions: [],
+    async describe() {
+      return { actions: [] }
+    },
+    validate() {
+      return { ok: true, errors: {} }
+    },
+    async execute() {
+      return {}
+    },
+  }
+
+  it('is refused when the catalogue loads rather than three steps into a task', () => {
+    expect(() =>
+      new TaskTypeRegistry([stuck]).validateWorkflow('wf', {
+        a: { id: 'a', stepType: 'task', taskType: 'stuck', documentation: '' },
+      }),
+    ).toThrow(/declares no transitions, so the step could never be completed/)
+  })
+})

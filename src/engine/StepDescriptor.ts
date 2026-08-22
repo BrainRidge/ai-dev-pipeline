@@ -93,8 +93,10 @@ export function summarise(
     case 'systemCheck': {
       const findings = (record.result?.findings ?? []) as { status: string }[]
       if (findings.length === 0) return 'Checked'
+      // "checks" rather than "tools": the list now opens with what the editor
+      // says about agent mode, which is not a tool. See spec Section 17.
       const ok = findings.filter((f) => f.status === 'ok').length
-      return `${ok} of ${findings.length} tools found`
+      return `${ok} of ${findings.length} checks passed`
     }
     default: {
       const answers = record.answers ?? {}

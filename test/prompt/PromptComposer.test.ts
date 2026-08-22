@@ -454,3 +454,51 @@ describe('files a template points Copilot at', () => {
     expect((await c.compose(handoff, ctx, repos)).references).toEqual([])
   })
 })
+
+describe('a placeholder that names nothing', () => {
+  async function withBody(body: string): Promise<PromptComposer> {
+    const dir = await mkdtemp(join(tmpdir(), 'unres-'))
+    await mkdir(join(dir, 'researchTaskWorkflow'), { recursive: true })
+    await writeFile(join(dir, 'researchTaskWorkflow', 'aiHandoff.md'), body)
+    return new PromptComposer(bundledResolver(dir))
+  }
+
+  const seen = context({
+    inputs: { services: ['pis'] },
+    order: ['requirement', 'aiHandoff'],
+    answersOf: (id) => (id === 'requirement' ? { story: 'why', notes: '' } : {}),
+  })
+
+  it('is reported rather than swallowed', async () => {
+    const c = await withBody('Story: {{requirement.stroy}}')
+    expect((await c.compose(handoff, seen, repos)).unresolved).toEqual(['requirement.stroy'])
+  })
+
+  it('leaves the prompt otherwise intact, so the developer can still send it', async () => {
+    const c = await withBody('Story: {{requirement.stroy}} and {{requirement.story}}')
+    const { prompt } = await c.compose(handoff, seen, repos)
+    expect(prompt).toContain('and why')
+    expect(prompt).not.toContain('{{')
+  })
+
+  it('says nothing for a template that resolves cleanly', async () => {
+    const c = await withBody('Story: {{requirement.story}}')
+    expect((await c.compose(handoff, seen, repos)).unresolved).toEqual([])
+  })
+
+  // A shared file is the worst place for a silent typo: it is wrong in every
+  // workflow that includes it, and no single template looks broken.
+  it('checks included files too', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'unres-inc-'))
+    await mkdir(join(dir, 'researchTaskWorkflow'), { recursive: true })
+    await mkdir(join(dir, '_shared'), { recursive: true })
+    await writeFile(
+      join(dir, 'researchTaskWorkflow', 'aiHandoff.md'),
+      `---\ninclude: _shared/rules.md\n---\nClean: {{requirement.story}}`,
+    )
+    await writeFile(join(dir, '_shared', 'rules.md'), 'Broken: {{task.nonsense}}')
+
+    const c = new PromptComposer(bundledResolver(dir))
+    expect((await c.compose(handoff, seen, repos)).unresolved).toEqual(['task.nonsense'])
+  })
+})

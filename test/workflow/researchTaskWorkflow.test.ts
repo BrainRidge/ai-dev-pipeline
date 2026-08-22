@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { mkdtemp, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { WorkflowCatalog } from '../../src/engine/WorkflowCatalog'
@@ -37,12 +37,14 @@ describe('the bundled research workflow', () => {
 
   let delivered: string[] = []
   let opened: string[] = []
+  let kept: { from: string; to: string }[] = []
   let outputWritten = false
 
   beforeEach(() => {
     copied = []
     delivered = []
     opened = []
+    kept = []
     outputWritten = false
   })
 
@@ -66,6 +68,7 @@ describe('the bundled research workflow', () => {
       new ManualReview(
         async (p) => { opened.push(p) },
         async () => 'deadbeef',
+        async (from, to) => { kept.push({ from, to }) },
       ),
     ])
     registry.validateWorkflow(workflow.id, workflow.steps)
@@ -143,8 +146,10 @@ describe('the bundled research workflow', () => {
 
     const blocks = (registry.get('gitClone') as GitClone).plan(ctx)
     expect(blocks.map((b) => b.id)).toEqual(services)
-    expect(blocks[0]!.lines).toContain('cd /Users/you/work')
-    expect(blocks[0]!.lines).toContain('git checkout develop')
+    // Plain git against absolute paths, so the block runs in any shell.
+    expect(blocks[0]!.lines.join('\n')).toContain('git clone "')
+    expect(blocks[0]!.lines.join('\n')).toContain('checkout develop')
+    expect(blocks[0]!.lines.join('\n')).not.toContain('cd ')
   })
 
   it('copies a block only when the developer asks for it', async () => {
@@ -155,7 +160,7 @@ describe('the bundled research workflow', () => {
     expect(copied).toEqual([])
     await (registry.get('gitClone') as GitClone).deliver(services[0]!, 'copy', ctx)
     expect(copied).toHaveLength(1)
-    expect(copied[0]).toContain('git checkout develop')
+    expect(copied[0]).toContain('checkout develop')
   })
 
   it('composes a prompt carrying the answers, the repo paths and the output contract', async () => {
@@ -208,6 +213,39 @@ describe('the bundled research workflow', () => {
     expect((await store.read()).steps.aiHandoff!.status).toBe('pending')
   })
 
+  /**
+   * The step's documentation promises that sending work back means "Copilot will
+   * run again with your edits included". That promise lives in the workflow JSON
+   * and is kept by the prompt template, so it needs a test between the two or it
+   * is only a claim.
+   */
+  it('recomposes a prompt that reads the developer’s edits on the second pass', async () => {
+    const { engine, registry, ctx, workflow, refresh, taskDir } = await run()
+    await engine.submit('requirement', 'submit', { story: 'why is checkout slow' })
+    await refresh()
+    await engine.submit('gitClone', 'submit', {})
+    await refresh()
+
+    outputWritten = true
+    await writeFile(join(taskDir, '02-analysis.md'), '# Analysis\n')
+    await engine.submit('aiHandoff', 'done', { confirmed: true, outputPresent: true })
+    await refresh()
+
+    // The developer edits the artifact and sends it back.
+    await writeFile(join(taskDir, '02-analysis.md'), '# Analysis\n\nThis bit is wrong.\n')
+    await engine.submit('reviewAnalysis', 'revise', {})
+    await refresh()
+    expect((await engine.current()).id).toBe('aiHandoff')
+
+    const task = registry.get('invokeCopilot') as InvokeCopilot
+    await task.deliver(workflow.steps.aiHandoff!, ctx)
+
+    const prompt = delivered.at(-1)!
+    expect(prompt).toContain(join(taskDir, '02-analysis.md'))
+    expect(prompt).toMatch(/sent it back/i)
+    expect(prompt).toMatch(/treat\s+them as instructions/i)
+  })
+
   it('blocks the handoff until the artifact exists, whatever the developer clicks', async () => {
     const { engine, refresh } = await run()
     await engine.submit('requirement', 'submit', { story: 'why' })
@@ -249,7 +287,34 @@ describe('the bundled research workflow', () => {
     expect(descriptor.steps.find((s) => s.id === 'requirement')!.summary).toBe(
       'why is checkout slow',
     )
-    expect(descriptor.steps.find((s) => s.id === 'systemCheck')!.summary).toBe('1 of 1 tools found')
+    expect(descriptor.steps.find((s) => s.id === 'systemCheck')!.summary).toBe(
+      '3 of 3 checks passed',
+    )
     expect(descriptor.steps.every((s) => (s.documentation ?? '').length > 20)).toBe(true)
   })
+})
+
+/**
+ * Every step whose artifact a later step reviews has to survive being sent back,
+ * because every one of those review steps offers Revise. A template that says
+ * nothing about a second pass produces a byte-identical prompt on the way
+ * through, which is what the workflow's own documentation promises it will not
+ * do. Asserted against the real bundled templates.
+ */
+describe('every reviewable artifact survives a second pass', () => {
+  const REVIEWED = [
+    ['researchTaskWorkflow', 'aiHandoff', '02-analysis.md'],
+    ['newFeatureWorkflow', 'aiHandoff', '02-implementation-plan.md'],
+    ['bugFixWorkflow', 'diagnosis', '02-root-cause.md'],
+  ] as const
+
+  for (const [workflowId, stepId, artifact] of REVIEWED) {
+    it(`${workflowId}/${stepId} tells Copilot to read ${artifact} if it is already there`, async () => {
+      const body = await readFile(join(ROOT, 'prompts', workflowId, `${stepId}.md`), 'utf8')
+      expect(body).toContain(`output: ${artifact}`)
+      expect(body).toContain(artifact)
+      expect(body).toMatch(/already exists/i)
+      expect(body).toMatch(/sent it back/i)
+    })
+  }
 })

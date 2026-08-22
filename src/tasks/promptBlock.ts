@@ -35,6 +35,18 @@ export function provenanceNote(composed: ComposedPrompt): string {
     )
   }
 
+  // Last, so it is the line closest to the prompt it is about. Not a blocking
+  // error: the prompt is on screen and editable, so the developer can fix the
+  // wording by hand and get on with their task while the template is corrected
+  // by whoever owns it. Blocking a whole team on one typo would be worse than
+  // the typo. See spec Section 8.
+  if (composed.unresolved.length > 0) {
+    lines.push(
+      `⚠ Nothing to put in: ${composed.unresolved.map((u) => `{{${u}}}`).join(', ')} — ` +
+        `these rendered as nothing. Check the template for a misspelling.`,
+    )
+  }
+
   return lines.join('\n')
 }
 

@@ -16,9 +16,12 @@ so they must be walked by hand.
 Install the build under test:
 
 ```bash
-npm run verify && npm run build && npx vsce package --allow-missing-repository --skip-license
-code --install-extension ai-dev-workflow-0.1.0.vsix
+npm run release            # verify, build, check the package, write the manifest
+code --install-extension ai-dev-workflow-$(node -p "require('./package.json').version").vsix
 ```
+
+Add `-- patch` or `-- minor` to bump the version at the same time. See
+[spec Section 13](spec/13-release-and-distribution.md).
 
 ---
 
@@ -77,6 +80,19 @@ code --install-extension ai-dev-workflow-0.1.0.vsix
       the caption above it naming the tool list — `(bundled default)` if you have
       not put `config/tools.json` in your content folder. Nothing was sent to
       Copilot: no chat turn appears.
+
+- [ ] **1a1. Agent mode is checked up front.** Set `chat.agent.enabled` to
+      `false` in Settings, then start a task and press **Re-check**.
+      *Expected:* the report's first line reads *"Copilot agent mode  ✗  turned
+      off"*, with a paragraph naming the setting and the organisation-policy
+      case, and **Continue** is refused. Turn it back on, press **Re-check**, and
+      it passes. This is the check spec Section 8 promised in P1 and never had.
+
+- [ ] **1a2. The one-click handoff is reported but never blocks.** With Copilot
+      Chat disabled, start a task.
+      *Expected:* *"One-click handoff  ✗"* with wording saying nothing breaks and
+      each handoff costs a paste — and the step still completes. The A → B → C
+      ladder is why this is not fatal.
 
 - [ ] **1b. A missing required tool blocks the step.** Copy
       `examples/content-template/config/tools.json` into your content folder and
@@ -204,11 +220,25 @@ code --install-extension ai-dev-workflow-0.1.0.vsix
       renders**, with every other step visible. A broken tool list must not blank
       the workflow.
 
-- [ ] **17. Windows only: the git plan runs in your shell.** On the `gitClone`
-      step press **Send to terminal** and run the block.
-      *Expected:* it runs clean. The plan uses POSIX idioms (`mkdir -p`) and
-      Node-built paths with backslashes, so this is the check that tells us
-      whether the emitted commands are usable in PowerShell and in Git Bash.
+- [ ] **17. The git plan runs in your shell.** On the `gitClone` step press
+      **Send to terminal** and run the block. On Windows, do it once in
+      PowerShell and once in Git Bash.
+      *Expected:* it runs clean in every shell. The plan is now nothing but
+      `git clone "<url>" "<path>"` and `git -C "<path>" …`, with no `cd` and no
+      `mkdir`, so there should be nothing left for a shell to disagree about.
+      A failure here is a real finding — see [spec Section 6](spec/06-workflow-schema.md).
+
+- [ ] **18. Approval keeps a copy.** Approve an artifact, then edit the file in
+      the task folder afterwards.
+      *Expected:* `.engine/approved/<stepId>-<name>` still holds what you
+      approved, and `_state.json` records both the hash and that path.
+
+- [ ] **19. The handoff report says which mechanism worked.** Run
+      **AI Dev Workflow: Handoff Report** after a few tasks.
+      *Expected:* a markdown document naming the A/B/C distribution across every
+      task on this machine. This is the answer to V1
+      ([spec Section 12](spec/12-verification-tasks.md)) — record it, because
+      nobody has ever had it.
 
 ---
 

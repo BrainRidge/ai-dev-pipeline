@@ -25,6 +25,7 @@ const composer = {
       templateSource: 'external' as const,
       includes: [],
       references: [],
+      unresolved: [],
     }
   },
   async resolved() {
@@ -98,7 +99,9 @@ describe('InvokeCopilotCoding', () => {
       },
     } as unknown as AuditLog
     await new InvokeCopilotCoding(composer, handoff, audit, noSink).deliver(coding, ctx)
-    expect(order).toEqual(['prompt-composed', 'deliver'])
+    // The prompt before delivery, so a crash still leaves the record; the
+    // mechanism after, because which rung worked is not knowable until then.
+    expect(order).toEqual(['prompt-composed', 'deliver', 'prompt-delivered'])
   })
 
   it('records the full prompt, which is all the audit trail can capture here', async () => {
@@ -182,6 +185,7 @@ describe('provenance on an editing handoff', () => {
       templateSource: 'external',
       includes: [],
       references: [],
+      unresolved: [],
     })
   })
 

@@ -4,7 +4,7 @@ import { badgeFor, summarise } from '../../src/engine/StepDescriptor'
 import type { ToolDef } from '../../src/engine/schema'
 import type { ToolProbe } from '../../src/tasks/ToolProbe'
 import type { CommandBlock } from '../../src/tasks/context'
-import { context, step, systemCheck, TOOLS } from '../support/fixtures'
+import { context, healthyEditor, step, systemCheck, TOOLS } from '../support/fixtures'
 
 const STEP = step('systemCheck', { stepType: 'systemCheck', taskType: 'systemCheck' })
 const CTX = context({ order: ['systemCheck'] })
@@ -38,6 +38,12 @@ function block(view: { commands?: CommandBlock[] }): CommandBlock {
   return view.commands![0]!
 }
 
+/** The report line for one label. The editor checks come first, so position
+ *  is not something a test should depend on. */
+function line(view: { commands?: CommandBlock[] }, label: string): string {
+  return block(view).lines.find((l) => l.startsWith(label))!
+}
+
 describe('the System Check step', () => {
   it('is a step type of its own, so the panel badges it without being told', () => {
     expect(badgeFor(STEP, undefined)).toBe('SYSTEM')
@@ -62,7 +68,7 @@ describe('the System Check step', () => {
   it('reports a tool it found, with the version it read back', async () => {
     const task = systemCheck({ probe: probeOf({ git: 'git version 2.50.1' }) })
     const view = await task.describe(STEP, CTX, {})
-    expect(block(view).lines[0]).toBe('Git  ✓  2.50.1')
+    expect(line(view, 'Git')).toContain('✓  2.50.1')
     expect(view.text).toMatch(/Everything this workflow needs is installed/)
   })
 
@@ -70,7 +76,7 @@ describe('the System Check step', () => {
     const task = systemCheck({ tools: [JAVA], probe: probeOf({ java: false }) })
     const report = block(await task.describe(STEP, CTX, {})).lines.join('\n')
 
-    expect(report).toContain('Java (JDK)  ✗  not found')
+    expect(report).toMatch(/Java \(JDK\)\s+✗\s+not found/)
     expect(report).toContain('Java (JDK) — required')
     expect(report).toContain('Why      Copilot builds what it changes.')
     // The platform is pinned in the fixture, so the hint is the macOS one.
@@ -86,14 +92,14 @@ describe('the System Check step', () => {
   it('accepts a tool whose version it cannot parse, rather than failing a working machine', async () => {
     const task = systemCheck({ tools: [JAVA], probe: probeOf({ java: 'a bespoke wrapper' }) })
     const view = await task.describe(STEP, CTX, {})
-    expect(block(view).lines[0]).toBe('Java (JDK)  ✓  installed')
+    expect(line(view, 'Java (JDK)')).toContain('✓')
     expect(task.validate(STEP, {}).ok).toBe(true)
   })
 
   it('distinguishes an optional tool that is absent from a required one', async () => {
     const task = systemCheck({ tools: [MAVEN], probe: probeOf({ mvn: false }) })
     const report = block(await task.describe(STEP, CTX, {})).lines.join('\n')
-    expect(report).toContain('Maven  –  not found (optional)')
+    expect(report).toMatch(/Maven\s+–\s+not found \(optional\)/)
     expect(report).toContain('Maven — optional')
   })
 })
@@ -111,7 +117,7 @@ describe('what blocks the step', () => {
 
     const result = task.validate(STEP, {})
     expect(result.ok).toBe(false)
-    expect(result.errors.tools).toMatch(/Java \(JDK\) is still missing or too old/)
+    expect(result.errors.tools).toMatch(/Java \(JDK\) is missing/)
   })
 
   it('refuses to continue while a required tool is too old', async () => {
@@ -142,6 +148,7 @@ describe('a tool list that cannot be read', () => {
       },
       { async run() { return { found: true, output: '' } } },
       { async copy() {}, async toTerminal() {} },
+      healthyEditor,
       'darwin',
     )
   }
@@ -186,6 +193,8 @@ describe('provenance, so a silent fallback is visible afterwards', () => {
     expect(result.toolsSource).toBe('external')
     expect(result.toolsPath).toBe('/team/config/tools.json')
     expect(result.findings).toEqual([
+      expect.objectContaining({ id: 'agentMode', status: 'ok' }),
+      expect.objectContaining({ id: 'chatCommand', status: 'ok' }),
       expect.objectContaining({ id: 'git', status: 'ok', version: '2.50.1' }),
     ])
   })
@@ -289,7 +298,7 @@ describe('what the panel shows for a step already passed', () => {
       status: 'complete' as const,
       result: { findings: [{ status: 'ok' }, { status: 'missing' }, { status: 'ok' }] },
     }
-    expect(summarise(STEP, record, undefined)).toBe('2 of 3 tools found')
+    expect(summarise(STEP, record, undefined)).toBe('2 of 3 checks passed')
   })
 
   it('says only that it was checked when the list was empty', () => {

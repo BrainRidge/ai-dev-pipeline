@@ -1,5 +1,8 @@
 import { readdir } from 'node:fs/promises'
+import { join } from 'node:path'
 import * as vscode from 'vscode'
+import { AuditLog } from './audit/AuditLog'
+import { report, summarise } from './audit/summary'
 import { TaskSession, contentRoot, tasksRoot } from './session/TaskSession'
 import { externalWorkflowsPresent, nodeProbe } from './content/ContentRoot'
 import { SetupView } from './session/SetupView'
@@ -40,6 +43,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       } catch (err) {
         void vscode.window.showErrorMessage(`Could not start task: ${String(err)}`)
       }
+    }),
+
+    vscode.commands.registerCommand('aiDevWorkflow.handoffReport', async () => {
+      const doc = await vscode.workspace.openTextDocument({
+        content: await handoffReport(),
+        language: 'markdown',
+      })
+      await vscode.window.showTextDocument(doc, { preview: false })
     }),
 
     vscode.commands.registerCommand('aiDevWorkflow.resumeTask', async () => {
@@ -91,6 +102,26 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       void vscode.window.showErrorMessage(`Could not resume task ${taskId}: ${String(err)}`)
     }
   }
+}
+
+/**
+ * What the session logs on this machine say about the handoff ladder.
+ *
+ * The data has been on disk since the first task; nobody was reading it, which
+ * is why V1 stayed open. A folder that cannot be read as a task is skipped, for
+ * the same reason the sidebar skips it: these directories accumulate abandoned
+ * experiments, and one unparseable file must not cost the whole report. See spec
+ * Section 12.
+ */
+async function handoffReport(): Promise<string> {
+  const root = tasksRoot()
+  const ids = (await readdir(root).catch(() => [] as string[])).filter((n) => !n.startsWith('.'))
+
+  const perTask = await Promise.all(
+    ids.map((id) => new AuditLog(join(root, id)).entries().catch(() => [])),
+  )
+
+  return report(summarise(perTask.filter((entries) => entries.length > 0)))
 }
 
 /**

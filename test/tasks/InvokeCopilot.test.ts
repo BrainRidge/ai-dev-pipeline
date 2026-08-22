@@ -20,6 +20,7 @@ const composer = {
       templateSource: 'bundled' as const,
       includes: [],
       references: [],
+      unresolved: [],
     }
   },
   async outputFor() {
@@ -97,7 +98,9 @@ describe('InvokeCopilot', () => {
       handoffStep,
       ctx,
     )
-    expect(order).toEqual(['prompt-composed', 'deliver'])
+    // The prompt before delivery, so a crash still leaves the record; the
+    // mechanism after, because which rung worked is not knowable until then.
+    expect(order).toEqual(['prompt-composed', 'deliver', 'prompt-delivered'])
   })
 
   it('records the full prompt in the audit entry', async () => {
@@ -253,6 +256,7 @@ describe('the developer can see which template composed the prompt', () => {
             { path: '/team/prompts/_shared/java.md', source: 'external' as const },
           ],
           references: [],
+          unresolved: [],
         }
       },
     } as unknown as PromptComposer
@@ -284,6 +288,7 @@ describe('the developer can see which template composed the prompt', () => {
             { path: '/code/party/docs/api.md', found: true },
             { path: '/code/party/docs/gone.md', found: false },
           ],
+          unresolved: [],
         }
       },
     } as unknown as PromptComposer
@@ -295,6 +300,36 @@ describe('the developer can see which template composed the prompt', () => {
     expect(view.commands![0]!.note).toContain(
       'References: /code/party/docs/api.md; /code/party/docs/gone.md (not found)',
     )
+  })
+
+  // Not a blocking error: the prompt box is editable, so the developer can work
+  // around a template they do not own. See spec Section 8.
+  it('warns in the caption when a placeholder resolved to nothing', async () => {
+    const broken = {
+      ...composer,
+      async compose() {
+        return {
+          prompt: 'P',
+          outputFile: '02-analysis.md',
+          templatePath: '/ext/prompts/w/s.md',
+          templateSource: 'bundled' as const,
+          includes: [],
+          references: [],
+          unresolved: ['requirement.stroy', 'task.nope'],
+        }
+      },
+    } as unknown as PromptComposer
+
+    const view = await new InvokeCopilot(
+      broken, handoffReturning('A'), fakeAudit(), async () => true, noSink,
+    ).describe(handoffStep, ctx, {})
+
+    expect(view.commands![0]!.note).toContain(
+      '⚠ Nothing to put in: {{requirement.stroy}}, {{task.nope}}',
+    )
+    // Still shows the prompt: a typo in somebody else's template must not stop
+    // this developer's task.
+    expect(view.commands![0]!.lines).toEqual(['P'])
   })
 
   it('captions the prompt block with the resolved template', async () => {
@@ -319,5 +354,37 @@ describe('the developer can see which template composed the prompt', () => {
       templatePath: '/ext/prompts/researchTaskWorkflow/aiHandoff.md',
       templateSource: 'bundled',
     })
+  })
+})
+
+/**
+ * Spec Sections 8 and 12 both said the handoff mechanism reached the audit log.
+ * It did not — it only reached the step result in _state.json, which a revise
+ * loop overwrites — so the question V1 asks could not have been answered from a
+ * session log however long anybody collected them.
+ */
+describe('the mechanism reaches the audit log', () => {
+  it('records which rung of the ladder delivered the prompt', async () => {
+    const audit = fakeAudit()
+    await new InvokeCopilot(composer, handoffReturning('B'), audit, async () => true, noSink).deliver(
+      handoffStep,
+      ctx,
+    )
+
+    const entry = audit.logged.find((e) => e.kind === 'prompt-delivered')!
+    expect(entry.data).toMatchObject({ mechanism: 'B' })
+    expect(entry.stepId).toBe('aiHandoff')
+  })
+
+  it('records it for each of the three rungs', async () => {
+    for (const mechanism of ['A', 'B', 'C'] as const) {
+      const audit = fakeAudit()
+      await new InvokeCopilot(
+        composer, handoffReturning(mechanism), audit, async () => true, noSink,
+      ).deliver(handoffStep, ctx)
+      expect(audit.logged.find((e) => e.kind === 'prompt-delivered')!.data!.mechanism).toBe(
+        mechanism,
+      )
+    }
   })
 })

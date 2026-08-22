@@ -37,6 +37,19 @@ export interface TaskType {
    * same way — which is the point of standardising the process.
    */
   readonly title: string
+  /**
+   * The action ids that complete this step. Everything else a step offers is an
+   * affordance — Copy, Send to Copilot, Re-check — which acts on the current
+   * step without advancing the workflow.
+   *
+   * It is declared rather than inferred because `WorkflowEngine.submit` cannot
+   * ask: it would have to call `describe`, which composes prompts, on every
+   * click. And it has to be declared *somewhere*, because the alternative was
+   * `submit` treating anything it did not recognise as a submission — so a new
+   * affordance whose handler nobody remembered to write would silently complete
+   * the step instead. See spec Section 5.
+   */
+  readonly transitions: readonly string[]
   describe(step: StepDef, ctx: StepContext, values: Answers): Promise<TaskView>
   validate(step: StepDef, values: Answers): ValidationResult
   execute(step: StepDef, ctx: StepContext, values: Answers): Promise<Record<string, unknown>>
@@ -75,6 +88,14 @@ export class TaskTypeRegistry {
         throw new Error(
           `${workflowId}: step "${step.id}" declares stepType "${step.stepType}" ` +
             `but taskType "${step.taskType}" is a "${t.stepType}" step`,
+        )
+      }
+      // A primitive with no transition can never complete, so a workflow using
+      // it can never finish. Cheaper to catch here than three steps in.
+      if (t.transitions.length === 0) {
+        throw new Error(
+          `${workflowId}: step "${step.id}" uses taskType "${step.taskType}", which declares ` +
+            `no transitions, so the step could never be completed`,
         )
       }
     }

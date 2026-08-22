@@ -39,3 +39,8 @@ are historical records of what was built; they are not corrected after the fact.
 `npm run verify` runs typecheck, lint and the unit tests. `npm run test:integration`
 runs the extension-host tests. `npm run build` produces the bundles in `out/`, which
 is tracked deliberately so a checkout stays installable without a build step.
+
+`npm run release -- minor` cuts a release: verify, bump, build, check what would
+ship, package, and write `update-manifest.json`. It never commits or tags — it
+prints what to commit, because the lockfile, `out/`, the `.vsix` and the manifest
+have to land together or the tracked artifact stops matching its source.

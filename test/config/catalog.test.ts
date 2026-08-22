@@ -3,6 +3,9 @@ import { join } from 'node:path'
 import { WorkflowCatalog } from '../../src/engine/WorkflowCatalog'
 import { TaskTypeRegistry } from '../../src/tasks/TaskType'
 import { CollectRequirement } from '../../src/tasks/CollectRequirement'
+import { GitClone } from '../../src/tasks/GitClone'
+import { ManualReview } from '../../src/tasks/ManualReview'
+import { context, step, systemCheck } from '../support/fixtures'
 
 const WORKFLOWS = join(__dirname, '../../workflows')
 const CONFIG = {
@@ -155,5 +158,44 @@ describe('TaskTypeRegistry', async () => {
         },
       }),
     ).toThrow(/declares stepType "aiHandoff" but taskType "CollectRequirement" is a "task" step/)
+  })
+})
+
+/**
+ * Every action a primitive nominates as a transition has to be an action it
+ * actually offers, or the step shows a button that cannot finish it and hides
+ * one that can. Asserted across the vocabulary, so a new primitive is covered
+ * the moment somebody adds it here. See spec Section 5.
+ */
+describe('every primitive offers the actions it says complete it', () => {
+  const primitives = [
+    new CollectRequirement(),
+    new GitClone('/code', () => false, { async copy() {}, async toTerminal() {} }),
+    new ManualReview(
+      async () => {},
+      async () => 'hash',
+      async () => {},
+    ),
+    systemCheck(),
+  ]
+
+  for (const primitive of primitives) {
+    it(`${primitive.name} offers ${primitive.transitions.join(', ')}`, async () => {
+      const view = await primitive.describe(
+        step('s', { stepType: primitive.stepType, taskType: primitive.name }),
+        context({ order: ['s'] }),
+        {},
+      )
+      const offered = view.actions.map((a) => a.id)
+      for (const transition of primitive.transitions) {
+        expect(offered).toContain(transition)
+      }
+    })
+  }
+
+  it('nominates at least one action for each, or the step could never finish', () => {
+    for (const primitive of primitives) {
+      expect(primitive.transitions.length).toBeGreaterThan(0)
+    }
   })
 })

@@ -54,7 +54,8 @@ rendered in a unit test.
 ## Invariants
 
 These are architectural rules, not style preferences. [Section 11](11-build-test-and-enforcement.md)
-describes how the first three are enforced mechanically.
+describes how the first three are enforced mechanically; invariant 5 is enforced by the engine
+itself, which is better.
 
 1. **The renderer never references a workflow or step by name.** Everything it needs arrives
    in the descriptor. A conditional on a workflow id in webview code is a defect.
@@ -63,11 +64,17 @@ describes how the first three are enforced mechanically.
    without an extension host.
 4. **One `TaskType` class per primitive.** Growing the tool means adding a class, not editing
    a shared switch statement. Adding a *step* to a workflow means editing JSON.
-5. **`WorkflowEngine` never touches the filesystem or git directly.** It works through
+5. **A primitive nominates the actions that complete it.** `TaskType.transitions` lists them,
+   and `WorkflowEngine.submit` refuses anything else. Everything else a step offers — Copy,
+   Send to Copilot, Re-check — is an affordance that acts on the current step. Before this,
+   `submit` treated any action it did not recognise as a submission, so an affordance whose
+   handler nobody remembered to write completed the step instead of doing nothing. Two such
+   handlers had to be written for the System Check step alone.
+6. **`WorkflowEngine` never touches the filesystem or git directly.** It works through
    `TaskStateStore` and the task types.
-6. **`AuditLog` is append-only and written before the action it describes**, so a crashed
+7. **`AuditLog` is append-only and written before the action it describes**, so a crashed
    step still leaves a record.
-7. **The engine holds no authoritative state in memory.** Disk is the source of truth;
+8. **The engine holds no authoritative state in memory.** Disk is the source of truth;
    memory is a cache. Opening a generated workspace restarts the extension host mid-task, so
    anything held only in memory is lost by design rather than by accident.
 
@@ -87,12 +94,21 @@ class declares, so a typo fails when the catalogue loads rather than three steps
 
 ## The provider seam
 
-`ProviderRegistry` maps a provider name to an implementation. In P1 the only implementation
-is `ManualProvider`, which renders an input field. When MCP becomes available, `JiraMcpProvider`
-is registered under a new name and referenced from workflow JSON.
+`ProviderRegistry` maps a provider name to an implementation. The only implementation is
+`ManualProvider`, which offers no choices, so a field naming it is free entry.
 
-**As built, nothing imports either class.** Fields carry a `provider` key that no code reads;
-`CollectRequirement` marks its story field `provider: 'manual'` and renders a textarea
-regardless. The seam is a design intention with a placeholder behind it, not a working
-indirection. Making it real is part of P3, not a detail of it — see
-[D5's departure note](04-decisions.md).
+**The indirection is live.** `CollectRequirement` marks its story field `provider: 'manual'`
+and resolves that name through the registry on every render: a provider returning no options
+leaves the field as authored, and a provider returning options turns the same field into a
+selection. So `ManualProvider` produces exactly the textarea it always did, by a path that is
+actually taken.
+
+That distinction is the point. For a while nothing imported either class, and the spec recorded
+the seam as "a design intention with a placeholder" — which was honest but risked P3 being
+planned as *implementing a provider* when the real work was *building the seam, then*
+implementing one. `defaultProviders()` in `src/providers/registry.ts` is where P3 registers
+`JiraMcpProvider`, and the test that turns the story field into a list of epic stories is the
+proof that nothing else has to move: not the engine, not a step handler, not the renderer.
+
+What remains untested is a provider that does real I/O — latency, failure and authentication
+are all still ahead. The seam works; whether it survives a network is P3's question.
