@@ -24,6 +24,10 @@ export const MUST_SHIP = [
   // The include: target. A package without it composes a broken prompt on the
   // two coding steps, and nothing else would notice. See spec Section 8.
   'prompts/_shared/house-rules.md',
+  // The research workflow declares these two by name, so a package without them
+  // fails at its handoff step. See spec Section 6.
+  'prompts/skills/codebase-analyst.md',
+  'prompts/skills/evidence-first.md',
   // What an unconfigured install runs on, as well as the layout a team copies.
   // See spec Section 16.
   'examples/content-template/config/microservices.json',

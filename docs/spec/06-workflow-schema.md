@@ -159,9 +159,24 @@ Field types available to a `task` step: `text`, `textarea`, `select`, `multisele
 `boolean`, `repo-picker`, `file-picker`.
 
 `prompts` is available on any step, and means something only to `aiHandoff` ones — they are
-the steps that compose a prompt. No bundled workflow declares any yet: the capability is
-there so personas can be added as they are written, without a release that touches
-TypeScript.
+the steps that compose a prompt.
+
+**Research Task uses it**, and is the worked example:
+
+```json
+"prompts": ["/skills/codebase-analyst.md", "/skills/evidence-first.md"]
+```
+
+Those two ship under `prompts/skills/`. They were written to carry what is general and
+reusable — how to read an unfamiliar codebase, and how to separate what was observed from what
+was inferred — rather than anything the step's own template already says, because a composed
+prompt that repeats itself is worse than a short one. Both are free of placeholders, so they
+cannot go stale against a workflow that renames a field, and either can be overridden by a
+team one file at a time like any other prompt.
+
+New Feature and Bug Fix declare none yet. That asymmetry is deliberate: it keeps a bundled
+example of a step with prompts and a bundled example of one without, and both are covered by
+tests.
 
 This catalogue is deliberately minimal. New types are added only when a workflow genuinely
 cannot be expressed, and each addition is one new class plus, at most, one renderer branch.

@@ -25,7 +25,8 @@
     "aiHandoff": {
       "stepType": "aiHandoff",
       "taskType": "invokeCopilot",
-      "documentation": "Sends the composed prompt to Copilot. The prompt is assembled from your inputs, the repository paths and a required output contract — it is recorded in full in the session log before it is sent. Mark this step done once the analysis file has been written.",
+      "prompts": ["/skills/codebase-analyst.md", "/skills/evidence-first.md"],
+      "documentation": "Sends the composed prompt to Copilot. The prompt is assembled from two skill prompts, your inputs, the repository paths and a required output contract — all of it recorded in full in the session log before it is sent, and shown in the panel so you can read it first. Mark this step done once the analysis file has been written.",
       "nextStep": "reviewAnalysis"
     },
     "reviewAnalysis": {

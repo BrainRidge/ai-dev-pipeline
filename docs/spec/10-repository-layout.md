@@ -64,7 +64,8 @@ ai-dev-workflow/
 │   └── bugFixWorkflow_1_0.json
 ├── prompts/
 │   ├── <workflowId>/<stepId>.md   the per-file fallback; still bundled
-│   └── _shared/*.md               files a template pulls in with include:
+│   ├── _shared/*.md               files a template pulls in with include:
+│   └── skills/*.md                personas a workflow step names in `prompts`
 ├── examples/content-template/    what a team copies; config/ lives here now
 ├── .github/workflows/verify.yml  the gate on every pull request
 ├── release.mjs                   verify, bump, build, check, package, manifest
@@ -85,8 +86,9 @@ because `vsce` applies negations as a union at the end rather than in order: a b
 followed by carve-outs does not work, the carve-outs lose. Naming each file has the side
 benefit that new junk at the repository root cannot leak into a release by default.
 
-The package is 21 files: four bundles, three workflows, seven prompt templates, one shared
-prompt fragment, the four under `examples/content-template/`, the icon and `package.json`. `npx vsce ls` prints
+The package is 24 files: four bundles, three workflows, seven prompt templates, one shared
+prompt fragment, two skill prompts, the five under `examples/content-template/`, the icon and
+`package.json`. `npx vsce ls` prints
 exactly that list, and is the cheapest way to catch the file going missing again.
 
 The four bundles and the stylesheet in `out/` are tracked because `package.json`'s `main`

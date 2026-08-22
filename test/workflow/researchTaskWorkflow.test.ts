@@ -182,6 +182,60 @@ describe('the bundled research workflow', () => {
     expect(prompt).not.toContain('{{')
   })
 
+  /**
+   * The first bundled workflow to use the workflow-declared prompts. Asserted
+   * against the real JSON and the real skill files, because this is the pairing
+   * that proves the capability works on shipped content rather than a fixture.
+   * See spec Section 6.
+   */
+  it('composes the two skill prompts ahead of the step’s own template', async () => {
+    const { engine, registry, ctx, workflow, refresh } = await run()
+    await engine.submit('requirement', 'submit', { story: 'why is checkout slow' })
+    await refresh()
+    await engine.submit('gitClone', 'submit', {})
+    await refresh()
+
+    expect(workflow.steps.aiHandoff!.prompts).toEqual([
+      '/skills/codebase-analyst.md',
+      '/skills/evidence-first.md',
+    ])
+
+    await (registry.get('invokeCopilot') as InvokeCopilot).deliver(workflow.steps.aiHandoff!, ctx)
+    const prompt = delivered[0]!
+
+    const analyst = prompt.indexOf('Read before you theorise')
+    const evidence = prompt.indexOf('Separate what you observed')
+    const functional = prompt.indexOf('why is checkout slow')
+
+    // Declared order, then the functional prompt, then the generated parts.
+    expect(analyst).toBeGreaterThanOrEqual(0)
+    expect(analyst).toBeLessThan(evidence)
+    expect(evidence).toBeLessThan(functional)
+    expect(functional).toBeLessThan(prompt.indexOf('## Repositories in scope'))
+  })
+
+  it('records both skill prompts on the composed result, for the caption and the log', async () => {
+    const { engine, ctx, workflow, refresh } = await run()
+    // Both fields, as the panel sends them: a submission carries every field the
+    // step declared, including the ones left blank. Omitting one here made the
+    // placeholder guard report requirement.notes, which is the guard being right.
+    await engine.submit('requirement', 'submit', { story: 'why', notes: '' })
+    await refresh()
+
+    const composed = await new PromptComposer(bundledResolver(join(ROOT, 'prompts'))).compose(
+      workflow.steps.aiHandoff!,
+      ctx,
+      [],
+    )
+    expect(composed.prompts.map((p) => p.path)).toEqual([
+      join(ROOT, 'prompts', 'skills', 'codebase-analyst.md'),
+      join(ROOT, 'prompts', 'skills', 'evidence-first.md'),
+    ])
+    // Skill prompts carry no placeholders, so they cannot go stale against a
+    // workflow that renames a field.
+    expect(composed.unresolved).toEqual([])
+  })
+
   it('opens the artifact the handoff step declared, without naming it twice', async () => {
     const { engine, registry, ctx, workflow, refresh, taskDir } = await run()
     await engine.submit('requirement', 'submit', { story: 'why' })
