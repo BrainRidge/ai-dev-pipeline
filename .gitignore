@@ -10,6 +10,13 @@
 /dataSources.local.xml
 .idea
 
+# Dependencies. These were committed once — which brought 119 .DS_Store files, a
+# macOS quarantine flag that stopped the test run outright, and native binaries
+# built for one platform. `npm ci` reproduces them exactly from the lockfile, so
+# there was nothing to be gained. A checkout is still installable without them,
+# because the bundles in out/ are tracked. See spec Section 10.
+/node_modules/
+
 # The VS Code build that @vscode/test-cli downloads for the integration tier.
 # Close to a gigabyte once unpacked, and re-downloaded on demand, so it must
 # never be committed. See spec Section 11.
@@ -17,8 +24,16 @@
 
 .DS_Store
 
-# NOTE: out/ is deliberately NOT ignored — package.json's `main` points into it,
+# out/ is deliberately NOT ignored in full: package.json's `main` points into it,
 # so a checkout stays installable without a build step. See spec Section 10.
-# Only the four esbuild bundles and the stylesheet need to be there; the
-# unbundled tsc output under out/src, out/test and out/webview is build
-# detritus that `npm run compile:test` rewrites, and it is tracked by mistake.
+#
+# Only the four esbuild bundles and the stylesheet belong in git. Everything else
+# that lands here is build detritus — the unbundled tsc output that
+# `npm run compile:test` writes under out/src, out/test and out/webview, and the
+# sourcemaps, which never ship and rewrite themselves on every build.
+/out/*
+!/out/extension.js
+!/out/webview.js
+!/out/setup.js
+!/out/dev.js
+!/out/style.css
