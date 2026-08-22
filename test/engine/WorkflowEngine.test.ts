@@ -16,9 +16,9 @@ const workflow = buildWorkflow('research', '1.0', {
   label: 'Research',
   initialStep: 'a',
   steps: {
-    a: { stepType: 'task', taskType: 'CollectRequirement', documentation: '', nextStep: 'b' },
-    b: { stepType: 'task', taskType: 'CollectRequirement', documentation: '', nextStep: 'c' },
-    c: { stepType: 'task', taskType: 'CollectRequirement', documentation: '' },
+    a: { stepType: 'task', taskType: 'CollectRequirement', documentation: '', nextStep: 'b', prompts: [] },
+    b: { stepType: 'task', taskType: 'CollectRequirement', documentation: '', nextStep: 'c', prompts: [] },
+    c: { stepType: 'task', taskType: 'CollectRequirement', documentation: '', prompts: [] },
   },
 })
 
@@ -271,7 +271,7 @@ describe('a primitive that could never complete', () => {
   it('is refused when the catalogue loads rather than three steps into a task', () => {
     expect(() =>
       new TaskTypeRegistry([stuck]).validateWorkflow('wf', {
-        a: { id: 'a', stepType: 'task', taskType: 'stuck', documentation: '' },
+        a: { id: 'a', stepType: 'task', taskType: 'stuck', documentation: '', prompts: [] },
       }),
     ).toThrow(/declares no transitions, so the step could never be completed/)
   })

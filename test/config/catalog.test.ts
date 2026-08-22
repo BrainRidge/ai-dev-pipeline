@@ -154,8 +154,7 @@ describe('TaskTypeRegistry', async () => {
           id: 'a',
           stepType: 'aiHandoff',
           taskType: 'CollectRequirement',
-          documentation: '',
-        },
+          documentation: '', prompts: [] },
       }),
     ).toThrow(/declares stepType "aiHandoff" but taskType "CollectRequirement" is a "task" step/)
   })

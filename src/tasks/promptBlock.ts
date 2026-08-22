@@ -15,9 +15,21 @@ import { reposBefore } from './history'
  * See spec Sections 8 and 16.
  */
 export function provenanceNote(composed: ComposedPrompt): string {
-  const lines = [
-    templateNote({ path: composed.templatePath, source: composed.templateSource }),
-  ]
+  const lines: string[] = []
+
+  // The workflow's prompts first, in the order they are composed, so the caption
+  // reads top-to-bottom like the prompt below it does. Numbered because order is
+  // meaningful here: a persona read after the task it applies to is a different
+  // prompt. See spec Section 6.
+  if (composed.prompts.length > 0) {
+    lines.push(
+      `Prompts: ${composed.prompts
+        .map((p, i) => `${i + 1}. ${p.path} (${sourceLabel(p.source)})`)
+        .join('  ')}`,
+    )
+  }
+
+  lines.push(templateNote({ path: composed.templatePath, source: composed.templateSource }))
 
   if (composed.includes.length > 0) {
     lines.push(

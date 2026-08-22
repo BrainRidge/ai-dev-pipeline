@@ -23,7 +23,13 @@ export interface ComposedPrompt {
   /** Which file this prompt was built from, and whose it was. See spec Section 16. */
   templatePath: string
   templateSource: TemplateSource
-  /** Templates quoted into the prompt, in declared order. See spec Section 8. */
+  /**
+   * The prompts the *workflow* declared for this step — personas and skills —
+   * composed ahead of the step's own template, in declared order.
+   * See spec Section 6.
+   */
+  prompts: ResolvedTemplate[]
+  /** Templates the *template* pulled in, quoted after it. See spec Section 8. */
   includes: ResolvedTemplate[]
   /** Files the prompt names for Copilot to open itself. */
   references: PromptReference[]
@@ -104,20 +110,30 @@ export class PromptComposer {
     repos: { name: string; path: string }[],
   ): Promise<ComposedPrompt> {
     const main = await this.template(step, ctx)
+    // Declared in the workflow rather than in the template, so a step can be
+    // given a persona without the persona having to know which steps use it.
+    const declared = await this.readParts(step.prompts, main.path, 'prompts')
     const included = await this.readIncludes(main)
     const references = await this.resolveReferences(main, ctx)
 
     // Checked before substitution, since afterwards there is nothing left to
     // see: an unresolved placeholder becomes an empty string. Included files are
     // checked too — a typo is no less likely in a file three workflows share.
-    const authored = [main.body, ...included.map((i) => i.body)]
+    const authored = [...declared.map((d) => d.body), main.body, ...included.map((i) => i.body)]
     const unresolved = [...new Set(authored.flatMap((body) => unresolvedIn(body, ctx)))]
 
-    // Part 1: the step's own thinking first, then whatever it leans on. Most
-    // specific at the top, which is what this part is for — the shared files
-    // are constraints on the work, and read naturally after it is described.
-
+    // Part 1, in three groups, and the order is the argument for having two
+    // mechanisms rather than one:
+    //
+    //   the workflow's prompts   who the model is being asked to be
+    //   the step's own template  what it is being asked to do, from the answers
+    //   the template's includes  constraints on how, shared across steps
+    //
+    // A persona has to be read before the task it applies to, and a house rule
+    // reads naturally after the work has been described. See spec Sections 6
+    // and 8.
     const part1 = [
+      ...declared.map((d) => resolveText(d.body, ctx).trimEnd()),
       resolveText(main.body, ctx).trimEnd(),
       ...included.map((i) => resolveText(i.body, ctx).trimEnd()),
     ].join('\n\n')
@@ -170,6 +186,7 @@ export class PromptComposer {
       outputFile: main.outputFile,
       templatePath: main.path,
       templateSource: main.source,
+      prompts: declared.map(({ path, source }) => ({ path, source })),
       includes: included.map(({ path, source }) => ({ path, source })),
       references,
       unresolved,
@@ -186,18 +203,34 @@ export class PromptComposer {
   private async readIncludes(
     main: Template,
   ): Promise<{ body: string; path: string; source: TemplateSource }[]> {
+    return this.readParts(main.include, main.path, 'include')
+  }
+
+  /**
+   * Reads a list of prompt files and returns their bodies, in order.
+   *
+   * Shared by the workflow's `prompts` and a template's `include:` because the
+   * reading is identical — the same resolution, the same per-file fallback, the
+   * same refusal to nest. Only where the text lands differs, and that is the
+   * caller's business.
+   */
+  private async readParts(
+    names: string[],
+    declaredIn: string,
+    key: 'prompts' | 'include',
+  ): Promise<{ body: string; path: string; source: TemplateSource }[]> {
     const out: { body: string; path: string; source: TemplateSource }[] = []
 
-    for (const name of main.include) {
-      const resolved = await this.resolve(promptsRelative(name, main.path, 'include'))
+    for (const name of names) {
+      const resolved = await this.resolve(promptsRelative(name, declaredIn, key))
 
       let raw: string
       try {
         raw = await readFile(resolved.path, 'utf8')
       } catch {
         throw new Error(
-          `prompt template "${main.path}" includes "${name}", which was not found at ` +
-            `${resolved.path}`,
+          `"${declaredIn}" ${key === 'prompts' ? 'is given' : 'includes'} the prompt ` +
+            `"${name}", which was not found at ${resolved.path}`,
         )
       }
 
@@ -296,18 +329,26 @@ function stringList(value: unknown, path: string, key: string): string[] {
 }
 
 /**
- * A name under the prompts root. Absolute paths and `..` are refused so that
- * every quoted file is either the team's or the bundled default — which is what
- * makes the caption above the prompt and the audit entry mean anything.
+ * A name under the prompts root.
+ *
+ * A leading slash is allowed and stripped: `/skills/java-expert.md` reads as a
+ * path from the top of the prompts folder, which is how a workflow author
+ * naturally writes one, and it is never a filesystem path. What is refused is a
+ * genuinely absolute path — `C:\…`, a UNC share — and any `..`, so that every
+ * quoted file is either the team's or the bundled default. That is what makes
+ * the caption above the prompt and the audit entry mean anything.
  */
 function promptsRelative(name: string, declaredIn: string, key: string): string {
-  if (isAbsolute(name) || name.split(/[\\/]/).includes('..')) {
+  const trimmed = name.trim().replace(/^\/+/, '')
+
+  const windowsAbsolute = /^[A-Za-z]:/.test(trimmed) || name.trim().startsWith('\\\\')
+  if (trimmed === '' || windowsAbsolute || isAbsolute(trimmed) || trimmed.split(/[\\/]/).includes('..')) {
     throw new Error(
-      `prompt template "${declaredIn}" names "${name}" under "${key}:". Use a path relative ` +
-        `to the prompts folder, such as "_shared/house-rules.md".`,
+      `"${declaredIn}" names "${name}" under "${key}". Use a path inside the prompts ` +
+        `folder, such as "/skills/java-expert.md".`,
     )
   }
-  return name
+  return trimmed
 }
 
 async function exists(path: string): Promise<boolean> {

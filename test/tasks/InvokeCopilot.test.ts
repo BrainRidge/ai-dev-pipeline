@@ -18,6 +18,7 @@ const composer = {
       outputFile: '02-analysis.md',
       templatePath: '/ext/prompts/researchTaskWorkflow/aiHandoff.md',
       templateSource: 'bundled' as const,
+      prompts: [],
       includes: [],
       references: [],
       unresolved: [],
@@ -240,6 +241,49 @@ describe('editing the composed prompt', () => {
 })
 
 describe('the developer can see which template composed the prompt', () => {
+  /**
+   * The workflow's prompts are numbered, because their order is meaningful: a
+   * persona read after the task it applies to is a different prompt. They lead
+   * the caption for the same reason they lead the prompt. See spec Section 6.
+   */
+  it('numbers the prompts the workflow declared, and leads with them', async () => {
+    const withPrompts = {
+      ...composer,
+      async compose() {
+        return {
+          prompt: 'P',
+          outputFile: '02-analysis.md',
+          templatePath: '/team/prompts/w/s.md',
+          templateSource: 'external' as const,
+          prompts: [
+            { path: '/team/prompts/skills/java-expert.md', source: 'external' as const },
+            { path: '/ext/prompts/skills/security.md', source: 'bundled' as const },
+          ],
+          includes: [],
+          references: [],
+          unresolved: [],
+        }
+      },
+    } as unknown as PromptComposer
+
+    const view = await new InvokeCopilot(
+      withPrompts, handoffReturning('A'), fakeAudit(), async () => true, noSink,
+    ).describe(handoffStep, ctx, {})
+
+    const note = view.commands![0]!.note!
+    expect(note.split('\n')[0]).toBe(
+      'Prompts: 1. /team/prompts/skills/java-expert.md (external)  ' +
+        '2. /ext/prompts/skills/security.md (bundled default)',
+    )
+    // The step's own template follows, since that is the composition order.
+    expect(note.split('\n')[1]).toContain('Template: /team/prompts/w/s.md')
+  })
+
+  it('says nothing about prompts when the workflow declared none', async () => {
+    const view = await task().describe(handoffStep, ctx, {})
+    expect(view.commands![0]!.note).not.toContain('Prompts:')
+  })
+
   // Every file that shaped the prompt is named, one line per kind. See spec
   // Section 8.
   it('adds a line for included templates, saying whose each one was', async () => {
@@ -251,6 +295,7 @@ describe('the developer can see which template composed the prompt', () => {
           outputFile: '02-analysis.md',
           templatePath: '/team/prompts/w/s.md',
           templateSource: 'external' as const,
+          prompts: [],
           includes: [
             { path: '/ext/prompts/_shared/house-rules.md', source: 'bundled' as const },
             { path: '/team/prompts/_shared/java.md', source: 'external' as const },
@@ -283,6 +328,7 @@ describe('the developer can see which template composed the prompt', () => {
           outputFile: '02-analysis.md',
           templatePath: '/ext/prompts/w/s.md',
           templateSource: 'bundled' as const,
+          prompts: [],
           includes: [],
           references: [
             { path: '/code/party/docs/api.md', found: true },
@@ -313,6 +359,7 @@ describe('the developer can see which template composed the prompt', () => {
           outputFile: '02-analysis.md',
           templatePath: '/ext/prompts/w/s.md',
           templateSource: 'bundled' as const,
+          prompts: [],
           includes: [],
           references: [],
           unresolved: ['requirement.stroy', 'task.nope'],

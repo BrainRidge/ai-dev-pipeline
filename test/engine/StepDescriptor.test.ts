@@ -24,15 +24,13 @@ const workflow = buildWorkflow('researchTaskWorkflow', '1.0', {
       stepType: 'task',
       taskType: 'CollectRequirement',
       documentation: 'Describe what you need to find out.',
-      nextStep: 'gitClone',
-    },
+      nextStep: 'gitClone', prompts: [] },
     gitClone: {
       stepType: 'commandExecution',
       taskType: 'gitClone',
       documentation: 'Clones the microservices you selected.',
-      nextStep: 'reviewAnalysis',
-    },
-    reviewAnalysis: { stepType: 'manual', taskType: 'manualReview', documentation: '' },
+      nextStep: 'reviewAnalysis', prompts: [] },
+    reviewAnalysis: { stepType: 'manual', taskType: 'manualReview', documentation: '', prompts: [] },
   },
 })
 

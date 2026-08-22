@@ -307,7 +307,7 @@ The step's own thinking.
       'researchTaskWorkflow/aiHandoff.md': `---\ninclude: _shared/gone.md\n---\nBody.`,
     })
     await expect(c.compose(handoff, ctx, repos)).rejects.toThrow(
-      /includes "_shared\/gone\.md", which was not found at/,
+      /includes the prompt "_shared\/gone\.md", which was not found at/,
     )
   })
 
@@ -341,15 +341,20 @@ The step's own thinking.
     expect(prompt).not.toContain('unrelated key')
   })
 
-  // Every quoted file has to be either the team's or the bundled default, or
-  // the caption and the audit entry stop meaning anything.
-  it('refuses an absolute path', async () => {
+  /**
+   * A leading slash reads from the top of the prompts folder, so this cannot
+   * reach the real /etc/passwd — it looks for <promptsRoot>/etc/passwd and finds
+   * nothing. Confinement rather than rejection, which is the stronger property:
+   * every quoted file is either the team's or the bundled default, or the caption
+   * and the audit entry stop meaning anything.
+   */
+  it('confines a rooted path to the prompts folder rather than escaping', async () => {
     const c = await tree({
       'researchTaskWorkflow/aiHandoff.md': `---\ninclude: /etc/passwd\n---\nBody.`,
     })
-    await expect(c.compose(handoff, ctx, repos)).rejects.toThrow(
-      /Use a path relative to the prompts folder/,
-    )
+    await expect(c.compose(handoff, ctx, repos)).rejects.toThrow(/etc\/passwd/)
+    // Refused because nothing is there, not because it reached outside.
+    await expect(c.compose(handoff, ctx, repos)).rejects.toThrow(/was not found at/)
   })
 
   it('refuses a path that climbs out of the prompts folder', async () => {
@@ -357,7 +362,16 @@ The step's own thinking.
       'researchTaskWorkflow/aiHandoff.md': `---\ninclude: ../../secrets.md\n---\nBody.`,
     })
     await expect(c.compose(handoff, ctx, repos)).rejects.toThrow(
-      /Use a path relative to the prompts folder/,
+      /Use a path inside the prompts folder/,
+    )
+  })
+
+  it('refuses a Windows absolute path', async () => {
+    const c = await tree({
+      'researchTaskWorkflow/aiHandoff.md': `---\ninclude: "C:\\\\secrets.md"\n---\nBody.`,
+    })
+    await expect(c.compose(handoff, ctx, repos)).rejects.toThrow(
+      /Use a path inside the prompts folder/,
     )
   })
 
@@ -500,5 +514,127 @@ describe('a placeholder that names nothing', () => {
 
     const c = new PromptComposer(bundledResolver(dir))
     expect((await c.compose(handoff, seen, repos)).unresolved).toEqual(['task.nonsense'])
+  })
+})
+
+/**
+ * A step can be given prompts by the workflow, not only by its own template.
+ * The real shape is a persona or skill prompt — who the model is being asked to
+ * be — ahead of the functional prompt built from the developer's answers.
+ * See spec Section 6.
+ */
+describe('prompts declared by the workflow', () => {
+  async function tree(files: Record<string, string>): Promise<PromptComposer> {
+    const dir = await mkdtemp(join(tmpdir(), 'wf-prompts-'))
+    for (const [rel, body] of Object.entries(files)) {
+      const path = join(dir, rel)
+      await mkdir(join(path, '..'), { recursive: true })
+      await writeFile(path, body)
+    }
+    return new PromptComposer(bundledResolver(dir))
+  }
+
+  const withPrompts = (...prompts: string[]) =>
+    step('aiHandoff', { stepType: 'aiHandoff', taskType: 'invokeCopilot', prompts })
+
+  const FILES = {
+    'researchTaskWorkflow/aiHandoff.md': 'FUNCTIONAL, from the answers.',
+    'skills/java-expert.md': 'PERSONA: you are a Java engineer.',
+    'skills/security.md': 'SKILL: think about security.',
+  }
+
+  it('composes them, in the order the workflow lists them', async () => {
+    const c = await tree(FILES)
+    const { prompt } = await c.compose(
+      withPrompts('/skills/java-expert.md', '/skills/security.md'),
+      ctx,
+      repos,
+    )
+    expect(prompt.indexOf('PERSONA')).toBeLessThan(prompt.indexOf('SKILL'))
+  })
+
+  // The whole reason this order differs from include:. A persona read after the
+  // task it applies to is a different prompt.
+  it('puts them before the step’s own functional prompt', async () => {
+    const c = await tree(FILES)
+    const { prompt } = await c.compose(withPrompts('/skills/java-expert.md'), ctx, repos)
+    expect(prompt.indexOf('PERSONA')).toBeLessThan(prompt.indexOf('FUNCTIONAL'))
+  })
+
+  it('keeps the generated parts last, as always', async () => {
+    const c = await tree(FILES)
+    const { prompt } = await c.compose(withPrompts('/skills/java-expert.md'), ctx, repos)
+    expect(prompt.indexOf('## Repositories in scope')).toBeGreaterThan(prompt.indexOf('FUNCTIONAL'))
+  })
+
+  // A leading slash reads from the top of the prompts folder, which is how a
+  // workflow author writes one. Both forms mean the same file.
+  it('accepts a name with or without a leading slash', async () => {
+    const c = await tree(FILES)
+    const withSlash = await c.compose(withPrompts('/skills/java-expert.md'), ctx, repos)
+    const without = await c.compose(withPrompts('skills/java-expert.md'), ctx, repos)
+    expect(withSlash.prompt).toBe(without.prompt)
+  })
+
+  it('resolves placeholders inside a declared prompt', async () => {
+    const c = await tree({
+      ...FILES,
+      'skills/java-expert.md': 'Working on {{task.platform}} for {{requirement.story}}.',
+    })
+    const { prompt } = await c.compose(withPrompts('/skills/java-expert.md'), ctx, repos)
+    expect(prompt).toContain('Working on canada-assisted for PLAT-1 body.')
+  })
+
+  it('records each one and whose it was, for the caption and the log', async () => {
+    const c = await tree(FILES)
+    const { prompts } = await c.compose(
+      withPrompts('/skills/java-expert.md', '/skills/security.md'),
+      ctx,
+      repos,
+    )
+    expect(prompts.map((p) => p.source)).toEqual(['bundled', 'bundled'])
+    expect(prompts[0]!.path).toContain('skills/java-expert.md')
+    expect(prompts[1]!.path).toContain('skills/security.md')
+  })
+
+  it('composes nothing extra when the step declares none', async () => {
+    const c = await tree(FILES)
+    const bare = await c.compose(withPrompts(), ctx, repos)
+    expect(bare.prompts).toEqual([])
+    expect(bare.prompt).not.toContain('PERSONA')
+  })
+
+  // Fatal, like a missing include: the text is part of what is being asked.
+  it('fails when a declared prompt is not there, naming it', async () => {
+    const c = await tree(FILES)
+    await expect(c.compose(withPrompts('/skills/nope.md'), ctx, repos)).rejects.toThrow(
+      /is given the prompt "\/skills\/nope\.md", which was not found at/,
+    )
+  })
+
+  it('refuses a declared prompt that declares an output of its own', async () => {
+    const c = await tree({ ...FILES, 'skills/bad.md': `---\noutput: other.md\n---\nX` })
+    await expect(c.compose(withPrompts('/skills/bad.md'), ctx, repos)).rejects.toThrow(
+      /declares "output:"/,
+    )
+  })
+
+  // Both mechanisms at once, which is the arrangement a real workflow will have.
+  it('sits alongside the template’s own include:, each in its place', async () => {
+    const c = await tree({
+      ...FILES,
+      'researchTaskWorkflow/aiHandoff.md':
+        `---\ninclude: _shared/rules.md\n---\nFUNCTIONAL, from the answers.`,
+      '_shared/rules.md': 'RULES at the end.',
+    })
+    const { prompt, prompts, includes } = await c.compose(
+      withPrompts('/skills/java-expert.md'),
+      ctx,
+      repos,
+    )
+    expect(prompt.indexOf('PERSONA')).toBeLessThan(prompt.indexOf('FUNCTIONAL'))
+    expect(prompt.indexOf('FUNCTIONAL')).toBeLessThan(prompt.indexOf('RULES'))
+    expect(prompts).toHaveLength(1)
+    expect(includes).toHaveLength(1)
   })
 })

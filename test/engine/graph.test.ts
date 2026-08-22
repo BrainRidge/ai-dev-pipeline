@@ -10,6 +10,7 @@ function steps(spec: Record<string, string | undefined>): Record<string, StepDef
       stepType: 'task',
       taskType: 'CollectRequirement',
       documentation: '',
+      prompts: [],
       ...(nextStep ? { nextStep } : {}),
     }
   }
@@ -66,5 +67,64 @@ describe('validateGraph', () => {
   it('accepts a loop that still has a way out', () => {
     // a -> b -> c, and c is terminal; b is revisitable via an explicit action.
     expect(validateGraph('wf', 'a', steps({ a: 'b', b: 'c', c: undefined }))).toHaveLength(3)
+  })
+})
+
+/**
+ * A step's `prompts` are validated when the catalogue loads, so a typo in a
+ * workflow fails on a tool developer's machine rather than three steps into
+ * somebody's task. Existence cannot be checked here — the file may live in a
+ * team's content folder, which the catalogue knows nothing about — so this is
+ * the shape only. See spec Section 6.
+ */
+describe('prompt names in a workflow', () => {
+  const withPrompts = (prompts: string[]): Record<string, StepDef> => ({
+    a: {
+      id: 'a',
+      stepType: 'aiHandoff',
+      taskType: 'invokeCopilot',
+      documentation: '',
+      prompts,
+    },
+  })
+
+  it('accepts a rooted markdown name, which is how one is written', () => {
+    expect(() => validateGraph('wf', 'a', withPrompts(['/skills/java-expert.md']))).not.toThrow()
+  })
+
+  it('accepts one without the leading slash too', () => {
+    expect(() => validateGraph('wf', 'a', withPrompts(['skills/java.md']))).not.toThrow()
+  })
+
+  it('accepts a step with none', () => {
+    expect(() => validateGraph('wf', 'a', withPrompts([]))).not.toThrow()
+  })
+
+  it('refuses something that is not markdown, since prompts are markdown', () => {
+    expect(() => validateGraph('wf', 'a', withPrompts(['/skills/java.txt']))).toThrow(
+      /must end in \.md/,
+    )
+  })
+
+  it('refuses a name that climbs out of the prompts folder', () => {
+    expect(() => validateGraph('wf', 'a', withPrompts(['../../secrets.md']))).toThrow(
+      /climbs out of the prompts folder/,
+    )
+  })
+
+  it('refuses a Windows absolute path', () => {
+    expect(() => validateGraph('wf', 'a', withPrompts(['C:\\skills\\java.md']))).toThrow(
+      /absolute path/,
+    )
+  })
+
+  it('refuses a name that is only a slash', () => {
+    expect(() => validateGraph('wf', 'a', withPrompts(['/']))).toThrow(/names no file/)
+  })
+
+  it('names the workflow and the step, so the error says where to look', () => {
+    expect(() => validateGraph('myWorkflow', 'a', withPrompts(['/bad.txt']))).toThrow(
+      /myWorkflow: step "a" lists prompt "\/bad\.txt"/,
+    )
   })
 })

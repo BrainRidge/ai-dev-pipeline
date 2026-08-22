@@ -32,15 +32,13 @@ const SECOND = {
       stepType: 'task',
       taskType: 'CollectRequirement',
       documentation: 'Say what you want.',
-      nextStep: 'ask',
-    },
+      nextStep: 'ask', prompts: [] },
     ask: {
       stepType: 'aiHandoff',
       taskType: 'invokeCopilot',
       documentation: 'Hand it over.',
-      nextStep: 'check',
-    },
-    check: { stepType: 'manual', taskType: 'manualReview', documentation: 'Read it.' },
+      nextStep: 'check', prompts: [] },
+    check: { stepType: 'manual', taskType: 'manualReview', documentation: 'Read it.', prompts: [] },
   },
 }
 

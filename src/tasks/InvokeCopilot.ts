@@ -112,6 +112,7 @@ export class InvokeCopilot implements TaskType, CopilotHandoff {
         outputFile,
         templatePath,
         templateSource,
+        prompts: composed.prompts,
         includes: composed.includes,
         references: composed.references,
         unresolved: composed.unresolved,

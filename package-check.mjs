@@ -30,6 +30,9 @@ export const MUST_SHIP = [
   'examples/content-template/config/platforms.json',
   'examples/content-template/config/tools.json',
   'examples/content-template/README.md',
+  // The persona example. A team copies it out of the installed extension, so it
+  // has to be in the package. See spec Section 6.
+  'examples/content-template/prompts/skills/example-persona.md',
 ]
 
 /** Anything matching these must not be in the package. */

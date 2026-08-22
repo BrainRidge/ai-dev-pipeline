@@ -34,6 +34,13 @@ export const workflowStepSchema = z.object({
   documentation: z.string().default(''),
   interactive: z.boolean().optional(),
   nextStep: z.string().optional(),
+  /**
+   * Prompt files this step composes *before* its own template — the personas
+   * and skills that say who the model is being asked to be, ahead of the
+   * functional prompt that says what to do. Named relative to the prompts root,
+   * with or without a leading slash. See spec Section 6.
+   */
+  prompts: z.array(z.string().min(1)).default([]),
 })
 
 export const workflowFileSchema = z.object({

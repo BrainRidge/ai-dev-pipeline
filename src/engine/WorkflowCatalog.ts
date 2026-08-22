@@ -241,12 +241,43 @@ export function validateGraph(
     )
   }
 
+  for (const step of Object.values(steps)) {
+    for (const name of step.prompts) {
+      const problem = promptNameProblem(name)
+      if (problem) {
+        throw new Error(`${workflowId}: step "${step.id}" lists prompt "${name}" — ${problem}`)
+      }
+    }
+  }
+
   const terminal = order.some((id) => !steps[id]!.nextStep)
   if (!terminal) {
     throw new Error(`${workflowId}: no step is terminal, so the workflow can never finish`)
   }
 
   return order
+}
+
+/**
+ * Why a prompt name is unusable, or undefined when it is fine.
+ *
+ * Checked when the catalogue loads rather than when the prompt is composed, so a
+ * typo in a workflow fails on a tool developer's machine instead of three steps
+ * into somebody's task. Existence cannot be checked here — the file may live in
+ * a team's content folder, which the catalogue knows nothing about.
+ */
+export function promptNameProblem(name: string): string | undefined {
+  const trimmed = name.trim()
+  if (trimmed === '' || trimmed === '/') return 'it names no file'
+  if (!/\.md$/i.test(trimmed)) return 'prompts are markdown files, so it must end in .md'
+  if (trimmed.split(/[\\/]/).includes('..')) {
+    return 'it climbs out of the prompts folder, which is not allowed'
+  }
+  if (/^[A-Za-z]:/.test(trimmed) || trimmed.startsWith('\\\\')) {
+    return 'it is an absolute path. Name it relative to the prompts folder, such as ' +
+      '"/skills/java-expert.md"'
+  }
+  return undefined
 }
 
 function compareVersions(a: string, b: string): number {

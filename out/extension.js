@@ -11781,7 +11781,14 @@ var workflowStepSchema = external_exports.object({
   taskType: external_exports.string().min(1),
   documentation: external_exports.string().default(""),
   interactive: external_exports.boolean().optional(),
-  nextStep: external_exports.string().optional()
+  nextStep: external_exports.string().optional(),
+  /**
+   * Prompt files this step composes *before* its own template — the personas
+   * and skills that say who the model is being asked to be, ahead of the
+   * functional prompt that says what to do. Named relative to the prompts root,
+   * with or without a leading slash. See spec Section 6.
+   */
+  prompts: external_exports.array(external_exports.string().min(1)).default([])
 });
 var workflowFileSchema = external_exports.object({
   schemaVersion: external_exports.literal(1),
@@ -11993,11 +12000,31 @@ function validateGraph(workflowId, initialStep, steps) {
       `${workflowId}: step(s) ${stranded.map((s) => `"${s}"`).join(", ")} cannot be reached from "${initialStep}"`
     );
   }
+  for (const step of Object.values(steps)) {
+    for (const name of step.prompts) {
+      const problem = promptNameProblem(name);
+      if (problem) {
+        throw new Error(`${workflowId}: step "${step.id}" lists prompt "${name}" \u2014 ${problem}`);
+      }
+    }
+  }
   const terminal = order.some((id) => !steps[id].nextStep);
   if (!terminal) {
     throw new Error(`${workflowId}: no step is terminal, so the workflow can never finish`);
   }
   return order;
+}
+function promptNameProblem(name) {
+  const trimmed = name.trim();
+  if (trimmed === "" || trimmed === "/") return "it names no file";
+  if (!/\.md$/i.test(trimmed)) return "prompts are markdown files, so it must end in .md";
+  if (trimmed.split(/[\\/]/).includes("..")) {
+    return "it climbs out of the prompts folder, which is not allowed";
+  }
+  if (/^[A-Za-z]:/.test(trimmed) || trimmed.startsWith("\\\\")) {
+    return 'it is an absolute path. Name it relative to the prompts folder, such as "/skills/java-expert.md"';
+  }
+  return void 0;
 }
 function compareVersions(a, b) {
   const [aMaj = 0, aMin = 0] = a.split(".").map(Number);
@@ -12503,11 +12530,13 @@ var PromptComposer = class {
   }
   async compose(step, ctx, repos) {
     const main = await this.template(step, ctx);
+    const declared = await this.readParts(step.prompts, main.path, "prompts");
     const included = await this.readIncludes(main);
     const references = await this.resolveReferences(main, ctx);
-    const authored = [main.body, ...included.map((i) => i.body)];
+    const authored = [...declared.map((d) => d.body), main.body, ...included.map((i) => i.body)];
     const unresolved = [...new Set(authored.flatMap((body) => unresolvedIn(body, ctx)))];
     const part1 = [
+      ...declared.map((d) => resolveText(d.body, ctx).trimEnd()),
       resolveText(main.body, ctx).trimEnd(),
       ...included.map((i) => resolveText(i.body, ctx).trimEnd())
     ].join("\n\n");
@@ -12544,6 +12573,7 @@ var PromptComposer = class {
       outputFile: main.outputFile,
       templatePath: main.path,
       templateSource: main.source,
+      prompts: declared.map(({ path, source }) => ({ path, source })),
       includes: included.map(({ path, source }) => ({ path, source })),
       references,
       unresolved
@@ -12557,19 +12587,30 @@ var PromptComposer = class {
    * the panel still showed a caption saying it was there.
    */
   async readIncludes(main) {
+    return this.readParts(main.include, main.path, "include");
+  }
+  /**
+   * Reads a list of prompt files and returns their bodies, in order.
+   *
+   * Shared by the workflow's `prompts` and a template's `include:` because the
+   * reading is identical — the same resolution, the same per-file fallback, the
+   * same refusal to nest. Only where the text lands differs, and that is the
+   * caller's business.
+   */
+  async readParts(names, declaredIn, key) {
     const out = [];
-    for (const name of main.include) {
-      const resolved = await this.resolve(promptsRelative(name, main.path, "include"));
+    for (const name of names) {
+      const resolved = await this.resolve(promptsRelative(name, declaredIn, key));
       let raw;
       try {
         raw = await (0, import_promises6.readFile)(resolved.path, "utf8");
       } catch {
         throw new Error(
-          `prompt template "${main.path}" includes "${name}", which was not found at ${resolved.path}`
+          `"${declaredIn}" ${key === "prompts" ? "is given" : "includes"} the prompt "${name}", which was not found at ${resolved.path}`
         );
       }
       const meta = frontmatterOf(raw);
-      const owner = OWNER_KEYS.find((key) => meta?.[key] !== void 0);
+      const owner = OWNER_KEYS.find((key2) => meta?.[key2] !== void 0);
       if (owner) {
         throw new Error(
           `included template "${resolved.path}" declares "${owner}:", which only a step's own template may do`
@@ -12639,12 +12680,14 @@ function stringList(value, path, key) {
   });
 }
 function promptsRelative(name, declaredIn, key) {
-  if ((0, import_node_path8.isAbsolute)(name) || name.split(/[\\/]/).includes("..")) {
+  const trimmed = name.trim().replace(/^\/+/, "");
+  const windowsAbsolute = /^[A-Za-z]:/.test(trimmed) || name.trim().startsWith("\\\\");
+  if (trimmed === "" || windowsAbsolute || (0, import_node_path8.isAbsolute)(trimmed) || trimmed.split(/[\\/]/).includes("..")) {
     throw new Error(
-      `prompt template "${declaredIn}" names "${name}" under "${key}:". Use a path relative to the prompts folder, such as "_shared/house-rules.md".`
+      `"${declaredIn}" names "${name}" under "${key}". Use a path inside the prompts folder, such as "/skills/java-expert.md".`
     );
   }
-  return name;
+  return trimmed;
 }
 async function exists(path) {
   try {
@@ -12959,9 +13002,13 @@ function reposBefore(ctx, stepId) {
 
 // src/tasks/promptBlock.ts
 function provenanceNote(composed) {
-  const lines = [
-    templateNote({ path: composed.templatePath, source: composed.templateSource })
-  ];
+  const lines = [];
+  if (composed.prompts.length > 0) {
+    lines.push(
+      `Prompts: ${composed.prompts.map((p, i) => `${i + 1}. ${p.path} (${sourceLabel(p.source)})`).join("  ")}`
+    );
+  }
+  lines.push(templateNote({ path: composed.templatePath, source: composed.templateSource }));
   if (composed.includes.length > 0) {
     lines.push(
       `Includes: ${composed.includes.map((i) => `${i.path} (${sourceLabel(i.source)})`).join("; ")}`
@@ -13088,6 +13135,7 @@ var InvokeCopilot = class {
         outputFile,
         templatePath,
         templateSource,
+        prompts: composed.prompts,
         includes: composed.includes,
         references: composed.references,
         unresolved: composed.unresolved
@@ -13162,6 +13210,7 @@ var CopilotEditingHandoff = class {
         chars: prompt.length,
         templatePath: composed.templatePath,
         templateSource: composed.templateSource,
+        prompts: composed.prompts,
         includes: composed.includes,
         references: composed.references,
         unresolved: composed.unresolved

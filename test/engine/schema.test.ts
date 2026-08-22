@@ -13,8 +13,7 @@ const minimal = {
     requirement: {
       stepType: 'task',
       taskType: 'CollectRequirement',
-      documentation: 'Describe what you need to find out.',
-    },
+      documentation: 'Describe what you need to find out.', prompts: [] },
   },
 }
 

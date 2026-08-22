@@ -30,3 +30,4 @@
 # copied out of an installed extension. See Sections 16 and 17.
 !examples/content-template/README.md
 !examples/content-template/config/*.json
+!examples/content-template/prompts/**/*.md

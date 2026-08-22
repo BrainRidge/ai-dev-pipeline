@@ -90,6 +90,7 @@ export function step(id: string, over: Partial<StepDef> = {}): StepDef {
     stepType: 'task' as StepType,
     taskType: 'CollectRequirement',
     documentation: '',
+    prompts: [],
     ...over,
   }
 }

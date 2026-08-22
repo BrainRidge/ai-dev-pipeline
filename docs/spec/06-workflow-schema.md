@@ -40,6 +40,69 @@ is in. When two versions of the same id are present the catalogue keeps the high
 }
 ```
 
+## A step can be given more than one prompt
+
+An `aiHandoff` step may list prompt files, and they are composed ahead of its own
+template:
+
+```json
+"aiHandoff": {
+  "stepType": "aiHandoff",
+  "taskType": "invokeCopilot",
+  "prompts": ["/skills/java-expert.md", "/skills/security.md"],
+  "documentation": "Sends the composed prompt to Copilot …"
+}
+```
+
+The shape this exists for is: **a persona or skill prompt, then the functional
+prompt built from the developer's answers.** One says who the model is being asked
+to be and travels across many steps and workflows; the other says what to do here
+and is the step's own template, found by convention as always. Neither is complete
+without the other, and a real handoff will usually have several of the first.
+
+**Order is meaningful, and it is why this list is composed *before* the template
+rather than after.** A persona read after the task it applies to is a different
+prompt. The files are composed in the order the workflow gives them, so the
+broadest goes first.
+
+**Names are relative to the prompts root, with or without a leading slash.**
+`/skills/java-expert.md` and `skills/java-expert.md` mean the same file, and the
+leading form is allowed because it is how a workflow author naturally writes a
+path from the top of a folder. It is never a filesystem path: a rooted name is
+confined to the prompts folder, so `/etc/passwd` looks for
+`<promptsRoot>/etc/passwd` and finds nothing. `..` and genuinely absolute paths —
+`C:\…`, a UNC share — are refused outright.
+
+**Each file resolves like any other prompt**: the team's copy if they have one,
+the bundled one otherwise, per file, with the same case guard
+([Section 16](16-external-content.md)). Placeholders resolve in them too, so a
+persona can be specific to the task without being duplicated per workflow. A
+declared prompt that is not on disk is fatal — its text is part of what is being
+asked, and composing without it would send a different prompt than the caption
+claims.
+
+**The name is validated when the catalogue loads**, not when the prompt is
+composed, so a typo fails on a tool developer's machine rather than three steps
+into somebody's task. Existence cannot be checked there, because the file may
+live in a team's content folder that the catalogue knows nothing about.
+
+### Why this is in the JSON when `include:` is in the frontmatter
+
+Both compose extra markdown into part 1, and having two mechanisms needs
+justifying. They have different owners and different positions, and the positions
+follow from the owners:
+
+| | Declared by | Where it lands | For |
+|---|---|---|---|
+| `prompts` on the step | the **workflow** author | before the template | personas and skills — who to be |
+| `include:` in frontmatter | the **prompt** author | after the template | house rules — constraints on how |
+
+A workflow author decides which steps get which persona, and should not have to
+edit a persona file to add a step to it. A prompt author decides what their own
+prompt leans on, and [Section 8](08-ai-handoff-step.md) gives the reasoning for
+that living in the same file as `output:`. Collapsing the two would take one of
+those decisions away from the person who owns it.
+
 `documentation` is required and is not decoration: it is what the developer reads in the
 panel to understand why the step exists. It is the workflow author's one channel to the
 person following the workflow, and it is the reason a workflow file is worth reviewing.
@@ -94,6 +157,11 @@ without anything noticing.
 
 Field types available to a `task` step: `text`, `textarea`, `select`, `multiselect`,
 `boolean`, `repo-picker`, `file-picker`.
+
+`prompts` is available on any step, and means something only to `aiHandoff` ones — they are
+the steps that compose a prompt. No bundled workflow declares any yet: the capability is
+there so personas can be added as they are written, without a release that touches
+TypeScript.
 
 This catalogue is deliberately minimal. New types are added only when a workflow genuinely
 cannot be expressed, and each addition is one new class plus, at most, one renderer branch.
