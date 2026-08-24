@@ -94,13 +94,24 @@ required"* tells them nothing they could not see.
 
 ## The machine it decided it was on
 
-The report is captioned with it, ahead of the tool list:
+It is said twice, in the two places a developer actually reads: the sentence
+under the step title, and the report's own label.
 
 ```
-Machine: macOS · Tool list: bundled default
+Checked on macOS. Everything this workflow needs is installed.
+
+  ┌ Tool check on macOS ──────────────────
+  │ Tool list: bundled default
+  │ 1. Tools on this machine
+  │ …
 ```
 
-That line is not decoration. Which commands ran depends on the platform — through
+Not in the caption, which is where it started. That line is `.8em` grey text
+meant for provenance — right for saying which prompt template composed something,
+wrong for the fact that decides what the whole report means. The label above it is
+bold and full size, and the sentence above that is ordinary body text.
+
+The platform is not decoration. Which commands ran depends on the platform — through
 `platforms`, through the Windows extension search below, and through which
 `install` hint is shown — so a developer reading a surprising report cannot make
 sense of it without knowing what the step decided they were on. It is recorded on

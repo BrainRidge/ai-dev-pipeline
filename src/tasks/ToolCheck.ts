@@ -133,9 +133,10 @@ export class ToolCheck implements TaskType, ToolReporter {
     const blocked = blockers(state.findings)
     return {
       text: blocked.length
-        ? `${count(blocked.length, 'problem')} to fix before this task can continue. ` +
-          'Fix what the report names, then Re-check.'
-        : 'Everything this workflow needs is installed. Nothing was run against your repositories.',
+        ? `Checked on ${machineLabel(this.platform)}. ${count(blocked.length, 'problem')} ` +
+          'to fix before this task can continue. Fix what the report names, then Re-check.'
+        : `Checked on ${machineLabel(this.platform)}. Everything this workflow needs is ` +
+          'installed. Nothing was run against your repositories.',
       commands: [this.reportBlock(state)],
       actions,
     }
@@ -281,15 +282,18 @@ export class ToolCheck implements TaskType, ToolReporter {
   }): CommandBlock {
     return {
       id: REPORT_BLOCK_ID,
-      label: 'Tool check report',
+      // The machine goes in the label rather than the caption below it: the
+      // label is bold and full-size, the caption is small grey text meant for
+      // provenance. Which commands ran depends on the platform, so it should be
+      // the first thing read, not the last. See spec Section 17.
+      label: `Tool check on ${machineLabel(this.platform)}`,
       // The machine first: which commands ran depends on it, and a developer
       // reading a surprising report needs to know what the step decided they
       // were on before anything else makes sense. See spec Section 17.
       note:
-        `Machine: ${machineLabel(this.platform)} · ` +
-        (state.resolved.source === 'external'
+        state.resolved.source === 'external'
           ? `Tool list: ${state.resolved.path} (external)`
-          : 'Tool list: bundled default'),
+          : 'Tool list: bundled default',
       // Two numbered halves, because they answer different questions: what is
       // on this machine, and what Copilot has been given to work with.
       lines: [

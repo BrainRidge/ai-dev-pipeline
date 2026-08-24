@@ -1,6 +1,6 @@
 {
-  "version": "0.8.0",
-  "vsix": "ai-dev-workflow-0.8.0.vsix",
-  "sha256": "b01dc23cbbc4a7baadbeb09f9d6595af2cb1113286ede7f57c59108db46c6c56",
+  "version": "0.8.1",
+  "vsix": "ai-dev-workflow-0.8.1.vsix",
+  "sha256": "4895523f4f523f87d574554ca40eebd6a96a3acc15181264f16e5b2aa2cfc5cb",
   "released": "2026-08-24"
 }

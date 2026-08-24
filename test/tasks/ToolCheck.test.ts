@@ -186,14 +186,12 @@ describe('provenance, so a silent fallback is visible afterwards', () => {
   it('captions the report with the team’s file when there is one', async () => {
     const task = toolCheck({ source: 'external', path: '/team/config/tools.json' })
     expect(block(await task.describe(STEP, CTX, {})).note).toBe(
-      'Machine: macOS · Tool list: /team/config/tools.json (external)',
+      'Tool list: /team/config/tools.json (external)',
     )
   })
 
   it('says so plainly when the bundled default was used', async () => {
-    expect(block(await toolCheck().describe(STEP, CTX, {})).note).toBe(
-      'Machine: macOS · Tool list: bundled default',
-    )
+    expect(block(await toolCheck().describe(STEP, CTX, {})).note).toBe('Tool list: bundled default')
   })
 
   it('records the list and the findings on the step, for the audit trail', async () => {
@@ -341,9 +339,30 @@ describe('the machine it ran on', () => {
     expect(machineLabel('freebsd')).toBe('freebsd')
   })
 
-  it('leads the caption with it, ahead of the tool list', async () => {
-    const note = block(await toolCheck().describe(STEP, CTX, {})).note!
-    expect(note.startsWith('Machine: macOS · ')).toBe(true)
+  /**
+   * In the block's label and in the sentence above it, not in the caption. The
+   * caption is small grey text for provenance; which machine ran the commands
+   * decides what the whole report means, so it is read first or not at all.
+   * See spec Section 17.
+   */
+  it('names the machine in the report’s label, which is bold and full size', async () => {
+    expect(block(await toolCheck().describe(STEP, CTX, {})).label).toBe('Tool check on macOS')
+  })
+
+  it('says it again in the sentence above, which is ordinary body text', async () => {
+    const view = await toolCheck().describe(STEP, CTX, {})
+    expect(view.text).toMatch(/^Checked on macOS\./)
+  })
+
+  it('says it on Windows too, in a developer’s own words', async () => {
+    const win = toolCheck({ platform: 'win32' })
+    const view = await win.describe(STEP, CTX, {})
+    expect(block(view).label).toBe('Tool check on Windows')
+    expect(view.text).toMatch(/^Checked on Windows\./)
+  })
+
+  it('leaves the caption to the tool list alone', async () => {
+    expect(block(await toolCheck().describe(STEP, CTX, {})).note).not.toContain('macOS')
   })
 
   it('records it on the step, so a session log can say which machines a team uses', async () => {

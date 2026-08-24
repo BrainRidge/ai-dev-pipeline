@@ -63,6 +63,7 @@ export function toolCheck(
     sink?: CommandSink
     environment?: EnvironmentReader
     skills?: SkillInstaller
+    platform?: string
   } = {},
 ): ToolCheck {
   const sink: CommandSink = opts.sink ?? { async copy() {}, async toTerminal() {} }
@@ -76,7 +77,7 @@ export function toolCheck(
     sink,
     opts.environment ?? healthyEditor,
     opts.skills ?? skillsInstalled,
-    'darwin',
+    opts.platform ?? 'darwin',
   )
 }
 
