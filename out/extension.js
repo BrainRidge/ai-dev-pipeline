@@ -12193,17 +12193,46 @@ var TaskWorkspace = class _TaskWorkspace {
     this.dir = dir;
     this.taskId = taskId;
   }
+  /**
+   * A task folder nobody else is using.
+   *
+   * The counter is claimed by *creating* the directory rather than by comparing
+   * its name against a listing. That distinction is the whole of this method,
+   * and it is not a nicety: the listing comparison was case-sensitive and the
+   * filesystem underneath it, on macOS and Windows both, is not. An epic typed
+   * `epic-001` on Monday and `EPIC-001` on Tuesday produced two ids that looked
+   * different to `Array.includes` and named one directory to the disk — so the
+   * second task silently adopted the first one's folder, overwrote its
+   * `_state.json`, and left two panels writing the same file. What that looks
+   * like from the outside is a step that will not advance however often Done is
+   * pressed, because the other session keeps putting the old status back.
+   *
+   * `mkdir` without `recursive` fails with EEXIST if anything is already there,
+   * whatever the filesystem thinks two names mean. Asking it is the only way to
+   * be right on every platform.
+   */
   static async create(opts) {
     const now = opts.now ?? /* @__PURE__ */ new Date();
     await (0, import_promises4.mkdir)(opts.tasksRoot, { recursive: true });
-    const existing = await (0, import_promises4.readdir)(opts.tasksRoot).catch(() => []);
     let counter = 1;
     let taskId = buildTaskId(opts.epic, opts.workflowId, now, counter);
-    while (existing.includes(taskId)) {
-      counter += 1;
-      taskId = buildTaskId(opts.epic, opts.workflowId, now, counter);
+    let dir = (0, import_node_path5.join)(opts.tasksRoot, taskId);
+    for (; ; ) {
+      try {
+        await (0, import_promises4.mkdir)(dir);
+        break;
+      } catch (err) {
+        if (err.code !== "EEXIST") throw err;
+        counter += 1;
+        if (counter > 99) {
+          throw new Error(
+            `there are already 99 tasks for ${opts.epic} and ${opts.workflowId} today, under ${opts.tasksRoot}. Archive some before starting another.`
+          );
+        }
+        taskId = buildTaskId(opts.epic, opts.workflowId, now, counter);
+        dir = (0, import_node_path5.join)(opts.tasksRoot, taskId);
+      }
     }
-    const dir = (0, import_node_path5.join)(opts.tasksRoot, taskId);
     await (0, import_promises4.mkdir)((0, import_node_path5.join)(dir, ".engine"), { recursive: true });
     await (0, import_promises4.writeFile)((0, import_node_path5.join)(dir, ".engine", "workflow.json"), opts.workflowJson, "utf8");
     return new _TaskWorkspace(dir, taskId);

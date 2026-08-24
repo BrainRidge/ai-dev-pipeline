@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { buildTaskId } from '../engine/taskId'
 
@@ -18,19 +18,50 @@ export class TaskWorkspace {
     readonly taskId: string,
   ) {}
 
+  /**
+   * A task folder nobody else is using.
+   *
+   * The counter is claimed by *creating* the directory rather than by comparing
+   * its name against a listing. That distinction is the whole of this method,
+   * and it is not a nicety: the listing comparison was case-sensitive and the
+   * filesystem underneath it, on macOS and Windows both, is not. An epic typed
+   * `epic-001` on Monday and `EPIC-001` on Tuesday produced two ids that looked
+   * different to `Array.includes` and named one directory to the disk — so the
+   * second task silently adopted the first one's folder, overwrote its
+   * `_state.json`, and left two panels writing the same file. What that looks
+   * like from the outside is a step that will not advance however often Done is
+   * pressed, because the other session keeps putting the old status back.
+   *
+   * `mkdir` without `recursive` fails with EEXIST if anything is already there,
+   * whatever the filesystem thinks two names mean. Asking it is the only way to
+   * be right on every platform.
+   */
   static async create(opts: CreateOpts): Promise<TaskWorkspace> {
     const now = opts.now ?? new Date()
     await mkdir(opts.tasksRoot, { recursive: true })
-    const existing = await readdir(opts.tasksRoot).catch(() => [] as string[])
 
     let counter = 1
     let taskId = buildTaskId(opts.epic, opts.workflowId, now, counter)
-    while (existing.includes(taskId)) {
-      counter += 1
-      taskId = buildTaskId(opts.epic, opts.workflowId, now, counter)
+    let dir = join(opts.tasksRoot, taskId)
+
+    for (;;) {
+      try {
+        await mkdir(dir)
+        break
+      } catch (err) {
+        if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err
+        counter += 1
+        if (counter > 99) {
+          throw new Error(
+            `there are already 99 tasks for ${opts.epic} and ${opts.workflowId} today, under ` +
+              `${opts.tasksRoot}. Archive some before starting another.`,
+          )
+        }
+        taskId = buildTaskId(opts.epic, opts.workflowId, now, counter)
+        dir = join(opts.tasksRoot, taskId)
+      }
     }
 
-    const dir = join(opts.tasksRoot, taskId)
     await mkdir(join(dir, '.engine'), { recursive: true })
 
     // Snapshot: this task runs the definition it started with, immune to

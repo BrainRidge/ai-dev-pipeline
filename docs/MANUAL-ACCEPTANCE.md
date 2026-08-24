@@ -123,6 +123,13 @@ Add `-- patch` or `-- minor` to bump the version at the same time. See
 - [ ] **1d. Copy the report.** Press **Copy report** and paste somewhere.
       *Expected:* the whole report, as shown, on the clipboard.
 
+- [ ] **1e. Two tasks, one epic, different case.** Start a task with epic
+      `EPIC-001`, then another with `epic-001` on the same day.
+      *Expected:* two folders under the tasks root, ending `-01` and `-02`, each
+      with its own `_state.json`. On macOS and Windows these two ids name the
+      same path to the filesystem, and the second task used to land inside the
+      first one's folder — after which neither panel could advance a step.
+
 - [ ] **2. Scope form.** The microservices list shows exactly the services
       configured for the platform you chose.
       *Expected:* submitting with an empty research question is refused, with the

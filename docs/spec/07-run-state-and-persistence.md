@@ -122,6 +122,24 @@ multiple tasks started for the same epic and workflow on the same day. The id is
 task folder name, the `.code-workspace` filename and the audit log key, so it must be
 filesystem-safe: any character outside `[A-Za-z0-9._-]` in the epic key is replaced with `-`.
 
+**The counter is claimed by creating the directory, not by comparing names against a listing.**
+That is a correction, and the failure it fixes is worth recording because nothing about it
+looks like a filesystem problem from the panel. The comparison used `Array.includes`, which is
+case-sensitive; macOS and Windows filesystems are not. An epic entered as `EPIC-001` one
+morning and `epic-001` that evening produced two ids that the comparison called different and
+the disk called the same, so the second task was created *inside the first one's folder* — with
+`mkdir` cheerfully doing nothing — and overwrote its `_state.json` and workflow snapshot.
+
+Two panels then held two tasks and shared one state file. Each transition wrote the whole
+state, so whichever panel wrote last won: press Done in one and the other would put the old
+status back. What the developer sees is a step that will not advance however many times they
+press the button, with nothing wrong on screen and nothing wrong in the artifact.
+
+`mkdir` without `recursive` fails with `EEXIST` if anything is already at that path, whatever
+the filesystem thinks two names mean. Asking it, and taking the next counter on refusal, is the
+only arrangement that is correct on every platform. After 99 attempts it gives up with a
+message naming the epic, rather than looping.
+
 ## Task lifecycle rules
 
 - **One active task per window.** The window's workspace determines the task; a second task
