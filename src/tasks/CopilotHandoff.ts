@@ -29,4 +29,12 @@ export interface CopilotHandoff {
   ): Promise<{ label: string; text: string }>
   /** Only a handoff contracted to write a file can answer this. */
   outputPath?(step: StepDef, ctx: StepContext): Promise<string>
+  /**
+   * Whether that artifact is on disk right now.
+   *
+   * Asked at the moment the developer presses Done, because spec D9 wants the
+   * file to exist — not for a watcher to have happened to see it appear. The
+   * watcher is one way of noticing; this is the question itself.
+   */
+  artifactPresent?(step: StepDef, ctx: StepContext): Promise<boolean>
 }

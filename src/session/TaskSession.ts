@@ -7,7 +7,7 @@ import { WebviewBridge } from '../bridge/WebviewBridge'
 import { buildWorkflowDescriptor } from '../engine/StepDescriptor'
 import { buildWorkflow, WorkflowCatalog } from '../engine/WorkflowCatalog'
 import { WorkflowEngine } from '../engine/WorkflowEngine'
-import { workflowFileSchema, type WorkflowDef } from '../engine/schema'
+import { workflowFileSchema, type StepDef, type WorkflowDef } from '../engine/schema'
 import { TaskStateStore, type TaskState } from '../state/TaskStateStore'
 import { TaskWorkspace } from '../workspace/TaskWorkspace'
 import { buildTaskTypes } from '../tasks/registry'
@@ -483,18 +483,12 @@ export class TaskSession {
       return
     }
 
-    const submitted =
-      step.stepType === 'aiHandoff' && actionId === 'done'
-        ? {
-            ...values,
-            confirmed: true,
-            outputPresent: this.outputPresent,
-            outputFile: this.outputFile,
-            mechanism: this.pendingMechanism,
-          }
-        : values
     // An editing handoff declares no artifact, so it validates on `confirmed`
     // alone and ignores outputPresent entirely.
+    const submitted =
+      step.stepType === 'aiHandoff' && actionId === 'done'
+        ? await this.confirmHandoff(step, values)
+        : values
 
     const result = await this.engine.submit(stepId, actionId, submitted)
     this.errors = result.ok ? {} : result.errors
@@ -506,6 +500,47 @@ export class TaskSession {
       await this.afterTransition()
     }
     await this.refresh()
+  }
+
+  /**
+   * What Done submits for a handoff contracted to write a file.
+   *
+   * The artifact's presence is decided by **looking on disk**, not by whether a
+   * watcher happened to see it appear. Spec D9 asks for the file to exist and
+   * the developer to confirm; a live event is a way of noticing the first, not
+   * the thing itself, and it fails in ways nobody can diagnose from the panel:
+   * the task folder may sit outside the workspace, where VS Code's watching is
+   * non-recursive and best-effort; the write may land before the watcher is
+   * listening; the paths may differ by a symlink. Every one of those left Done
+   * refusing forever, with the file plainly there.
+   *
+   * The watcher still earns its place — it is what makes the panel say "waiting
+   * for 02-analysis.md" and then stop saying it, without the developer clicking
+   * anything. It is just no longer the only way to learn the truth.
+   */
+  private async confirmHandoff(step: StepDef, values: Answers): Promise<Answers> {
+    const task = this.registry.get(step.taskType) as unknown as CopilotHandoff
+    const outputPath = await task.outputPath?.(step, this.ctx).catch(() => undefined)
+    const onDisk = (await task.artifactPresent?.(step, this.ctx).catch(() => false)) ?? false
+
+    if (onDisk && !this.outputPresent) {
+      // The watcher missed it. Worth a line in the log, because a task whose
+      // artifacts are only ever found this way says the watching is not working
+      // on that machine.
+      await this.audit.append({
+        kind: 'output-found',
+        stepId: step.id,
+        data: { outputPath, seenByWatcher: false },
+      })
+    }
+
+    return {
+      ...values,
+      confirmed: true,
+      outputPresent: this.outputPresent || onDisk,
+      outputFile: outputPath ? basename(outputPath) : this.outputFile,
+      mechanism: this.pendingMechanism,
+    }
   }
 
   /**

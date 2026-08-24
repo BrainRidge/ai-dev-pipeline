@@ -435,3 +435,49 @@ describe('the mechanism reaches the audit log', () => {
     }
   })
 })
+
+/**
+ * The bug this exists to prevent: Done refusing forever with the artifact
+ * plainly on disk, because a watcher never saw it appear. D9 asks for the file
+ * to exist; a live event is one way of noticing that, not the fact itself.
+ */
+describe('whether the artifact is there', () => {
+  const present = (yes: boolean) =>
+    new InvokeCopilot(composer, handoffReturning('A'), fakeAudit(), async () => yes, noSink)
+
+  it('looks on disk rather than trusting a watcher', async () => {
+    expect(await present(true).artifactPresent(handoffStep, ctx)).toBe(true)
+    expect(await present(false).artifactPresent(handoffStep, ctx)).toBe(false)
+  })
+
+  it('asks about the path the template declared, not some other file', async () => {
+    const asked: string[] = []
+    const task = new InvokeCopilot(
+      composer,
+      handoffReturning('A'),
+      fakeAudit(),
+      async (p) => {
+        asked.push(p)
+        return true
+      },
+      noSink,
+    )
+
+    await task.artifactPresent(handoffStep, ctx)
+    expect(asked).toEqual([await task.outputPath(handoffStep, ctx)])
+  })
+
+  // Both signals are still required — this changes how the first is learned,
+  // not that it is needed.
+  it('still refuses Done when the file is absent, whatever was clicked', () => {
+    const result = present(false).validate(handoffStep, { confirmed: true, outputPresent: false })
+    expect(result.ok).toBe(false)
+    expect(result.errors.output).toMatch(/has not been written yet/)
+  })
+
+  it('accepts Done once both signals are in', () => {
+    expect(
+      present(true).validate(handoffStep, { confirmed: true, outputPresent: true }),
+    ).toEqual({ ok: true, errors: {} })
+  })
+})

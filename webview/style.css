@@ -104,6 +104,9 @@ h1 { font-size: 1.3rem; margin: 0 0 .25rem; }
 .badge-review  { background: var(--vscode-charts-blue, #48c); color: #fff; }
 .badge-tools   { background: var(--vscode-charts-green, #3a7); color: #fff; }
 
+.step-error { margin: 0 0 .35rem; }
+.step-error:last-child { margin-bottom: 0; }
+
 .step-text { margin: 0 0 1rem; }
 .field { margin: 1rem 0; display: flex; flex-direction: column; gap: .3rem; }
 .field-label { font-weight: 600; }

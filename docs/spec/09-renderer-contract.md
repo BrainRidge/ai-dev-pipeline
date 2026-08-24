@@ -146,6 +146,10 @@ copy or send an edited prompt without the box being rebuilt underneath them.
   was asked for. The host owns the clipboard and the terminal.
 - **No persistence.** No `localStorage`, no disk writes. Destroying the webview loses nothing
   except text typed and not yet acted on.
+- **Errors are shown whether or not a field claims them.** A message keyed to a field id is
+  drawn under that input; anything else is drawn in a box above the step body. Without that
+  second half, a step with no fields silently discarded every error it was given, which is
+  precisely what made a refused Done look like a hang.
 - **No authoritative validation.** Field constraints ride in the descriptor for immediate
   feedback, but the host revalidates every submission. The renderer is untrusted by design.
 

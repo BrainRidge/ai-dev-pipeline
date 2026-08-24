@@ -255,12 +255,31 @@ and answered as though it were the first time.
 
 For a handoff contracted to write a file, both conditions are required ([D9](04-decisions.md)):
 
-1. A file watcher observes the declared output file appear or change, **and**
+1. The declared output file **is on disk**, **and**
 2. The developer confirms.
 
-If the developer confirms and the file is absent, the step reports the missing output and
-does not advance. Repeated misses on the same step are the signal that a prompt template
+The first is answered by looking, at the moment Done is pressed. That is a correction: it used
+to be answered by whether a file watcher had seen the file appear, and those are not the same
+fact. The watcher misses writes often enough to matter — a task folder outside the workspace is
+watched non-recursively and best-effort, a write can land before anything is listening, and a
+symlinked path compares unequal — and every miss left Done refusing forever with the artifact
+plainly there. Since the panel could not explain itself either (below), it read as the step
+hanging.
+
+The watcher still earns its place. It is what makes the panel say *"waiting for
+02-analysis.md"* and then stop saying it, with nothing clicked. It is simply no longer the only
+way to learn the truth, and when it turns out to have missed one, an `output-found` entry
+records that — a task whose artifacts are only ever found that way is saying the watching does
+not work on that machine.
+
+If the developer confirms and the file is genuinely absent, the step reports the missing output
+and does not advance. Repeated misses on the same step are the signal that a prompt template
 needs revision.
+
+**A step's validation messages are shown even when it has no fields.** They used to be drawn
+only through the field they belonged to, so a handoff, a command list or a tool check — none of
+which have fields — had nowhere to put them, and they were dropped. The panel repainted
+identically and the developer was told nothing. See [Section 9](09-renderer-contract.md).
 
 **For a handoff that produces edits, only the second condition exists.** `invokeCopilotCoding`
 and `invokeCopilotCodeReview` change repositories rather than writing a document, so there is

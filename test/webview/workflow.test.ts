@@ -184,3 +184,81 @@ describe('the detail pane', () => {
     expect(seen).toEqual([{ story: 'typed story' }])
   })
 })
+
+/**
+ * A step's validation messages were only ever drawn through `renderField`, so a
+ * step with no fields — a handoff, a command list, a tool check — had nowhere to
+ * put them and they were dropped. Pressing Done then looked exactly like nothing
+ * happening, which is how it was reported.
+ */
+describe('errors on a step that has no fields', () => {
+  const handoff: WorkflowDescriptor = {
+    protocolVersion: 2,
+    task: { id: 'T-1', platform: 'p', epic: 'E-1', workflowLabel: 'Research Task' },
+    activeStepId: 'aiHandoff',
+    steps: [
+      {
+        id: 'aiHandoff',
+        index: 1,
+        title: 'Hand off to Copilot',
+        stepType: 'aiHandoff',
+        badge: 'COPILOT',
+        status: 'current',
+        text: 'Read the prompt below.',
+        actions: [{ id: 'done', label: 'Done', primary: true }],
+        errors: {
+          output: '02-analysis.md has not been written yet. Reopen the chat and try again.',
+          confirmed: 'Mark the step done once Copilot has finished.',
+        },
+      },
+    ],
+  }
+
+  it('shows them, rather than repainting an identical panel', () => {
+    const root = document.createElement('div')
+    renderWorkflow(handoff, root)
+    expect(root.querySelector('.error-box')!.textContent).toContain('has not been written yet')
+  })
+
+  it('shows every one, since two things can be wrong at once', () => {
+    const root = document.createElement('div')
+    renderWorkflow(handoff, root)
+    expect(root.querySelectorAll('.step-error')).toHaveLength(2)
+  })
+
+  it('puts them above the step body, where they will be read', () => {
+    const root = document.createElement('div')
+    renderWorkflow(handoff, root)
+    const box = root.querySelector('.error-box')!
+    expect(box.compareDocumentPosition(root.querySelector('.actions')!)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    )
+  })
+
+  // A field-shaped step still shows each message under its own input, so this
+  // must not duplicate them.
+  it('leaves a field’s own error to the field', () => {
+    const withField: WorkflowDescriptor = {
+      ...handoff,
+      steps: [
+        {
+          ...handoff.steps[0]!,
+          fields: [{ id: 'story', type: 'textarea', label: 'Story' }],
+          values: {},
+          errors: { story: 'Story is required' },
+        },
+      ],
+    }
+
+    const root = document.createElement('div')
+    renderWorkflow(withField, root)
+    expect(root.querySelector('.error-box')).toBeNull()
+    expect(root.textContent).toContain('Story is required')
+  })
+
+  it('draws no box when nothing is wrong', () => {
+    const root = document.createElement('div')
+    renderWorkflow({ ...handoff, steps: [{ ...handoff.steps[0]!, errors: undefined }] }, root)
+    expect(root.querySelector('.error-box')).toBeNull()
+  })
+})

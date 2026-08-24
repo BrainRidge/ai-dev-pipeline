@@ -13285,6 +13285,19 @@ var InvokeCopilot = class {
   async outputPath(step, ctx) {
     return (0, import_node_path10.join)(ctx.taskDir, await this.composer.outputFor(step, ctx));
   }
+  /**
+   * Looks. The watcher in `TaskSession` reports the artifact appearing while the
+   * developer waits, which is what makes the panel stop saying "waiting for
+   * 02-analysis.md" on its own — but a live event is not the same fact as the
+   * file being there, and it is missed often enough to matter: a task folder
+   * outside the workspace is watched non-recursively and best-effort, a write
+   * can land before anything is listening, and a symlinked path compares
+   * unequal. Every one of those left Done refusing with the file plainly on
+   * disk. See spec D9 and Section 8.
+   */
+  async artifactPresent(step, ctx) {
+    return this.fileExists(await this.outputPath(step, ctx));
+  }
   async deliver(step, ctx, override) {
     const composed = await this.composer.compose(step, ctx, reposBefore(ctx, step.id));
     const { outputFile, templatePath, templateSource } = composed;
@@ -14340,13 +14353,7 @@ var TaskSession = class _TaskSession {
       }
       return;
     }
-    const submitted = step.stepType === "aiHandoff" && actionId === "done" ? {
-      ...values,
-      confirmed: true,
-      outputPresent: this.outputPresent,
-      outputFile: this.outputFile,
-      mechanism: this.pendingMechanism
-    } : values;
+    const submitted = step.stepType === "aiHandoff" && actionId === "done" ? await this.confirmHandoff(step, values) : values;
     const result = await this.engine.submit(stepId, actionId, submitted);
     this.errors = result.ok ? {} : result.errors;
     if (result.ok) {
@@ -14357,6 +14364,41 @@ var TaskSession = class _TaskSession {
       await this.afterTransition();
     }
     await this.refresh();
+  }
+  /**
+   * What Done submits for a handoff contracted to write a file.
+   *
+   * The artifact's presence is decided by **looking on disk**, not by whether a
+   * watcher happened to see it appear. Spec D9 asks for the file to exist and
+   * the developer to confirm; a live event is a way of noticing the first, not
+   * the thing itself, and it fails in ways nobody can diagnose from the panel:
+   * the task folder may sit outside the workspace, where VS Code's watching is
+   * non-recursive and best-effort; the write may land before the watcher is
+   * listening; the paths may differ by a symlink. Every one of those left Done
+   * refusing forever, with the file plainly there.
+   *
+   * The watcher still earns its place — it is what makes the panel say "waiting
+   * for 02-analysis.md" and then stop saying it, without the developer clicking
+   * anything. It is just no longer the only way to learn the truth.
+   */
+  async confirmHandoff(step, values) {
+    const task = this.registry.get(step.taskType);
+    const outputPath = await task.outputPath?.(step, this.ctx).catch(() => void 0);
+    const onDisk = await task.artifactPresent?.(step, this.ctx).catch(() => false) ?? false;
+    if (onDisk && !this.outputPresent) {
+      await this.audit.append({
+        kind: "output-found",
+        stepId: step.id,
+        data: { outputPath, seenByWatcher: false }
+      });
+    }
+    return {
+      ...values,
+      confirmed: true,
+      outputPresent: this.outputPresent || onDisk,
+      outputFile: outputPath ? (0, import_node_path15.basename)(outputPath) : this.outputFile,
+      mechanism: this.pendingMechanism
+    };
   }
   /**
    * Copy and Send are the moments the developer has settled on their wording,

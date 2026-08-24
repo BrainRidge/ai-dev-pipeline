@@ -84,6 +84,20 @@ export class InvokeCopilot implements TaskType, CopilotHandoff {
     return join(ctx.taskDir, await this.composer.outputFor(step, ctx))
   }
 
+  /**
+   * Looks. The watcher in `TaskSession` reports the artifact appearing while the
+   * developer waits, which is what makes the panel stop saying "waiting for
+   * 02-analysis.md" on its own — but a live event is not the same fact as the
+   * file being there, and it is missed often enough to matter: a task folder
+   * outside the workspace is watched non-recursively and best-effort, a write
+   * can land before anything is listening, and a symlinked path compares
+   * unequal. Every one of those left Done refusing with the file plainly on
+   * disk. See spec D9 and Section 8.
+   */
+  async artifactPresent(step: StepDef, ctx: StepContext): Promise<boolean> {
+    return this.fileExists(await this.outputPath(step, ctx))
+  }
+
   async deliver(step: StepDef, ctx: StepContext, override?: string): Promise<Delivery> {
     const composed = await this.composer.compose(step, ctx, reposBefore(ctx, step.id))
     const { outputFile, templatePath, templateSource } = composed

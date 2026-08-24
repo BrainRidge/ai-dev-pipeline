@@ -152,6 +152,18 @@ Add `-- patch` or `-- minor` to bump the version at the same time. See
       Then let Copilot write it and press **Done** again.
       *Expected:* the step completes.
 
+- [ ] **7a. Done works even if the watcher missed the write.** With the handoff
+      step open, create the artifact from a terminal rather than through Copilot:
+      `echo "# Analysis" > <taskDir>/02-analysis.md`. Press **Done**.
+      *Expected:* the step completes. The check is a look at the disk, not a
+      record of having seen the file appear — and `audit.jsonl` gains an
+      `output-found` entry noting the watcher had not seen it.
+
+- [ ] **7b. A refused Done says why.** Press **Done** with no artifact written.
+      *Expected:* a visible error naming the file, above the buttons. This step
+      has no input fields, so before there was nowhere for that message to go and
+      the panel simply repainted.
+
 - [ ] **8. Artifact review.** `02-analysis.md` opens in a normal editor tab.
       Edit it, then press **Revise**.
       *Expected:* the workflow returns to "Run the analysis". Then press

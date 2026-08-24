@@ -165,6 +165,13 @@
       if (s.status === "current") {
         const body = el("div", "wf-detail-body");
         if (s.text) body.append(el("p", "step-text", s.text));
+        const claimed = new Set((s.fields ?? []).map((f) => f.id));
+        const loose = Object.entries(s.errors ?? {}).filter(([id]) => !claimed.has(id));
+        if (loose.length > 0) {
+          const box = el("div", "error-box");
+          for (const [, message] of loose) box.append(el("p", "step-error", message));
+          body.append(box);
+        }
         for (const f of s.fields ?? []) {
           body.append(renderField(f, (s.values ?? {})[f.id], s.errors?.[f.id]));
         }
