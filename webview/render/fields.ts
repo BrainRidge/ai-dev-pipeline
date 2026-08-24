@@ -21,6 +21,8 @@ export interface StepDescriptor {
   }
   /** A warning above the form, worded entirely by the host. */
   notice?: string
+  /** Which build this is, drawn at the foot of the pane. */
+  version?: string
   step: {
     id: string
     kind: string
@@ -468,7 +470,10 @@ export function renderStep(
   }
   root.append(actions)
 
-  if (!d.footer || !footer) return
+  if (!d.footer || !footer) {
+    stampVersion()
+    return
+  }
 
   if (d.footer.title) footer.append(el('h2', 'step-footer-title', d.footer.title))
 
@@ -486,6 +491,17 @@ export function renderStep(
   }
   footer.append(footerActions)
   root.append(footer)
+
+  stampVersion()
+
+  /**
+   * Last thing in the pane, whether or not there is a footer above it. The host
+   * supplies the whole string — the renderer does not know the extension's name
+   * any more than it knows a workflow's.
+   */
+  function stampVersion(): void {
+    if (d.version) root.append(el('div', 'setup-version', d.version))
+  }
 
   function collect(): Record<string, unknown> {
     return {

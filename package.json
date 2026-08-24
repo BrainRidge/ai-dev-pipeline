@@ -2,7 +2,7 @@
   "name": "ai-dev-workflow",
   "displayName": "AI Dev Workflow",
   "description": "Interactive, standardised AI-assisted development workflows",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "publisher": "internal",
   "repository": {
     "type": "git",

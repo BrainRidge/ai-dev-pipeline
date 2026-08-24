@@ -36,9 +36,10 @@ Add `-- patch` or `-- minor` to bump the version at the same time. See
       *Expected:* a **working form**, with four platforms and two
       `example-…` services, under a banner reading *"⚠ Using the bundled sample
       catalogue — placeholder services that cannot be cloned. Set Content Root
-      to your team's folder to work on real repositories."* and an **Open
-      Settings** button beside Start task. This is a fresh install's first
-      experience, so read it as one.
+      to your team's folder to work on real repositories."* — and **Start task
+      as the only button**, since the banner already names the setting to change.
+      At the foot of the pane, the build: *"AI Dev Workflow &lt;version&gt;"*. This is a
+      fresh install's first experience, so read it as one.
 
 - [ ] **0b1. A task runs on the sample.** Start a Research Task against a
       sample service and continue to Get the code, then run the commands.

@@ -22,6 +22,15 @@ export interface SetupDescriptor {
   progress: { index: number; total: number; steps: never[] }
   /** A warning above the form. Drawn as given; the renderer adds no wording. */
   notice?: string
+  /**
+   * Which build this is, shown at the foot of the pane.
+   *
+   * Distribution is a .vsix installed by hand, so versions drift across a team
+   * ([D7](04-decisions.md)) and "which one have you got" is a question somebody
+   * asks every time behaviour differs between two developers. Putting it on
+   * screen means the answer is in the screenshot they were going to send anyway.
+   */
+  version?: string
   step: {
     id: string
     kind: string
@@ -47,9 +56,10 @@ export interface SetupDescriptor {
  * this" and "you have configured this wrongly" need different words, and only
  * the caller knows which happened. See spec Section 16.
  */
-export function unconfiguredDescriptor(message: string): SetupDescriptor {
+export function unconfiguredDescriptor(message: string, version?: string): SetupDescriptor {
   return {
     protocolVersion: PROTOCOL_VERSION,
+    version,
     task: { id: '', platform: '', epic: '', workflowLabel: 'Task setup' },
     progress: { index: 0, total: 0, steps: [] },
     step: {

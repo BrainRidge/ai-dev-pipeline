@@ -290,7 +290,10 @@
       actions.append(b);
     }
     root2.append(actions);
-    if (!d.footer || !footer) return;
+    if (!d.footer || !footer) {
+      stampVersion();
+      return;
+    }
     if (d.footer.title) footer.append(el("h2", "step-footer-title", d.footer.title));
     const footerBody = el("div", "step-footer-body");
     for (const f of d.footer.fields) {
@@ -305,6 +308,10 @@
     }
     footer.append(footerActions);
     root2.append(footer);
+    stampVersion();
+    function stampVersion() {
+      if (d.version) root2.append(el("div", "setup-version", d.version));
+    }
     function collect() {
       return {
         ...collectValues(body, d.step.fields ?? []),

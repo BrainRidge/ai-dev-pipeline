@@ -14511,9 +14511,10 @@ var vscode4 = __toESM(require("vscode"));
 
 // src/session/setupDescriptor.ts
 var SAMPLE_NOTICE = "\u26A0 Using the bundled sample catalogue \u2014 placeholder services that cannot be cloned. Set Content Root to your team's folder to work on real repositories.";
-function unconfiguredDescriptor(message) {
+function unconfiguredDescriptor(message, version2) {
   return {
     protocolVersion: PROTOCOL_VERSION,
+    version: version2,
     task: { id: "", platform: "", epic: "", workflowLabel: "Task setup" },
     progress: { index: 0, total: 0, steps: [] },
     step: {
@@ -14682,11 +14683,23 @@ var SetupView = class {
       services: Array.isArray(this.values.services) ? this.values.services.map(String) : []
     };
   }
+  /**
+   * The line at the foot of the pane, named as well as numbered.
+   *
+   * "0.8.1" on its own means nothing in a screenshot; the whole point is that
+   * somebody can send one and be told which build they are on. The host composes
+   * the whole string, as it does for the banner — the renderer knows the
+   * extension's name no more than it knows a workflow's. See spec Section 9.
+   */
+  versionLine() {
+    const version2 = this.context.extension.packageJSON.version;
+    return `AI Dev Workflow ${version2 ?? "unknown version"}`;
+  }
   async render() {
     if (!this.bridge) return;
     const resolved = resolvedContent(this.context);
     if (!resolved.ok) {
-      this.bridge.render(unconfiguredDescriptor(resolved.message));
+      this.bridge.render(unconfiguredDescriptor(resolved.message, this.versionLine()));
       return;
     }
     const notice = resolved.source === "sample" ? SAMPLE_NOTICE : void 0;
@@ -14697,7 +14710,9 @@ var SetupView = class {
         microserviceConfig: resolved.microserviceConfig
       });
     } catch (err) {
-      this.bridge.render(unconfiguredDescriptor(err instanceof Error ? err.message : String(err)));
+      this.bridge.render(
+        unconfiguredDescriptor(err instanceof Error ? err.message : String(err), this.versionLine())
+      );
       return;
     }
     const modeField = {
@@ -14741,6 +14756,7 @@ var SetupView = class {
       task: { id: "", platform: "", epic: "", workflowLabel: "Task setup" },
       progress: { index: 0, total: 0, steps: [] },
       notice,
+      version: this.versionLine(),
       step: {
         id: "setup",
         kind: "form",
@@ -14800,6 +14816,7 @@ var SetupView = class {
       task: { id: "", platform: selectedPlatform, epic: "", workflowLabel: "Task setup" },
       progress: { index: 0, total: 0, steps: [] },
       notice,
+      version: this.versionLine(),
       step: {
         id: "setup",
         kind: "form",
@@ -14813,10 +14830,13 @@ var SetupView = class {
           workDir
         },
         errors: Object.keys(this.errors).length > 0 ? this.errors : void 0,
-        actions: notice ? [
-          { id: "start", label: "Start task", primary: true },
-          { id: "openSettings", label: "Open Settings" }
-        ] : [{ id: "start", label: "Start task", primary: true }]
+        // Start task, and nothing beside it. The sample-catalogue banner used to
+        // put an Open Settings button here, which made a working form look like
+        // it needed attending to — the banner already names Content Root, and
+        // the setting is one command palette away. The wall in
+        // `unconfiguredDescriptor` keeps its button, because there it is the
+        // only way forward.
+        actions: [{ id: "start", label: "Start task", primary: true }]
       },
       footer: {
         title: "Work directory",
@@ -14858,6 +14878,7 @@ input[type=text],select,.option-filter{background:var(--vscode-input-background)
 .step-footer{margin-top:1.5rem;padding-top:.75rem;border-top:1px solid var(--vscode-panel-border,#333)}
 .step-footer-title{font-size:.9rem;margin:0;font-weight:600}
 .step-footer .actions{margin-top:.5rem}
+.setup-version{margin-top:1.25rem;padding-top:.5rem;border-top:1px solid var(--vscode-panel-border,#333);color:var(--vscode-descriptionForeground);font-size:.8em}
 .step-footer button{width:auto;padding:.3rem .75rem;background:var(--vscode-button-secondaryBackground,rgba(127,127,127,.2));color:var(--vscode-button-secondaryForeground,inherit)}
 button{font:inherit;padding:.4rem 1rem;cursor:pointer;border:none;width:100%;background:var(--vscode-button-background);color:var(--vscode-button-foreground)}
 </style></head><body><div id="root"></div>
