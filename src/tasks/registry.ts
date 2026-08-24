@@ -15,7 +15,7 @@ import { InvokeCopilot } from './InvokeCopilot'
 import { InvokeCopilotCoding } from './InvokeCopilotCoding'
 import { InvokeCopilotCodeReview } from './InvokeCopilotCodeReview'
 import { ManualReview } from './ManualReview'
-import { SystemCheck } from './SystemCheck'
+import { ToolCheck } from './ToolCheck'
 import { TaskTypeRegistry } from './TaskType'
 import type { CommandSink } from './CommandSink'
 import { nodeToolProbe } from './ToolProbe'
@@ -104,7 +104,7 @@ export function buildTaskTypes(opts: {
 
   /**
    * The team's list if the file is there, the bundled default otherwise. A file
-   * that is present but unreadable as a tool list throws, and SystemCheck shows
+   * that is present but unreadable as a tool list throws, and ToolCheck shows
    * that on its own step. See spec Section 17.
    */
   const loadToolList = async (): Promise<ResolvedTools> => {
@@ -116,7 +116,7 @@ export function buildTaskTypes(opts: {
   }
 
   return new TaskTypeRegistry([
-    new SystemCheck(loadToolList, nodeToolProbe, sink, editorEnvironment),
+    new ToolCheck(loadToolList, nodeToolProbe, sink, editorEnvironment),
     // Providers are passed in rather than defaulted, so the one place that wires
     // the vocabulary is also the one place P3 adds an MCP provider.
     new CollectRequirement(defaultProviders()),

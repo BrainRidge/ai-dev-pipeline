@@ -12,7 +12,7 @@ export interface ProbeResult {
 
 /**
  * Asks the machine whether a tool is there. Keeping this an interface is what
- * lets the System Check step be tested without spawning anything, and it is the
+ * lets the Tool Check step be tested without spawning anything, and it is the
  * same shape of seam as CommandSink and Handoff.
  *
  * It answers "is it installed", never "run this for me". Nothing a probe runs

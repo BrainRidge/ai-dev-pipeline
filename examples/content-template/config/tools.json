@@ -45,6 +45,10 @@
     "label": "Gradle",
     "command": "gradle",
     "args": ["--version"],
+    "_comment": "platforms overrides what runs where. You rarely need it: mvn.cmd and gradle.bat are found without help, because the probe tries those extensions itself. It is for a tool that is genuinely a different program somewhere.",
+    "platforms": {
+      "win32": { "command": "gradle", "args": ["-v"] }
+    },
     "required": false,
     "why": "Needed only if the repositories in scope build with Gradle, and not when they use the wrapper.",
     "install": {

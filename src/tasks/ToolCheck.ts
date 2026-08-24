@@ -34,10 +34,10 @@ export interface Finding {
 }
 
 /** The block id the report is shown under. The renderer never knows this name. */
-export const REPORT_BLOCK_ID = 'systemCheck'
+export const REPORT_BLOCK_ID = 'toolCheck'
 
 /** What TaskSession needs from the step that reports on the machine. */
-export interface SystemReporter {
+export interface ToolReporter {
   /** Throw the probe results away so the next render asks the machine again. */
   invalidate(): void
   copyReport(step: StepDef, ctx: StepContext): Promise<{ label: string }>
@@ -65,10 +65,10 @@ export type ToolsLoader = () => Promise<ResolvedTools>
  * panel sluggish for an answer that changes when somebody installs something.
  * Re-check is how the developer says that has happened.
  */
-export class SystemCheck implements TaskType, SystemReporter {
-  readonly name = 'systemCheck'
-  readonly stepType = 'systemCheck' as const
-  readonly title = 'System check'
+export class ToolCheck implements TaskType, ToolReporter {
+  readonly name = 'toolCheck'
+  readonly stepType = 'toolCheck' as const
+  readonly title = 'Tool check'
   /** Re-check and Copy report act on this step without advancing it. */
   readonly transitions = ['submit'] as const
 
@@ -154,6 +154,11 @@ export class SystemCheck implements TaskType, SystemReporter {
   ): Promise<Record<string, unknown>> {
     const state = this.cached
     return {
+      // Recorded so a session log can say which machines a team actually works
+      // on, and so a report that looks wrong can be read against the platform
+      // whose commands produced it.
+      platform: this.platform,
+      machine: machineLabel(this.platform),
       toolsSource: state?.resolved.source ?? null,
       toolsPath: state?.resolved.path ?? null,
       findings: state?.findings ?? [],
@@ -165,7 +170,7 @@ export class SystemCheck implements TaskType, SystemReporter {
     const state = await this.check()
     if (!state) throw new Error(this.failure ?? 'the check has not run')
     await this.sink.copy(this.reportBlock(state).lines.join('\n'))
-    return { label: 'the system check report' }
+    return { label: 'the tool check report' }
   }
 
   /** Probes every tool once and remembers the answer. */
@@ -210,7 +215,8 @@ export class SystemCheck implements TaskType, SystemReporter {
       install: tool.install[this.platform],
     }
 
-    const result = await this.probe.run(tool.command, tool.args)
+    const { command, args } = commandFor(tool, this.platform)
+    const result = await this.probe.run(command, args)
     if (!result.found) return { ...base, status: 'missing' }
 
     const version = versionIn(result.output)
@@ -225,16 +231,46 @@ export class SystemCheck implements TaskType, SystemReporter {
   private reportBlock(state: { resolved: ResolvedTools; findings: Finding[] }): CommandBlock {
     return {
       id: REPORT_BLOCK_ID,
-      label: 'System check report',
+      label: 'Tool check report',
+      // The machine first: which commands ran depends on it, and a developer
+      // reading a surprising report needs to know what the step decided they
+      // were on before anything else makes sense. See spec Section 17.
       note:
-        state.resolved.source === 'external'
+        `Machine: ${machineLabel(this.platform)} · ` +
+        (state.resolved.source === 'external'
           ? `Tool list: ${state.resolved.path} (external)`
-          : 'Tool list: bundled default',
+          : 'Tool list: bundled default'),
       lines: reportLines(state.findings),
       // No Copy or Terminal on the block: this is a report, not commands to
       // run. The step offers Copy beside Re-check instead.
       actions: [],
     }
+  }
+}
+
+/**
+ * What to run for this tool here.
+ *
+ * A platform with no entry uses the tool's own command and args, so the common
+ * case — one program, one name everywhere — stays a single line in the list.
+ * See spec Section 17.
+ */
+export function commandFor(tool: ToolDef, platform: string): { command: string; args: string[] } {
+  const override = tool.platforms[platform] ?? {}
+  return { command: override.command ?? tool.command, args: override.args ?? tool.args }
+}
+
+/** `process.platform` in the words a developer uses for their own machine. */
+export function machineLabel(platform: string): string {
+  switch (platform) {
+    case 'darwin':
+      return 'macOS'
+    case 'win32':
+      return 'Windows'
+    case 'linux':
+      return 'Linux'
+    default:
+      return platform
   }
 }
 

@@ -1,4 +1,4 @@
-# 17. The System Check step
+# 17. The Tool Check step
 
 > Part of the [AI Dev Workflow design](README.md).
 
@@ -84,12 +84,35 @@ taken or left as one.
 | `minVersion` | Optional. Dotted numbers, compared numerically segment by segment |
 | `why` | Why this workflow wants it. Shown beside the tool when it is missing |
 | `install` | A hint per `process.platform`, and only this machine's is shown |
+| `platforms` | Overrides `command` and `args` per `process.platform`. Either key alone; a platform with no entry uses the values above |
 
 `why` is not decoration, for the same reason `documentation` is not decoration on
 a step ([Section 6](06-workflow-schema.md)): it is the tool list author's one
 channel to the developer whose task has just been stopped. *"Copilot compiles and
 tests the code it changes"* tells them whether the block is real. *"Java is
 required"* tells them nothing they could not see.
+
+## The machine it decided it was on
+
+The report is captioned with it, ahead of the tool list:
+
+```
+Machine: macOS · Tool list: bundled default
+```
+
+That line is not decoration. Which commands ran depends on the platform — through
+`platforms`, through the Windows extension search below, and through which
+`install` hint is shown — so a developer reading a surprising report cannot make
+sense of it without knowing what the step decided they were on. It is recorded on
+the step result too, as both the raw `process.platform` and the friendly name, so
+a session log can say which machines a team actually works on.
+
+**`platforms` is rarely needed, and that is deliberate.** It exists for a tool
+that is genuinely a different program somewhere — a shell, a package manager, a
+platform-specific runtime. It is *not* how Maven and Gradle are found on Windows:
+`mvn.cmd` and `gradle.bat` are found without any entry, because the probe tries
+those extensions itself. Reaching for `platforms` to solve that would put the same
+knowledge in every team's tool list instead of once in the code.
 
 ## How a tool is probed
 

@@ -17,7 +17,7 @@ import { ManualReview } from '../../src/tasks/ManualReview'
 import { TaskTypeRegistry } from '../../src/tasks/TaskType'
 import type { CommandSink } from '../../src/tasks/CommandSink'
 import type { StepContext } from '../../src/tasks/context'
-import { bundledResolver, systemCheck, taskState } from '../support/fixtures'
+import { bundledResolver, toolCheck, taskState } from '../support/fixtures'
 
 const ROOT = join(__dirname, '../..')
 const CONFIG = {
@@ -56,7 +56,7 @@ describe('the bundled bug fix workflow', () => {
     })
 
     const registry = new TaskTypeRegistry([
-      systemCheck(),
+      toolCheck(),
       new CollectRequirement(),
       new GitClone('/code', () => false, noSink),
       new InvokeCopilot(composer, record('diagnosis'), new AuditLog(taskDir), async () => outputWritten, noSink),
@@ -93,11 +93,11 @@ describe('the bundled bug fix workflow', () => {
       holder.state = await store.read()
     }
 
-    // The workflow now opens on System Check. Passing it here keeps the tests
+    // The workflow now opens on Tool Check. Passing it here keeps the tests
     // below starting where they always did; the step has its own tests, and its
     // place at the front of every workflow is asserted in catalog.test.ts.
-    await registry.get('systemCheck').describe(workflow.steps.systemCheck!, ctx, {})
-    await engine.submit('systemCheck', 'submit', {})
+    await registry.get('toolCheck').describe(workflow.steps.toolCheck!, ctx, {})
+    await engine.submit('toolCheck', 'submit', {})
     holder.state = await store.read()
 
     return { workflow, engine, registry, ctx, store, refresh, services }
@@ -141,7 +141,7 @@ describe('the bundled bug fix workflow', () => {
   it('diagnoses before it fixes, which is the whole shape of the workflow', async () => {
     const { workflow } = await run()
     expect(workflow.order).toEqual([
-      'systemCheck',
+      'toolCheck',
       'requirement',
       'gitClone',
       'diagnosis',
@@ -239,7 +239,7 @@ describe('the bundled bug fix workflow', () => {
       errors: {},
     })
     expect(descriptor.steps.map((s) => s.badge)).toEqual([
-      'SYSTEM',
+      'TOOLS',
       'INPUT',
       'COMMAND',
       'COPILOT',

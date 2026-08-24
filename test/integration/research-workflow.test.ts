@@ -100,7 +100,7 @@ suite('research workflow', () => {
       ),
     )
     // Every workflow opens on the machine check. See spec Section 17.
-    assert.strictEqual(workflow.initialStep, 'systemCheck')
+    assert.strictEqual(workflow.initialStep, 'toolCheck')
 
     // Prompts still ship: they are the per-file fallback for any template a
     // team has not supplied. See spec Section 16.
@@ -119,7 +119,7 @@ suite('research workflow', () => {
     )
     assert.ok(Array.isArray(services) && services.length > 0)
 
-    // The tool list a team copies to decide what System Check looks for. The
+    // The tool list a team copies to decide what Tool Check looks for. The
     // extension's own default is a constant, not this file. See Section 17.
     const tools = JSON.parse(
       await readFile(

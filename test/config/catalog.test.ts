@@ -5,7 +5,7 @@ import { TaskTypeRegistry } from '../../src/tasks/TaskType'
 import { CollectRequirement } from '../../src/tasks/CollectRequirement'
 import { GitClone } from '../../src/tasks/GitClone'
 import { ManualReview } from '../../src/tasks/ManualReview'
-import { context, step, systemCheck } from '../support/fixtures'
+import { context, step, toolCheck } from '../support/fixtures'
 
 const WORKFLOWS = join(__dirname, '../../workflows')
 const CONFIG = {
@@ -27,7 +27,7 @@ describe('bundled configuration', () => {
 
   it('walks the graph in nextStep order', async () => {
     expect((await load()).get('researchTaskWorkflow').order).toEqual([
-      'systemCheck',
+      'toolCheck',
       'requirement',
       'gitClone',
       'aiHandoff',
@@ -44,11 +44,11 @@ describe('bundled configuration', () => {
 
   // Every workflow opens on the machine check: there is no point collecting a
   // requirement for a task that cannot finish for want of a tool.
-  it('starts every bundled workflow on the system check', async () => {
+  it('starts every bundled workflow on the tool check', async () => {
     for (const wf of (await load()).all()) {
-      expect(wf.initialStep).toBe('systemCheck')
-      expect(wf.order[0]).toBe('systemCheck')
-      expect(wf.steps.systemCheck!.stepType).toBe('systemCheck')
+      expect(wf.initialStep).toBe('toolCheck')
+      expect(wf.order[0]).toBe('toolCheck')
+      expect(wf.steps.toolCheck!.stepType).toBe('toolCheck')
     }
   })
 
@@ -175,7 +175,7 @@ describe('every primitive offers the actions it says complete it', () => {
       async () => 'hash',
       async () => {},
     ),
-    systemCheck(),
+    toolCheck(),
   ]
 
   for (const primitive of primitives) {

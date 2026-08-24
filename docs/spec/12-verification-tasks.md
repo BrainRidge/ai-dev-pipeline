@@ -41,9 +41,9 @@ ignored, and this section's claim that the answer "is already being collected" w
 untrue: the mechanism was not in the log, and the thing being requested was not a parameter.
 
 What closes it is a different mechanism. `chat.agent.enabled` **is** documented, defaults to
-true, and is readable through ordinary configuration, so the System Check step reads it before
+true, and is readable through ordinary configuration, so the Tool Check step reads it before
 a task starts and refuses to continue while it is off
-([Section 17](17-system-check.md)). Reading a setting is assurance; passing an argument to an
+([Section 17](17-tool-check.md)). Reading a setting is assurance; passing an argument to an
 undocumented command is not.
 
 What remains open, and now looks unclosable rather than merely unfinished: whether the chat

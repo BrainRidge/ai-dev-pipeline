@@ -31,7 +31,7 @@ import { reposBefore } from '../tasks/history'
 import type { CopilotHandoff } from '../tasks/CopilotHandoff'
 import { editedPrompt } from '../tasks/promptBlock'
 import type { ManualReview } from '../tasks/ManualReview'
-import type { SystemReporter } from '../tasks/SystemCheck'
+import type { ToolReporter } from '../tasks/ToolCheck'
 import type { Mechanism } from '../handoff/ChatHandoff'
 import type { Answers, StepContext } from '../tasks/context'
 import type { TaskTypeRegistry } from '../tasks/TaskType'
@@ -397,11 +397,11 @@ export class TaskSession {
       return
     }
 
-    // Re-check and Copy on the System Check step. Neither is a transition:
+    // Re-check and Copy on the Tool Check step. Neither is a transition:
     // `submit` treats any action it does not recognise as one, so a step that
     // offers extra affordances has to say so here.
-    if (step.stepType === 'systemCheck' && (actionId === 'recheck' || actionId === 'copy')) {
-      const task = this.registry.get(step.taskType) as unknown as SystemReporter
+    if (step.stepType === 'toolCheck' && (actionId === 'recheck' || actionId === 'copy')) {
+      const task = this.registry.get(step.taskType) as unknown as ToolReporter
       try {
         if (actionId === 'recheck') {
           task.invalidate()

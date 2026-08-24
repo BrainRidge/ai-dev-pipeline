@@ -102,7 +102,7 @@ h1 { font-size: 1.3rem; margin: 0 0 .25rem; }
 .badge-copilot { background: var(--vscode-charts-purple, #a5f); color: #fff; }
 .badge-command { background: var(--vscode-charts-orange, #d83); color: #fff; }
 .badge-review  { background: var(--vscode-charts-blue, #48c); color: #fff; }
-.badge-system  { background: var(--vscode-charts-green, #3a7); color: #fff; }
+.badge-tools   { background: var(--vscode-charts-green, #3a7); color: #fff; }
 
 .step-text { margin: 0 0 1rem; }
 .field { margin: 1rem 0; display: flex; flex-direction: column; gap: .3rem; }

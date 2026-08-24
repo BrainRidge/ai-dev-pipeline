@@ -207,7 +207,7 @@ describe('saveAnswers', () => {
 /**
  * `submit` used to treat any action it did not recognise as a submission, so an
  * affordance whose handler nobody remembered to write completed the step instead
- * of doing nothing. Two of those handlers had to be written for the System Check
+ * of doing nothing. Two of those handlers had to be written for the Tool Check
  * step alone, which is what made this worth closing. See spec Section 5.
  */
 describe('only a nominated action completes a step', () => {

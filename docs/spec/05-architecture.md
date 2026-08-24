@@ -17,7 +17,7 @@
 │  WorkflowEngine       owns run state; walks the nextStep graph;   │
 │        │              persists before the caller sees a change    │
 │        │                                                          │
-│        ├──▶ TaskTypeRegistry ──┬── SystemCheck    (systemCheck)   │
+│        ├──▶ TaskTypeRegistry ──┬── ToolCheck    (toolCheck)   │
 │        │    (one class per     ├── CollectRequirement    (task)   │
 │        │     primitive)        ├── GitClone     (commandExecution)│
 │        │                       ├── InvokeCopilot      (aiHandoff) │
@@ -69,7 +69,7 @@ itself, which is better.
    Send to Copilot, Re-check — is an affordance that acts on the current step. Before this,
    `submit` treated any action it did not recognise as a submission, so an affordance whose
    handler nobody remembered to write completed the step instead of doing nothing. Two such
-   handlers had to be written for the System Check step alone.
+   handlers had to be written for the Tool Check step alone.
 6. **`WorkflowEngine` never touches the filesystem or git directly.** It works through
    `TaskStateStore` and the task types.
 7. **`AuditLog` is append-only and written before the action it describes**, so a crashed

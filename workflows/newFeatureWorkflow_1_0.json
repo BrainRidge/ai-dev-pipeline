@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
   "label": "New Feature",
-  "initialStep": "systemCheck",
+  "initialStep": "toolCheck",
   "steps": {
-    "systemCheck": {
-      "stepType": "systemCheck",
-      "taskType": "systemCheck",
+    "toolCheck": {
+      "stepType": "toolCheck",
+      "taskType": "toolCheck",
       "documentation": "Checks that the tools this workflow needs are installed on your machine, before you spend any effort on a task that cannot finish. It matters more here than on a research task: the implementation and review steps expect Copilot to build and test what it changed, which it cannot do without your build toolchain.",
       "nextStep": "requirement"
     },

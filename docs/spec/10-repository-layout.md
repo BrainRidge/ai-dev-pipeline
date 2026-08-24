@@ -28,7 +28,7 @@ ai-dev-workflow/
 │   │   ├── TaskType.ts           interface + registry
 │   │   ├── context.ts            what a task may know about its run
 │   │   ├── registry.ts           the vocabulary, wired to vscode
-│   │   ├── SystemCheck.ts
+│   │   ├── ToolCheck.ts
 │   │   ├── ToolProbe.ts         is a tool on this machine, behind an interface
 │   │   ├── CollectRequirement.ts
 │   │   ├── GitClone.ts

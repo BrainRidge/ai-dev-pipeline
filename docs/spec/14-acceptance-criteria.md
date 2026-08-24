@@ -48,12 +48,12 @@ Additionally:
 17. Every handoff's composed prompt is captioned in the panel with the template it came from,
     and the audit log records that path and whether it was the team's or the bundled default.
 
-18. Reach a **System Check** step at the start of every workflow, see which of
+18. Reach a **Tool Check** step at the start of every workflow, see which of
     their team's tools are installed and which are not, be told why each is
     wanted and how to install it on their platform, copy the report, and be
     prevented from continuing while a required tool is missing — with **Re-check**
     picking up an installation without restarting the task. No model call is made
-    ([Section 17](17-system-check.md)).
+    ([Section 17](17-tool-check.md)).
 
 19. A **team** can decide what that step checks, by supplying
     `config/tools.json` in its content folder; a team that supplies none gets a
@@ -109,10 +109,10 @@ Additionally:
     one returning options turns the field into a selection with no other change
     ([Section 5](05-architecture.md)).
 
-30. **Agent mode is checked before a task starts, not discovered mid-workflow.** System Check
+30. **Agent mode is checked before a task starts, not discovered mid-workflow.** Tool Check
     reads `chat.agent.enabled` and refuses to continue while it is off, naming the
     organisation-policy case; a version of VS Code without the setting reports that it could
-    not be checked and does not block ([Section 17](17-system-check.md)). This closes the P1
+    not be checked and does not block ([Section 17](17-tool-check.md)). This closes the P1
     check that Section 8 recorded as unimplemented.
 
 31. A **tool developer** can give an `aiHandoff` step several prompts from the workflow JSON —
@@ -120,6 +120,11 @@ Additionally:
     template, with each one's path and origin shown in the panel caption and recorded in the
     audit log. A misnamed one fails when the catalogue loads; a missing one fails on the step
     that declares it ([Section 6](06-workflow-schema.md)).
+
+32. The first step is **Tool Check**, and its report says which machine it ran on — `macOS`,
+    `Windows` or `Linux` — ahead of the tool list. A tool that is a different program on a
+    different platform can say so with `platforms`, and only that platform's command runs
+    ([Section 17](17-tool-check.md)).
 
 ## Status
 
@@ -136,14 +141,14 @@ prompt templates and the service catalogue, which a team owns
 ([Section 16](16-external-content.md)). What it still guarantees is the part the tool was
 built for: every developer on a team passes through the same steps in the same order.
 
-Criteria 14–31 are implemented and covered by tests. Criteria 22–24 each close a failure that
+Criteria 14–32 are implemented and covered by tests. Criteria 22–24 each close a failure that
 was found by reading the code rather than by anything failing: a promise in the workflow
 documentation that nothing kept, a typo class that rendered as blank, and an engine that
 treated an unrecognised button as a submission. Criterion 21 is demonstrated on real
 bundled content rather than a fixture: `_shared/house-rules.md` is what removed the wording
 that used to be duplicated at the bottom of `CodeImplementation.md` and `CodeFix.md`, and a
 test per workflow asserts it is still quoted into both. Criterion 18 was the second
-demonstration that adding a *kind* of step costs one class: `SystemCheck` needed
+demonstration that adding a *kind* of step costs one class: `ToolCheck` needed
 no change to `render/fields.ts` at all, only a badge colour in the stylesheet.
 
 Criteria 14–17 are implemented and covered by tests. Criteria 15 and 16 are additionally

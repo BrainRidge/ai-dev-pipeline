@@ -5,8 +5,8 @@ import {
   readEnvironment,
   type EnvironmentReader,
 } from '../../src/tasks/Environment'
-import { blockers } from '../../src/tasks/SystemCheck'
-import { context, step, systemCheck } from '../support/fixtures'
+import { blockers } from '../../src/tasks/ToolCheck'
+import { context, step, toolCheck } from '../support/fixtures'
 
 function editor(over: Partial<{ agent: boolean | undefined; commands: string[] }> = {}): EnvironmentReader {
   return {
@@ -89,18 +89,18 @@ describe('what the editor says about the one-click handoff', () => {
 })
 
 describe('the editor checks inside the step', () => {
-  const STEP = step('systemCheck', { stepType: 'systemCheck', taskType: 'systemCheck' })
-  const CTX = context({ order: ['systemCheck'] })
+  const STEP = step('toolCheck', { stepType: 'toolCheck', taskType: 'toolCheck' })
+  const CTX = context({ order: ['toolCheck'] })
 
   it('leads the report, since it is the thing that cannot be installed', async () => {
-    const view = await systemCheck().describe(STEP, CTX, {})
+    const view = await toolCheck().describe(STEP, CTX, {})
     const lines = view.commands![0]!.lines
     expect(lines[0]).toContain('Copilot agent mode')
     expect(lines[1]).toContain('One-click handoff')
   })
 
   it('stops the task when agent mode is off', async () => {
-    const task = systemCheck({ environment: editor({ agent: false }) })
+    const task = toolCheck({ environment: editor({ agent: false }) })
     await task.describe(STEP, CTX, {})
 
     const result = task.validate(STEP, {})
@@ -110,19 +110,19 @@ describe('the editor checks inside the step', () => {
 
   // A check that could not be made must not become a verdict.
   it('does not stop the task when agent mode could not be checked', async () => {
-    const task = systemCheck({ environment: editor({ agent: undefined }) })
+    const task = toolCheck({ environment: editor({ agent: undefined }) })
     await task.describe(STEP, CTX, {})
     expect(task.validate(STEP, {}).ok).toBe(true)
   })
 
   it('does not stop the task for a missing chat command', async () => {
-    const task = systemCheck({ environment: editor({ commands: [] }) })
+    const task = toolCheck({ environment: editor({ commands: [] }) })
     await task.describe(STEP, CTX, {})
     expect(task.validate(STEP, {}).ok).toBe(true)
   })
 
   it('records the editor findings on the step, for the audit trail', async () => {
-    const task = systemCheck({ environment: editor({ agent: false, commands: [] }) })
+    const task = toolCheck({ environment: editor({ agent: false, commands: [] }) })
     await task.describe(STEP, CTX, {})
     const findings = (await task.execute(STEP, CTX, {})).findings as { id: string; status: string }[]
 
@@ -131,7 +131,7 @@ describe('the editor checks inside the step', () => {
   })
 
   it('counts an unknown check as neither passed nor blocking', async () => {
-    const task = systemCheck({ environment: editor({ agent: undefined }) })
+    const task = toolCheck({ environment: editor({ agent: undefined }) })
     await task.describe(STEP, CTX, {})
     const findings = (await task.execute(STEP, CTX, {})).findings as Parameters<typeof blockers>[0]
     expect(blockers(findings)).toEqual([])
@@ -144,11 +144,11 @@ describe('the editor checks inside the step', () => {
  * came out before the editor checks were allowed to word themselves.
  */
 describe('the report reads correctly for a setting', () => {
-  const STEP = step('systemCheck', { stepType: 'systemCheck', taskType: 'systemCheck' })
-  const CTX = context({ order: ['systemCheck'] })
+  const STEP = step('toolCheck', { stepType: 'toolCheck', taskType: 'toolCheck' })
+  const CTX = context({ order: ['toolCheck'] })
 
   async function reportWith(env: EnvironmentReader) {
-    const task = systemCheck({ environment: env })
+    const task = toolCheck({ environment: env })
     const view = await task.describe(STEP, CTX, {})
     return { text: view.text!, report: view.commands![0]!.lines.join('\n'), task }
   }

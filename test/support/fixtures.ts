@@ -6,7 +6,7 @@ import {
   templateResolver,
   type TemplateResolver,
 } from '../../src/content/ContentRoot'
-import { SystemCheck } from '../../src/tasks/SystemCheck'
+import { ToolCheck } from '../../src/tasks/ToolCheck'
 import type { CommandSink } from '../../src/tasks/CommandSink'
 import type { ToolProbe } from '../../src/tasks/ToolProbe'
 import { CHAT_COMMAND, type EnvironmentReader } from '../../src/tasks/Environment'
@@ -27,6 +27,7 @@ export const TOOLS: ToolDef[] = [
     required: true,
     why: 'The Get the code step gives you git commands to run.',
     install: { darwin: 'brew install git', win32: 'winget install Git.Git' },
+    platforms: {},
   },
 ]
 
@@ -38,10 +39,10 @@ export const foundProbe: ToolProbe = {
 }
 
 /**
- * A System Check wired to a fake machine. The platform is pinned so the install
+ * A Tool Check wired to a fake machine. The platform is pinned so the install
  * hint in the report reads the same wherever the test runs.
  */
-export function systemCheck(
+export function toolCheck(
   opts: {
     probe?: ToolProbe
     tools?: ToolDef[]
@@ -50,9 +51,9 @@ export function systemCheck(
     sink?: CommandSink
     environment?: EnvironmentReader
   } = {},
-): SystemCheck {
+): ToolCheck {
   const sink: CommandSink = opts.sink ?? { async copy() {}, async toTerminal() {} }
-  return new SystemCheck(
+  return new ToolCheck(
     async () => ({
       tools: opts.tools ?? TOOLS,
       source: opts.source ?? 'bundled',

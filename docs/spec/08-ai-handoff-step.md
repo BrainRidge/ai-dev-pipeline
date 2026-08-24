@@ -300,7 +300,7 @@ before editing files or running commands. The extension cannot suppress the conf
 
 The original design said P1 would check the setting at task start and report it up front
 rather than letting the developer discover it mid-workflow. **That check is now implemented**,
-in the System Check step ([Section 17](17-system-check.md)): `chat.agent.enabled` is read
+in the Tool Check step ([Section 17](17-tool-check.md)): `chat.agent.enabled` is read
 before a task begins, and a task cannot start while it is off.
 
 Two things are worth being precise about, because the earlier wording here was misleading.

@@ -25,7 +25,7 @@ post-date it
 14. [Acceptance criteria for Phase 1](14-acceptance-criteria.md)
 15. [Repository status](15-repository-status.md)
 16. [External content](16-external-content.md)
-17. [The System Check step](17-system-check.md)
+17. [The Tool Check step](17-tool-check.md)
 
 ---
 

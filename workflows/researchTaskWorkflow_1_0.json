@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
   "label": "Research Task",
-  "initialStep": "systemCheck",
+  "initialStep": "toolCheck",
   "steps": {
-    "systemCheck": {
-      "stepType": "systemCheck",
-      "taskType": "systemCheck",
+    "toolCheck": {
+      "stepType": "toolCheck",
+      "taskType": "toolCheck",
       "documentation": "Checks that the tools this workflow needs are installed on your machine, before you spend any effort on a task that cannot finish. Nothing is installed for you and nothing is sent to Copilot — each tool is asked for its own version. The report names anything missing and how to get it.",
       "nextStep": "requirement"
     },

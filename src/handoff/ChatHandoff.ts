@@ -25,7 +25,7 @@ export class ChatHandoff implements Handoff {
     // costs nothing and a version that honours it gains something.
     //
     // So agent mode is not assured by this argument, and never was. It is
-    // assured by `chat.agent.enabled`, which the System Check step reads before
+    // assured by `chat.agent.enabled`, which the Tool Check step reads before
     // a task starts — see spec Sections 12 and 17. That is the difference
     // between asking politely and checking.
     try {

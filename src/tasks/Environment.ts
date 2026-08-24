@@ -5,7 +5,7 @@ export const AGENT_SETTING = 'chat.agent.enabled'
 export const CHAT_COMMAND = 'workbench.action.chat.open'
 
 /**
- * The two questions about the editor that System Check can actually answer,
+ * The two questions about the editor that Tool Check can actually answer,
  * behind an interface so the answering can be faked.
  */
 export interface EnvironmentReader {

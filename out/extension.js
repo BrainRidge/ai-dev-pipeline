@@ -7599,8 +7599,8 @@ function badgeFor(step, fields) {
       return "COPILOT";
     case "manual":
       return "REVIEW";
-    case "systemCheck":
-      return "SYSTEM";
+    case "toolCheck":
+      return "TOOLS";
     default: {
       const offered = fields ?? [];
       const choosy = offered.filter((f) => f.type === "select" || f.type === "multiselect");
@@ -7624,7 +7624,7 @@ function summarise2(step, record, fields) {
       const file = artifactName(record.result?.artifactPath);
       return file ? `${file} approved` : "Approved";
     }
-    case "systemCheck": {
+    case "toolCheck": {
       const findings = record.result?.findings ?? [];
       if (findings.length === 0) return "Checked";
       const ok = findings.filter((f) => f.status === "ok").length;
@@ -11757,7 +11757,7 @@ var stepTypeSchema = external_exports.enum([
   "commandExecution",
   "aiHandoff",
   "manual",
-  "systemCheck"
+  "toolCheck"
 ]);
 var fieldSchema = external_exports.object({
   id: external_exports.string().min(1),
@@ -11817,7 +11817,23 @@ var toolSchema = external_exports.object({
   /** Why this workflow needs it. Shown beside the tool when it is missing. */
   why: external_exports.string().default(""),
   /** Install hint per `process.platform`: darwin, win32, linux. */
-  install: external_exports.record(external_exports.string(), external_exports.string()).default({})
+  install: external_exports.record(external_exports.string(), external_exports.string()).default({}),
+  /**
+   * Per-platform overrides of what to run, keyed by `process.platform` —
+   * `darwin`, `win32`, `linux`. A platform with no entry uses the `command` and
+   * `args` above, so the common case stays a single line.
+   *
+   * This is for a tool that is genuinely a different program somewhere, not for
+   * a Windows batch shim: `mvn.cmd` and `gradle.bat` are found without help,
+   * because the probe tries those extensions itself. See spec Section 17.
+   */
+  platforms: external_exports.record(
+    external_exports.string(),
+    external_exports.object({
+      command: external_exports.string().min(1).optional(),
+      args: external_exports.array(external_exports.string()).optional()
+    })
+  ).default({})
 });
 var toolsFileSchema = external_exports.array(toolSchema);
 var platformSchema = external_exports.object({ id: external_exports.string().min(1), label: external_exports.string().min(1) });
@@ -13347,9 +13363,9 @@ async function readEnvironment(reader) {
   ];
 }
 
-// src/tasks/SystemCheck.ts
-var REPORT_BLOCK_ID = "systemCheck";
-var SystemCheck = class {
+// src/tasks/ToolCheck.ts
+var REPORT_BLOCK_ID = "toolCheck";
+var ToolCheck = class {
   constructor(loadTools2, probe, sink, environment, platform = process.platform) {
     this.loadTools = loadTools2;
     this.probe = probe;
@@ -13357,9 +13373,9 @@ var SystemCheck = class {
     this.environment = environment;
     this.platform = platform;
   }
-  name = "systemCheck";
-  stepType = "systemCheck";
-  title = "System check";
+  name = "toolCheck";
+  stepType = "toolCheck";
+  title = "Tool check";
   /** Re-check and Copy report act on this step without advancing it. */
   transitions = ["submit"];
   cached;
@@ -13411,6 +13427,11 @@ var SystemCheck = class {
   async execute(_step, _ctx, _values) {
     const state = this.cached;
     return {
+      // Recorded so a session log can say which machines a team actually works
+      // on, and so a report that looks wrong can be read against the platform
+      // whose commands produced it.
+      platform: this.platform,
+      machine: machineLabel(this.platform),
       toolsSource: state?.resolved.source ?? null,
       toolsPath: state?.resolved.path ?? null,
       findings: state?.findings ?? [],
@@ -13421,7 +13442,7 @@ var SystemCheck = class {
     const state = await this.check();
     if (!state) throw new Error(this.failure ?? "the check has not run");
     await this.sink.copy(this.reportBlock(state).lines.join("\n"));
-    return { label: "the system check report" };
+    return { label: "the tool check report" };
   }
   /** Probes every tool once and remembers the answer. */
   async check() {
@@ -13458,7 +13479,8 @@ var SystemCheck = class {
       why: tool.why,
       install: tool.install[this.platform]
     };
-    const result = await this.probe.run(tool.command, tool.args);
+    const { command, args } = commandFor(tool, this.platform);
+    const result = await this.probe.run(command, args);
     if (!result.found) return { ...base, status: "missing" };
     const version = versionIn(result.output);
     const outdated = tool.minVersion !== void 0 && version !== void 0 && !meetsMinimum(version, tool.minVersion);
@@ -13467,8 +13489,11 @@ var SystemCheck = class {
   reportBlock(state) {
     return {
       id: REPORT_BLOCK_ID,
-      label: "System check report",
-      note: state.resolved.source === "external" ? `Tool list: ${state.resolved.path} (external)` : "Tool list: bundled default",
+      label: "Tool check report",
+      // The machine first: which commands ran depends on it, and a developer
+      // reading a surprising report needs to know what the step decided they
+      // were on before anything else makes sense. See spec Section 17.
+      note: `Machine: ${machineLabel(this.platform)} \xB7 ` + (state.resolved.source === "external" ? `Tool list: ${state.resolved.path} (external)` : "Tool list: bundled default"),
       lines: reportLines(state.findings),
       // No Copy or Terminal on the block: this is a report, not commands to
       // run. The step offers Copy beside Re-check instead.
@@ -13476,6 +13501,22 @@ var SystemCheck = class {
     };
   }
 };
+function commandFor(tool, platform) {
+  const override = tool.platforms[platform] ?? {};
+  return { command: override.command ?? tool.command, args: override.args ?? tool.args };
+}
+function machineLabel(platform) {
+  switch (platform) {
+    case "darwin":
+      return "macOS";
+    case "win32":
+      return "Windows";
+    case "linux":
+      return "Linux";
+    default:
+      return platform;
+  }
+}
 var MARK = {
   ok: "\u2713",
   missing: "\u2717",
@@ -13655,7 +13696,7 @@ function buildTaskTypes(opts) {
     return { tools: DEFAULT_TOOLS, source: "bundled" };
   };
   return new TaskTypeRegistry([
-    new SystemCheck(loadToolList, nodeToolProbe, sink, editorEnvironment),
+    new ToolCheck(loadToolList, nodeToolProbe, sink, editorEnvironment),
     // Providers are passed in rather than defaulted, so the one place that wires
     // the vocabulary is also the one place P3 adds an MCP provider.
     new CollectRequirement(defaultProviders()),
@@ -13982,7 +14023,7 @@ var TaskSession = class _TaskSession {
       await this.refresh();
       return;
     }
-    if (step.stepType === "systemCheck" && (actionId === "recheck" || actionId === "copy")) {
+    if (step.stepType === "toolCheck" && (actionId === "recheck" || actionId === "copy")) {
       const task = this.registry.get(step.taskType);
       try {
         if (actionId === "recheck") {

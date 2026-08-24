@@ -43,7 +43,7 @@ Name each file after the step id in the workflow, exactly: `aiHandoff.md`, not
 than silently ignored.
 
 **`tools.json` is optional and falls back as a whole.** It lists the tools the
-System Check step looks for on a developer's machine, and if you supply none the
+Tool Check step looks for on a developer's machine, and if you supply none the
 extension uses a default list — git, a JDK, Maven and Gradle. The step's report
 says which list it used, so the fallback is never invisible. Mark a tool
 `"required": true` only if a developer genuinely cannot finish the workflow
@@ -62,5 +62,5 @@ each one so a developer can see what shaped the prompt. See
 extension standardises; it is bundled and changed by release.
 
 See [spec Section 16](../../docs/spec/16-external-content.md) for the whole
-contract, and [Section 17](../../docs/spec/17-system-check.md) for the tool
-list and what the System Check step does with it.
+contract, and [Section 17](../../docs/spec/17-tool-check.md) for the tool
+list and what the Tool Check step does with it.

@@ -26,6 +26,7 @@ const GIT: ToolDef = {
   required: true,
   why: '',
   install: {},
+  platforms: {},
 }
 
 describe('reading a version out of what a tool prints', () => {
@@ -106,7 +107,7 @@ describe('loading a team tool list', () => {
     const path = await fileWith('[{"id":"git","label":"Git","command":"git"}]')
     const tools = await loadTools(path)
     expect(tools).toEqual([
-      { id: 'git', label: 'Git', command: 'git', args: ['--version'], required: true, why: '', install: {} },
+      { id: 'git', label: 'Git', command: 'git', args: ['--version'], required: true, why: '', install: {}, platforms: {} },
     ])
   })
 

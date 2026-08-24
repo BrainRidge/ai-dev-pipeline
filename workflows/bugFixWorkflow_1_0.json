@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
   "label": "Bug Fix",
-  "initialStep": "systemCheck",
+  "initialStep": "toolCheck",
   "steps": {
-    "systemCheck": {
-      "stepType": "systemCheck",
-      "taskType": "systemCheck",
+    "toolCheck": {
+      "stepType": "toolCheck",
+      "taskType": "toolCheck",
       "documentation": "Checks that the tools this workflow needs are installed on your machine, before you spend any effort on a task that cannot finish. The fix step is required to write a failing regression test first, and a test cannot be seen to fail without a working build toolchain — so this is the step that makes that promise keepable.",
       "nextStep": "requirement"
     },

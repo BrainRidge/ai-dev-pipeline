@@ -1,13 +1,20 @@
 import { describe, it, expect } from 'vitest'
-import { blockers, reportLines, SystemCheck, type Finding } from '../../src/tasks/SystemCheck'
+import {
+  blockers,
+  commandFor,
+  machineLabel,
+  reportLines,
+  ToolCheck,
+  type Finding,
+} from '../../src/tasks/ToolCheck'
 import { badgeFor, summarise } from '../../src/engine/StepDescriptor'
 import type { ToolDef } from '../../src/engine/schema'
 import type { ToolProbe } from '../../src/tasks/ToolProbe'
 import type { CommandBlock } from '../../src/tasks/context'
-import { context, healthyEditor, step, systemCheck, TOOLS } from '../support/fixtures'
+import { context, healthyEditor, step, toolCheck, TOOLS } from '../support/fixtures'
 
-const STEP = step('systemCheck', { stepType: 'systemCheck', taskType: 'systemCheck' })
-const CTX = context({ order: ['systemCheck'] })
+const STEP = step('toolCheck', { stepType: 'toolCheck', taskType: 'toolCheck' })
+const CTX = context({ order: ['toolCheck'] })
 
 /** A probe that answers per command, so a mixed machine can be described. */
 function probeOf(answers: Record<string, string | false>): ToolProbe {
@@ -30,6 +37,7 @@ const JAVA: ToolDef = {
   minVersion: '17',
   why: 'Copilot builds what it changes.',
   install: { darwin: 'brew install openjdk@21', win32: 'winget install Temurin' },
+  platforms: {},
 }
 
 const MAVEN: ToolDef = { ...JAVA, id: 'maven', label: 'Maven', command: 'mvn', required: false, minVersion: undefined }
@@ -44,14 +52,14 @@ function line(view: { commands?: CommandBlock[] }, label: string): string {
   return block(view).lines.find((l) => l.startsWith(label))!
 }
 
-describe('the System Check step', () => {
+describe('the Tool Check step', () => {
   it('is a step type of its own, so the panel badges it without being told', () => {
-    expect(badgeFor(STEP, undefined)).toBe('SYSTEM')
+    expect(badgeFor(STEP, undefined)).toBe('TOOLS')
   })
 
   it('spends no model call: every answer comes from the tool itself', async () => {
     const asked: string[] = []
-    const task = systemCheck({
+    const task = toolCheck({
       tools: [JAVA],
       probe: {
         async run(command, args) {
@@ -66,14 +74,14 @@ describe('the System Check step', () => {
   })
 
   it('reports a tool it found, with the version it read back', async () => {
-    const task = systemCheck({ probe: probeOf({ git: 'git version 2.50.1' }) })
+    const task = toolCheck({ probe: probeOf({ git: 'git version 2.50.1' }) })
     const view = await task.describe(STEP, CTX, {})
     expect(line(view, 'Git')).toContain('✓  2.50.1')
     expect(view.text).toMatch(/Everything this workflow needs is installed/)
   })
 
   it('says what is missing, why it is wanted and how to install it here', async () => {
-    const task = systemCheck({ tools: [JAVA], probe: probeOf({ java: false }) })
+    const task = toolCheck({ tools: [JAVA], probe: probeOf({ java: false }) })
     const report = block(await task.describe(STEP, CTX, {})).lines.join('\n')
 
     expect(report).toMatch(/Java \(JDK\)\s+✗\s+not found/)
@@ -84,20 +92,20 @@ describe('the System Check step', () => {
   })
 
   it('marks a tool that is present but below the floor, and names the floor', async () => {
-    const task = systemCheck({ tools: [JAVA], probe: probeOf({ java: 'java version "1.8.0_392"' }) })
+    const task = toolCheck({ tools: [JAVA], probe: probeOf({ java: 'java version "1.8.0_392"' }) })
     const report = block(await task.describe(STEP, CTX, {})).lines.join('\n')
     expect(report).toContain('⚠  1.8.0 — needs 17 or newer')
   })
 
   it('accepts a tool whose version it cannot parse, rather than failing a working machine', async () => {
-    const task = systemCheck({ tools: [JAVA], probe: probeOf({ java: 'a bespoke wrapper' }) })
+    const task = toolCheck({ tools: [JAVA], probe: probeOf({ java: 'a bespoke wrapper' }) })
     const view = await task.describe(STEP, CTX, {})
     expect(line(view, 'Java (JDK)')).toContain('✓')
     expect(task.validate(STEP, {}).ok).toBe(true)
   })
 
   it('distinguishes an optional tool that is absent from a required one', async () => {
-    const task = systemCheck({ tools: [MAVEN], probe: probeOf({ mvn: false }) })
+    const task = toolCheck({ tools: [MAVEN], probe: probeOf({ mvn: false }) })
     const report = block(await task.describe(STEP, CTX, {})).lines.join('\n')
     expect(report).toMatch(/Maven\s+–\s+not found \(optional\)/)
     expect(report).toContain('Maven — optional')
@@ -106,13 +114,13 @@ describe('the System Check step', () => {
 
 describe('what blocks the step', () => {
   it('lets the task continue when every required tool is there', async () => {
-    const task = systemCheck({ tools: [JAVA, MAVEN], probe: probeOf({ java: 'openjdk version "21"', mvn: false }) })
+    const task = toolCheck({ tools: [JAVA, MAVEN], probe: probeOf({ java: 'openjdk version "21"', mvn: false }) })
     await task.describe(STEP, CTX, {})
     expect(task.validate(STEP, {})).toEqual({ ok: true, errors: {} })
   })
 
   it('refuses to continue while a required tool is missing', async () => {
-    const task = systemCheck({ tools: [JAVA], probe: probeOf({ java: false }) })
+    const task = toolCheck({ tools: [JAVA], probe: probeOf({ java: false }) })
     await task.describe(STEP, CTX, {})
 
     const result = task.validate(STEP, {})
@@ -121,13 +129,13 @@ describe('what blocks the step', () => {
   })
 
   it('refuses to continue while a required tool is too old', async () => {
-    const task = systemCheck({ tools: [JAVA], probe: probeOf({ java: 'java version "11.0.1"' }) })
+    const task = toolCheck({ tools: [JAVA], probe: probeOf({ java: 'java version "11.0.1"' }) })
     await task.describe(STEP, CTX, {})
     expect(task.validate(STEP, {}).ok).toBe(false)
   })
 
   it('never blocks on an optional tool, however many are missing', async () => {
-    const task = systemCheck({ tools: [MAVEN, { ...MAVEN, id: 'g', command: 'gradle' }], probe: probeOf({}) })
+    const task = toolCheck({ tools: [MAVEN, { ...MAVEN, id: 'g', command: 'gradle' }], probe: probeOf({}) })
     await task.describe(STEP, CTX, {})
     expect(task.validate(STEP, {}).ok).toBe(true)
   })
@@ -136,13 +144,13 @@ describe('what blocks the step', () => {
   // pressed, so this is the state nobody should reach — and if it is reached,
   // saying so is safer than waving the task through unchecked.
   it('refuses to continue when the check has not run at all', () => {
-    expect(systemCheck().validate(STEP, {}).errors.tools).toMatch(/has not run yet/)
+    expect(toolCheck().validate(STEP, {}).errors.tools).toMatch(/has not run yet/)
   })
 })
 
 describe('a tool list that cannot be read', () => {
-  function broken(): SystemCheck {
-    return new SystemCheck(
+  function broken(): ToolCheck {
+    return new ToolCheck(
       async () => {
         throw new Error('Tool config at /team/config/tools.json is not valid JSON: bad')
       },
@@ -175,18 +183,20 @@ describe('a tool list that cannot be read', () => {
 
 describe('provenance, so a silent fallback is visible afterwards', () => {
   it('captions the report with the team’s file when there is one', async () => {
-    const task = systemCheck({ source: 'external', path: '/team/config/tools.json' })
+    const task = toolCheck({ source: 'external', path: '/team/config/tools.json' })
     expect(block(await task.describe(STEP, CTX, {})).note).toBe(
-      'Tool list: /team/config/tools.json (external)',
+      'Machine: macOS · Tool list: /team/config/tools.json (external)',
     )
   })
 
   it('says so plainly when the bundled default was used', async () => {
-    expect(block(await systemCheck().describe(STEP, CTX, {})).note).toBe('Tool list: bundled default')
+    expect(block(await toolCheck().describe(STEP, CTX, {})).note).toBe(
+      'Machine: macOS · Tool list: bundled default',
+    )
   })
 
   it('records the list and the findings on the step, for the audit trail', async () => {
-    const task = systemCheck({ source: 'external', path: '/team/config/tools.json' })
+    const task = toolCheck({ source: 'external', path: '/team/config/tools.json' })
     await task.describe(STEP, CTX, {})
     const result = await task.execute(STEP, CTX, {})
 
@@ -203,7 +213,7 @@ describe('provenance, so a silent fallback is visible afterwards', () => {
 describe('asking the machine again', () => {
   it('probes once and remembers, since a render describes every step', async () => {
     let calls = 0
-    const task = systemCheck({
+    const task = toolCheck({
       probe: {
         async run() {
           calls += 1
@@ -219,7 +229,7 @@ describe('asking the machine again', () => {
 
   it('asks again once the developer says they have installed something', async () => {
     let found = false
-    const task = systemCheck({
+    const task = toolCheck({
       probe: {
         async run() {
           return found ? { found: true, output: 'git version 2.50.1' } : { found: false, output: '' }
@@ -239,16 +249,16 @@ describe('asking the machine again', () => {
 
 describe('the report as a block the renderer already knows how to draw', () => {
   it('carries no buttons of its own: it is a report, not commands to run', async () => {
-    expect(block(await systemCheck().describe(STEP, CTX, {})).actions).toEqual([])
+    expect(block(await toolCheck().describe(STEP, CTX, {})).actions).toEqual([])
   })
 
   it('is not editable, unlike a composed prompt', async () => {
-    expect(block(await systemCheck().describe(STEP, CTX, {})).editable).toBeFalsy()
+    expect(block(await toolCheck().describe(STEP, CTX, {})).editable).toBeFalsy()
   })
 
   it('offers Copy on the step, for a machine somebody else has to fix', async () => {
     const copied: string[] = []
-    const task = systemCheck({ sink: { async copy(t) { copied.push(t) }, async toTerminal() {} } })
+    const task = toolCheck({ sink: { async copy(t) { copied.push(t) }, async toTerminal() {} } })
 
     const view = await task.describe(STEP, CTX, {})
     expect(view.actions.map((a) => a.id)).toEqual(['recheck', 'copy', 'submit'])
@@ -310,5 +320,93 @@ describe('the fixture tool list', () => {
   it('is one required tool, which is what the workflow tests lean on', () => {
     expect(TOOLS.map((t) => t.id)).toEqual(['git'])
     expect(TOOLS[0]!.required).toBe(true)
+  })
+})
+
+/**
+ * The step reports which machine it decided it was on, and runs whatever that
+ * machine needs. Both matter for the same reason: a developer reading a
+ * surprising report cannot make sense of it without knowing which commands ran.
+ * See spec Section 17.
+ */
+describe('the machine it ran on', () => {
+  it('names macOS, Windows and Linux the way a developer would', () => {
+    expect(machineLabel('darwin')).toBe('macOS')
+    expect(machineLabel('win32')).toBe('Windows')
+    expect(machineLabel('linux')).toBe('Linux')
+  })
+
+  it('falls back to the raw platform rather than guessing a friendly name', () => {
+    expect(machineLabel('freebsd')).toBe('freebsd')
+  })
+
+  it('leads the caption with it, ahead of the tool list', async () => {
+    const note = block(await toolCheck().describe(STEP, CTX, {})).note!
+    expect(note.startsWith('Machine: macOS · ')).toBe(true)
+  })
+
+  it('records it on the step, so a session log can say which machines a team uses', async () => {
+    const task = toolCheck()
+    await task.describe(STEP, CTX, {})
+    const result = await task.execute(STEP, CTX, {})
+    expect(result).toMatchObject({ platform: 'darwin', machine: 'macOS' })
+  })
+})
+
+describe('a tool that is a different program on a different platform', () => {
+  const base: ToolDef = {
+    id: 'shell',
+    label: 'Shell',
+    command: 'bash',
+    args: ['--version'],
+    required: true,
+    why: '',
+    install: {},
+    platforms: {},
+  }
+
+  it('uses the tool’s own command where no override is given', () => {
+    expect(commandFor(base, 'darwin')).toEqual({ command: 'bash', args: ['--version'] })
+  })
+
+  it('uses the override for the platform it is on', () => {
+    const tool = { ...base, platforms: { win32: { command: 'powershell', args: ['-Command', '$PSVersionTable'] } } }
+    expect(commandFor(tool, 'win32')).toEqual({
+      command: 'powershell',
+      args: ['-Command', '$PSVersionTable'],
+    })
+  })
+
+  it('leaves other platforms alone', () => {
+    const tool = { ...base, platforms: { win32: { command: 'powershell' } } }
+    expect(commandFor(tool, 'darwin')).toEqual({ command: 'bash', args: ['--version'] })
+  })
+
+  // Each key is optional on its own, so a tool that is the same program with
+  // different flags does not have to repeat its name.
+  it('overrides the command alone, keeping the args', () => {
+    const tool = { ...base, platforms: { win32: { command: 'bash.exe' } } }
+    expect(commandFor(tool, 'win32')).toEqual({ command: 'bash.exe', args: ['--version'] })
+  })
+
+  it('overrides the args alone, keeping the command', () => {
+    const tool = { ...base, platforms: { win32: { args: ['-v'] } } }
+    expect(commandFor(tool, 'win32')).toEqual({ command: 'bash', args: ['-v'] })
+  })
+
+  it('actually runs the override, rather than only computing it', async () => {
+    const asked: string[] = []
+    const task = toolCheck({
+      tools: [{ ...base, platforms: { darwin: { command: 'zsh', args: ['-c', 'true'] } } }],
+      probe: {
+        async run(command, args) {
+          asked.push([command, ...args].join(' '))
+          return { found: true, output: 'zsh 5.9' }
+        },
+      },
+    })
+
+    await task.describe(STEP, CTX, {})
+    expect(asked).toEqual(['zsh -c true'])
   })
 })

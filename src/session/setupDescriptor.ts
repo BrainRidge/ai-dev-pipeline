@@ -6,7 +6,7 @@ import type { ActionDef, Answers, RenderField } from '../tasks/context'
  *
  * Falling back is only acceptable if it is visible afterwards — the rule
  * [Section 16](16-external-content.md) applies to prompt templates and
- * [Section 17](17-system-check.md) applies to the tool list. This is the same
+ * [Section 17](17-tool-check.md) applies to the tool list. This is the same
  * rule for the catalogue, and it has to be louder than a caption because the
  * consequence is more surprising: a developer who does not notice will select a
  * service that cannot be cloned.

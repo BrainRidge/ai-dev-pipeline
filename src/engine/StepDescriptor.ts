@@ -14,7 +14,7 @@ import type { TaskTypeRegistry, TaskView } from '../tasks/TaskType'
 export const PROTOCOL_VERSION = 2
 
 export type StepStatus = 'complete' | 'current' | 'pending'
-export type StepBadge = 'INPUT' | 'SELECT' | 'COMMAND' | 'COPILOT' | 'REVIEW' | 'SYSTEM'
+export type StepBadge = 'INPUT' | 'SELECT' | 'COMMAND' | 'COPILOT' | 'REVIEW' | 'TOOLS'
 
 export interface StepView {
   id: string
@@ -59,8 +59,8 @@ export function badgeFor(step: StepDef, fields: RenderField[] | undefined): Step
       return 'COPILOT'
     case 'manual':
       return 'REVIEW'
-    case 'systemCheck':
-      return 'SYSTEM'
+    case 'toolCheck':
+      return 'TOOLS'
     default: {
       const offered = fields ?? []
       const choosy = offered.filter((f) => f.type === 'select' || f.type === 'multiselect')
@@ -90,7 +90,7 @@ export function summarise(
       const file = artifactName(record.result?.artifactPath)
       return file ? `${file} approved` : 'Approved'
     }
-    case 'systemCheck': {
+    case 'toolCheck': {
       const findings = (record.result?.findings ?? []) as { status: string }[]
       if (findings.length === 0) return 'Checked'
       // "checks" rather than "tools": the list now opens with what the editor

@@ -2,7 +2,7 @@
 
 > Part of the [AI Dev Workflow design](README.md).
 
-**Status:** Implemented. Extended by [Section 17](17-system-check.md), which adds a
+**Status:** Implemented. Extended by [Section 17](17-tool-check.md), which adds a
 fourth piece of external content on the same terms.
 
 Phase 1 bundled every piece of content in the extension repository: the workflow
@@ -24,7 +24,7 @@ are genuinely team-specific, and leaves it intact for the one that is not.
 | `config/platforms.json` | External | Falls back to the bundled sample |
 | `config/microservices.json` | External | Falls back to the bundled sample |
 | `prompts/<workflowId>/<stepId>.md` | External | Optional. Falls back per file to the bundled template |
-| `config/tools.json` | External | Optional. Falls back as a whole to a bundled default ([Section 17](17-system-check.md)) |
+| `config/tools.json` | External | Optional. Falls back as a whole to a bundled default ([Section 17](17-tool-check.md)) |
 
 The line is drawn where it is for a reason worth stating plainly: **workflows decide which
 steps a developer must pass through, and that is what the tool exists to standardise.**
@@ -81,7 +81,7 @@ about it than about the catalogue that actually names repositories.
 
 **Prompts and the tool list are not sampled.** Both already fall back on their own — to the
 bundled templates ([Section 8](08-ai-handoff-step.md)) and to `DEFAULT_TOOLS`
-([Section 17](17-system-check.md)). Only the two catalogues had nothing behind them.
+([Section 17](17-tool-check.md)). Only the two catalogues had nothing behind them.
 
 ## The settings
 

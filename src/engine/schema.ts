@@ -6,7 +6,7 @@ export const stepTypeSchema = z.enum([
   'commandExecution',
   'aiHandoff',
   'manual',
-  'systemCheck',
+  'toolCheck',
 ])
 export type StepType = z.infer<typeof stepTypeSchema>
 
@@ -63,7 +63,7 @@ export const microserviceSchema = z.object({
 export const microservicesFileSchema = z.array(microserviceSchema)
 
 /**
- * A tool the System Check step looks for on the developer's machine.
+ * A tool the Tool Check step looks for on the developer's machine.
  *
  * `command` and `args` are spawned directly rather than through a shell, so the
  * command is an executable name and the arguments are a list — not one string
@@ -85,6 +85,24 @@ export const toolSchema = z.object({
   why: z.string().default(''),
   /** Install hint per `process.platform`: darwin, win32, linux. */
   install: z.record(z.string(), z.string()).default({}),
+  /**
+   * Per-platform overrides of what to run, keyed by `process.platform` —
+   * `darwin`, `win32`, `linux`. A platform with no entry uses the `command` and
+   * `args` above, so the common case stays a single line.
+   *
+   * This is for a tool that is genuinely a different program somewhere, not for
+   * a Windows batch shim: `mvn.cmd` and `gradle.bat` are found without help,
+   * because the probe tries those extensions itself. See spec Section 17.
+   */
+  platforms: z
+    .record(
+      z.string(),
+      z.object({
+        command: z.string().min(1).optional(),
+        args: z.array(z.string()).optional(),
+      }),
+    )
+    .default({}),
 })
 
 export const toolsFileSchema = z.array(toolSchema)

@@ -72,10 +72,10 @@ Add `-- patch` or `-- minor` to bump the version at the same time. See
 
 - [ ] **1. Start a task.** Run **AI Dev Workflow: Start Task**. Pick a platform,
       enter an epic key, pick Research Task.
-      *Expected:* the workflow panel opens on **System check**, the first of five
+      *Expected:* the workflow panel opens on **Tool check**, the first of five
       nodes, badged `SYSTEM`.
 
-- [ ] **1a. System check reports the machine.** Read the report.
+- [ ] **1a. Tool check reports the machine.** Read the report.
       *Expected:* one line per tool with a version beside each one it found, and
       the caption above it naming the tool list — `(bundled default)` if you have
       not put `config/tools.json` in your content folder. Nothing was sent to
@@ -215,7 +215,7 @@ Add `-- patch` or `-- minor` to bump the version at the same time. See
 
 - [ ] **16. A broken tool list is reported on its own step.** Put `[{` in
       `<contentRoot>/config/tools.json` and start a task.
-      *Expected:* the System Check step shows *"Tool config at … is not valid
+      *Expected:* the Tool Check step shows *"Tool config at … is not valid
       JSON"* and refuses to continue — and **the rest of the panel still
       renders**, with every other step visible. A broken tool list must not blank
       the workflow.
@@ -247,5 +247,5 @@ Add `-- patch` or `-- minor` to bump the version at the same time. See
 For any criterion that fails, note what happened instead. Criterion 11 failing
 is a design finding and should go back to the spec; the others are ordinarily
 bugs. Criterion 17 failing is a known open question rather than a regression —
-see [Section 17](spec/17-system-check.md) on the Windows suffix handling, and
+see [Section 17](spec/17-tool-check.md) on the Windows suffix handling, and
 record which shell you used.
