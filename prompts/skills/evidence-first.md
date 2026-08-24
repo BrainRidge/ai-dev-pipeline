@@ -1,3 +1,6 @@
+---
+description: Separating what was observed from what was inferred. Use when reporting findings, diagnosing a defect, or whenever the honest answer might be that the evidence is incomplete.
+---
 Separate what you observed from what you inferred, in everything you write.
 
 - **Say which is which.** "This method is called from the scheduler" and "this

@@ -277,6 +277,13 @@ agent mode *at that moment*. They can switch a session to Ask after the check pa
 extension can see that. This reduces the friction rather than removing it, which is the honest
 end state for a design built on [D1](04-decisions.md).
 
+## The second half: skills
+
+The step reports on two things, numbered, because they answer different
+questions: what is on this machine, and what Copilot has been given to work with.
+The second half installs the team's skill files where Copilot will find them and
+says what it did. It never blocks — see [Section 18](18-skills.md).
+
 ## What it deliberately does not do
 
 - **It installs nothing.** Same reasoning as `gitClone`

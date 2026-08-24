@@ -44,6 +44,7 @@ ai-dev-workflow/
 │   ├── state/TaskStateStore.ts   atomic read/write of _state.json
 │   ├── workspace/TaskWorkspace.ts folders, snapshot, .code-workspace
 │   ├── prompt/PromptComposer.ts
+│   ├── skills/Skills.ts          installing the team's skills for Copilot
 │   ├── handoff/ChatHandoff.ts    the A → B → C ladder
 │   ├── audit/AuditLog.ts
 │   ├── bridge/WebviewBridge.ts   the only caller of postMessage

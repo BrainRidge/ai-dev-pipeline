@@ -11,7 +11,7 @@ import { badgeFor, summarise } from '../../src/engine/StepDescriptor'
 import type { ToolDef } from '../../src/engine/schema'
 import type { ToolProbe } from '../../src/tasks/ToolProbe'
 import type { CommandBlock } from '../../src/tasks/context'
-import { context, healthyEditor, step, toolCheck, TOOLS } from '../support/fixtures'
+import { context, healthyEditor, skillsInstalled, step, toolCheck, TOOLS } from '../support/fixtures'
 
 const STEP = step('toolCheck', { stepType: 'toolCheck', taskType: 'toolCheck' })
 const CTX = context({ order: ['toolCheck'] })
@@ -157,6 +157,7 @@ describe('a tool list that cannot be read', () => {
       { async run() { return { found: true, output: '' } } },
       { async copy() {}, async toTerminal() {} },
       healthyEditor,
+      skillsInstalled,
       'darwin',
     )
   }
@@ -408,5 +409,85 @@ describe('a tool that is a different program on a different platform', () => {
 
     await task.describe(STEP, CTX, {})
     expect(asked).toEqual(['zsh -c true'])
+  })
+})
+
+/**
+ * The step reports on two things now, and the second is what Copilot has been
+ * given to work with. See spec Section 18.
+ */
+describe('the skills half of the step', () => {
+  it('shows both halves, numbered, tools first', async () => {
+    const lines = block(await toolCheck().describe(STEP, CTX, {})).lines
+    expect(lines.indexOf('1. Tools on this machine')).toBeGreaterThanOrEqual(0)
+    expect(lines.indexOf('2. Skills available to Copilot')).toBeGreaterThan(
+      lines.indexOf('1. Tools on this machine'),
+    )
+  })
+
+  it('says which skills are in place and where they went', async () => {
+    const report = block(await toolCheck().describe(STEP, CTX, {})).lines.join('\n')
+    expect(report).toContain('codebase-analyst')
+    expect(report).toContain('Installed to /Users/you/.copilot/skills')
+  })
+
+  // Skills are an enhancement: the persona text reaches Copilot through the
+  // composed prompt either way, so a failure here must never stop a task.
+  it('never blocks the step, whatever happened to the skills', async () => {
+    const task = toolCheck({
+      skills: {
+        async install() {
+          return {
+            dir: '/Users/you/.copilot/skills',
+            supported: true,
+            findings: [{ name: 'broken', status: 'unusable', detail: 'no description' }],
+          }
+        },
+      },
+    })
+
+    await task.describe(STEP, CTX, {})
+    expect(task.validate(STEP, {}).ok).toBe(true)
+  })
+
+  it('survives an installer that throws, reporting it rather than blanking the step', async () => {
+    const task = toolCheck({
+      skills: {
+        async install() {
+          throw new Error('read-only home directory')
+        },
+      },
+    })
+
+    const view = await task.describe(STEP, CTX, {})
+    expect(view.commands![0]!.lines.join('\n')).toContain('read-only home directory')
+    expect(task.validate(STEP, {}).ok).toBe(true)
+  })
+
+  it('records what was installed on the step, for the audit trail', async () => {
+    const task = toolCheck()
+    await task.describe(STEP, CTX, {})
+    const result = await task.execute(STEP, CTX, {})
+
+    expect(result.skillsDir).toBe('/Users/you/.copilot/skills')
+    expect(result.skills).toEqual([
+      expect.objectContaining({ name: 'codebase-analyst', status: 'unchanged' }),
+    ])
+  })
+
+  it('installs once per session, not on every render', async () => {
+    let calls = 0
+    const task = toolCheck({
+      skills: {
+        async install() {
+          calls += 1
+          return { dir: '/d', supported: true, findings: [] }
+        },
+      },
+    })
+
+    await task.describe(STEP, CTX, {})
+    await task.describe(STEP, CTX, {})
+    expect(calls).toBe(1)
   })
 })

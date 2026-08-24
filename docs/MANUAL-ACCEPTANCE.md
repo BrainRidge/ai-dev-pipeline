@@ -94,6 +94,18 @@ Add `-- patch` or `-- minor` to bump the version at the same time. See
       each handoff costs a paste — and the step still completes. The A → B → C
       ladder is why this is not fatal.
 
+- [ ] **1a3. Skills are installed where Copilot finds them.** Start a task and
+      read the second half of the report.
+      *Expected:* `codebase-analyst` and `evidence-first` listed as installed,
+      and `~/.copilot/skills/<name>/SKILL.md` on disk with `name:` and
+      `description:` frontmatter. Open Copilot Chat and confirm the skills are
+      offered there — this is the whole point of the step.
+
+- [ ] **1a4. A skill you edited is not reverted.** Change a line in
+      `~/.copilot/skills/codebase-analyst/SKILL.md`, then start another task.
+      *Expected:* it reads *yours — left alone*, and your edit is still there.
+      Delete the file and re-check: it comes back from the prompts folder.
+
 - [ ] **1b. A missing required tool blocks the step.** Copy
       `examples/content-template/config/tools.json` into your content folder and
       add an entry with `"command": "definitely-not-installed"` and

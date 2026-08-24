@@ -3,6 +3,7 @@ import type { ResolvedTools } from '../engine/ToolCatalog'
 import { meetsMinimum, versionIn } from '../engine/ToolCatalog'
 import type { CommandSink } from './CommandSink'
 import { readEnvironment, type EnvironmentReader } from './Environment'
+import { skillLines, type SkillFinding } from '../skills/Skills'
 import type { Answers, CommandBlock, StepContext, ValidationResult } from './context'
 import type { TaskType, TaskView } from './TaskType'
 import type { ToolProbe } from './ToolProbe'
@@ -45,6 +46,25 @@ export interface ToolReporter {
 
 export type ToolsLoader = () => Promise<ResolvedTools>
 
+export interface SkillReport {
+  /** Where they went. Shown so a developer can go and look. */
+  dir: string
+  findings: SkillFinding[]
+  /** False when this VS Code is too old to load Agent Skills at all. */
+  supported: boolean
+}
+
+/**
+ * Installs the team's skill files where Copilot will find them.
+ *
+ * A seam rather than direct filesystem work, because this is the one thing the
+ * step does that writes outside the task folder, and it should be as easy to
+ * test as everything else here. See spec Section 18.
+ */
+export interface SkillInstaller {
+  install(): Promise<SkillReport>
+}
+
 /**
  * Checks that the tools a workflow depends on are installed, before the
  * developer has spent any effort on a task that cannot finish.
@@ -72,7 +92,9 @@ export class ToolCheck implements TaskType, ToolReporter {
   /** Re-check and Copy report act on this step without advancing it. */
   readonly transitions = ['submit'] as const
 
-  private cached: { resolved: ResolvedTools; findings: Finding[] } | undefined
+  private cached:
+    | { resolved: ResolvedTools; findings: Finding[]; skills: SkillReport }
+    | undefined
   private failure: string | undefined
 
   constructor(
@@ -81,6 +103,7 @@ export class ToolCheck implements TaskType, ToolReporter {
     private readonly sink: CommandSink,
     /** What the editor says about agent mode and the chat command. */
     private readonly environment: EnvironmentReader,
+    private readonly skills: SkillInstaller,
     /** Injected so the report reads the same in a test on any machine. */
     private readonly platform: string = process.platform,
   ) {}
@@ -159,6 +182,8 @@ export class ToolCheck implements TaskType, ToolReporter {
       // whose commands produced it.
       platform: this.platform,
       machine: machineLabel(this.platform),
+      skillsDir: state?.skills.dir ?? null,
+      skills: state?.skills.findings ?? [],
       toolsSource: state?.resolved.source ?? null,
       toolsPath: state?.resolved.path ?? null,
       findings: state?.findings ?? [],
@@ -174,7 +199,9 @@ export class ToolCheck implements TaskType, ToolReporter {
   }
 
   /** Probes every tool once and remembers the answer. */
-  private async check(): Promise<{ resolved: ResolvedTools; findings: Finding[] } | undefined> {
+  private async check(): Promise<
+    { resolved: ResolvedTools; findings: Finding[]; skills: SkillReport } | undefined
+  > {
     if (this.cached) return this.cached
     if (this.failure) return undefined
 
@@ -201,7 +228,26 @@ export class ToolCheck implements TaskType, ToolReporter {
     )
 
     const tools = await Promise.all(resolved.tools.map((tool) => this.examine(tool)))
-    this.cached = { resolved, findings: [...editor, ...tools] }
+
+    // Installing is part of checking, so that by the time the step is on screen
+    // it is done and the report can say so. It writes nothing that is not
+    // already the team's content, it is idempotent, and it never blocks — see
+    // spec Section 18.
+    const skills = await this.skills.install().catch(
+      (err): SkillReport => ({
+        dir: '',
+        supported: true,
+        findings: [
+          {
+            name: 'skills',
+            status: 'unusable',
+            detail: `they could not be installed: ${err instanceof Error ? err.message : String(err)}`,
+          },
+        ],
+      }),
+    )
+
+    this.cached = { resolved, findings: [...editor, ...tools], skills }
     return this.cached
   }
 
@@ -228,7 +274,11 @@ export class ToolCheck implements TaskType, ToolReporter {
     return { ...base, version, status: outdated ? 'outdated' : 'ok' }
   }
 
-  private reportBlock(state: { resolved: ResolvedTools; findings: Finding[] }): CommandBlock {
+  private reportBlock(state: {
+    resolved: ResolvedTools
+    findings: Finding[]
+    skills: SkillReport
+  }): CommandBlock {
     return {
       id: REPORT_BLOCK_ID,
       label: 'Tool check report',
@@ -240,7 +290,17 @@ export class ToolCheck implements TaskType, ToolReporter {
         (state.resolved.source === 'external'
           ? `Tool list: ${state.resolved.path} (external)`
           : 'Tool list: bundled default'),
-      lines: reportLines(state.findings),
+      // Two numbered halves, because they answer different questions: what is
+      // on this machine, and what Copilot has been given to work with.
+      lines: [
+        '1. Tools on this machine',
+        '',
+        ...reportLines(state.findings),
+        '',
+        '2. Skills available to Copilot',
+        '',
+        ...skillLines(state.skills.dir, state.skills.findings, state.skills.supported),
+      ],
       // No Copy or Terminal on the block: this is a report, not commands to
       // run. The step offers Copy beside Re-check instead.
       actions: [],

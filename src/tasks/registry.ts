@@ -1,13 +1,21 @@
 import { createHash } from 'node:crypto'
-import { dirname } from 'node:path'
+import { dirname, join } from 'node:path'
 import { existsSync } from 'node:fs'
-import { access, copyFile, mkdir, readFile } from 'node:fs/promises'
+import { access, copyFile, mkdir, readFile, readdir, writeFile } from 'node:fs/promises'
+import { homedir } from 'node:os'
 import * as vscode from 'vscode'
 import { AuditLog } from '../audit/AuditLog'
 import { nodeProbe, templateResolver } from '../content/ContentRoot'
 import { ChatHandoff } from '../handoff/ChatHandoff'
 import { PromptComposer } from '../prompt/PromptComposer'
 import { DEFAULT_TOOLS, loadTools, type ResolvedTools } from '../engine/ToolCatalog'
+import {
+  planSkills,
+  skillNameOf,
+  supportsSkills,
+  USER_SKILLS_DIR,
+  type SkillFile,
+} from '../skills/Skills'
 import { defaultProviders } from '../providers/registry'
 import { CollectRequirement } from './CollectRequirement'
 import { GitClone } from './GitClone'
@@ -20,6 +28,7 @@ import { TaskTypeRegistry } from './TaskType'
 import type { CommandSink } from './CommandSink'
 import { nodeToolProbe } from './ToolProbe'
 import type { EnvironmentReader } from './Environment'
+import type { SkillInstaller, SkillReport } from './ToolCheck'
 
 async function fileExists(p: string): Promise<boolean> {
   try {
@@ -64,6 +73,95 @@ async function openInEditor(p: string): Promise<void> {
   await vscode.window.showTextDocument(doc, { preview: false })
 }
 
+/** Where a developer's own Agent Skills live. See spec Section 18. */
+function userSkillsDir(): string {
+  return join(homedir(), ...USER_SKILLS_DIR.split('/'))
+}
+
+/**
+ * Every skill file available, the team's overriding the bundled one by filename.
+ *
+ * The same per-file fallback prompt templates get, applied to a folder rather
+ * than to a named file — a team overriding one skill keeps receiving every other
+ * skill a release adds. See spec Sections 16 and 18.
+ */
+async function readSkillFiles(dirs: {
+  external?: string
+  bundled: string
+}): Promise<SkillFile[]> {
+  const found = new Map<string, SkillFile>()
+
+  for (const [source, dir] of [
+    ['bundled', dirs.bundled],
+    ['external', dirs.external],
+  ] as const) {
+    if (!dir) continue
+    const names = await readdir(dir).catch(() => [] as string[])
+    for (const filename of names.filter((n) => n.toLowerCase().endsWith('.md'))) {
+      const path = join(dir, filename)
+      found.set(skillNameOf(filename), {
+        name: skillNameOf(filename),
+        path,
+        source,
+        raw: await readFile(path, 'utf8'),
+      })
+    }
+  }
+
+  return [...found.values()].sort((a, b) => a.name.localeCompare(b.name))
+}
+
+/**
+ * Installs skills into the developer's own skills folder.
+ *
+ * This is the one thing the extension writes outside a task folder, so the rule
+ * from spec Section 16 applies unchanged: a file is ours to update only if it is
+ * absent or still holds exactly what we last wrote. What we last wrote is
+ * remembered per skill, so a skill somebody has tuned survives every later
+ * install. See spec Section 18.
+ */
+function skillInstaller(opts: {
+  promptsDir: string | undefined
+  bundledPromptsDir: string
+  vscodeVersion: string
+  remembered: Record<string, string>
+  remember: (written: Record<string, string>) => Promise<void>
+}): SkillInstaller {
+  return {
+    async install(): Promise<SkillReport> {
+      const dir = userSkillsDir()
+      if (!supportsSkills(opts.vscodeVersion)) {
+        return { dir, findings: [], supported: false }
+      }
+
+      const files = await readSkillFiles({
+        external: opts.promptsDir ? join(opts.promptsDir, 'skills') : undefined,
+        bundled: join(opts.bundledPromptsDir, 'skills'),
+      })
+
+      const onDisk: Record<string, string | undefined> = {}
+      for (const file of files) {
+        onDisk[file.name] = await readFile(join(dir, file.name, 'SKILL.md'), 'utf8').catch(
+          () => undefined,
+        )
+      }
+
+      const plan = planSkills(files, onDisk, opts.remembered)
+
+      for (const [name, content] of Object.entries(plan.writes)) {
+        await mkdir(join(dir, name), { recursive: true })
+        await writeFile(join(dir, name, 'SKILL.md'), content, 'utf8')
+      }
+
+      if (Object.keys(plan.writes).length > 0) {
+        await opts.remember({ ...opts.remembered, ...plan.writes })
+      }
+
+      return { dir, findings: plan.findings, supported: true }
+    },
+  }
+}
+
 /**
  * The vocabulary a workflow may compose. Adding a step to a workflow is
  * configuration; adding a new kind of primitive is a class registered here.
@@ -78,6 +176,11 @@ export function buildTaskTypes(opts: {
   toolsConfig: string | undefined
   taskDir: string
   codeRoot: string
+  /** Decides whether Agent Skills can be installed at all. See spec Section 18. */
+  vscodeVersion: string
+  /** What was last written into the developer's skills folder, per skill name. */
+  installedSkills: Record<string, string>
+  rememberSkills: (written: Record<string, string>) => Promise<void>
 }): TaskTypeRegistry {
   // Stateless, so one instance serves every handoff. See spec Section 16.
   const composer = new PromptComposer(
@@ -116,7 +219,19 @@ export function buildTaskTypes(opts: {
   }
 
   return new TaskTypeRegistry([
-    new ToolCheck(loadToolList, nodeToolProbe, sink, editorEnvironment),
+    new ToolCheck(
+      loadToolList,
+      nodeToolProbe,
+      sink,
+      editorEnvironment,
+      skillInstaller({
+        promptsDir: opts.promptsDir,
+        bundledPromptsDir: opts.bundledPromptsDir,
+        vscodeVersion: opts.vscodeVersion,
+        remembered: opts.installedSkills,
+        remember: opts.rememberSkills,
+      }),
+    ),
     // Providers are passed in rather than defaulted, so the one place that wires
     // the vocabulary is also the one place P3 adds an MCP provider.
     new CollectRequirement(defaultProviders()),

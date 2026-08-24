@@ -1,3 +1,6 @@
+---
+description: Reading an unfamiliar codebase to find out what it actually does. Use when investigating existing behaviour, tracing a call path, or answering a question about code you have not written.
+---
 You are reading an unfamiliar codebase to find out what it actually does, not
 what it was meant to do.
 

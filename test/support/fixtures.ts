@@ -10,6 +10,18 @@ import { ToolCheck } from '../../src/tasks/ToolCheck'
 import type { CommandSink } from '../../src/tasks/CommandSink'
 import type { ToolProbe } from '../../src/tasks/ToolProbe'
 import { CHAT_COMMAND, type EnvironmentReader } from '../../src/tasks/Environment'
+import type { SkillInstaller } from '../../src/tasks/ToolCheck'
+
+/** Skills already in place, so the report says so and nothing is written. */
+export const skillsInstalled: SkillInstaller = {
+  async install() {
+    return {
+      dir: '/Users/you/.copilot/skills',
+      supported: true,
+      findings: [{ name: 'codebase-analyst', status: 'unchanged', detail: 'from the bundled skills' }],
+    }
+  },
+}
 
 /** An editor with agent mode on and the chat command registered. */
 export const healthyEditor: EnvironmentReader = {
@@ -50,6 +62,7 @@ export function toolCheck(
     path?: string
     sink?: CommandSink
     environment?: EnvironmentReader
+    skills?: SkillInstaller
   } = {},
 ): ToolCheck {
   const sink: CommandSink = opts.sink ?? { async copy() {}, async toTerminal() {} }
@@ -62,6 +75,7 @@ export function toolCheck(
     opts.probe ?? foundProbe,
     sink,
     opts.environment ?? healthyEditor,
+    opts.skills ?? skillsInstalled,
     'darwin',
   )
 }

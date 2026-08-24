@@ -322,13 +322,13 @@ var require_directives = __commonJS({
               onError(0, "%YAML directive should contain exactly one part");
               return false;
             }
-            const [version] = parts;
-            if (version === "1.1" || version === "1.2") {
-              this.yaml.version = version;
+            const [version2] = parts;
+            if (version2 === "1.1" || version2 === "1.2") {
+              this.yaml.version = version2;
               return true;
             } else {
-              const isValid2 = /^\d+\.\d+$/.test(version);
-              onError(6, `Unsupported YAML version ${version}`, isValid2);
+              const isValid2 = /^\d+\.\d+$/.test(version2);
+              onError(6, `Unsupported YAML version ${version2}`, isValid2);
               return false;
             }
           }
@@ -3428,14 +3428,14 @@ var require_Document = __commonJS({
           version: "1.2"
         }, options);
         this.options = opt;
-        let { version } = opt;
+        let { version: version2 } = opt;
         if (options?._directives) {
           this.directives = options._directives.atDocument();
           if (this.directives.yaml.explicit)
-            version = this.directives.yaml.version;
+            version2 = this.directives.yaml.version;
         } else
-          this.directives = new directives.Directives({ version });
-        this.setSchema(version, options);
+          this.directives = new directives.Directives({ version: version2 });
+        this.setSchema(version2, options);
         this.contents = value === void 0 ? null : this.createNode(value, _replacer, options);
       }
       /**
@@ -3615,11 +3615,11 @@ var require_Document = __commonJS({
        *
        * Overrides all previously set schema options.
        */
-      setSchema(version, options = {}) {
-        if (typeof version === "number")
-          version = String(version);
+      setSchema(version2, options = {}) {
+        if (typeof version2 === "number")
+          version2 = String(version2);
         let opt;
-        switch (version) {
+        switch (version2) {
           case "1.1":
             if (this.directives)
               this.directives.yaml.version = "1.1";
@@ -3630,9 +3630,9 @@ var require_Document = __commonJS({
           case "1.2":
           case "next":
             if (this.directives)
-              this.directives.yaml.version = version;
+              this.directives.yaml.version = version2;
             else
-              this.directives = new directives.Directives({ version });
+              this.directives = new directives.Directives({ version: version2 });
             opt = { resolveKnownTags: true, schema: "core" };
             break;
           case null:
@@ -3641,7 +3641,7 @@ var require_Document = __commonJS({
             opt = null;
             break;
           default: {
-            const sv = JSON.stringify(version);
+            const sv = JSON.stringify(version2);
             throw new Error(`Expected '1.1', '1.2' or null as first argument, but found: ${sv}`);
           }
         }
@@ -7257,7 +7257,7 @@ var require_public_api = __commonJS({
       }
       return doc;
     }
-    function parse2(src, reviver, options) {
+    function parse3(src, reviver, options) {
       let _reviver = void 0;
       if (typeof reviver === "function") {
         _reviver = reviver;
@@ -7298,7 +7298,7 @@ var require_public_api = __commonJS({
         return value.toString(options);
       return new Document.Document(value, _replacer, options).toString(options);
     }
-    exports2.parse = parse2;
+    exports2.parse = parse3;
     exports2.parseAllDocuments = parseAllDocuments;
     exports2.parseDocument = parseDocument;
     exports2.stringify = stringify;
@@ -8688,11 +8688,11 @@ function datetimeRegex(args) {
   regex = `${regex}(${opts.join("|")})`;
   return new RegExp(`^${regex}$`);
 }
-function isValidIP(ip, version) {
-  if ((version === "v4" || !version) && ipv4Regex.test(ip)) {
+function isValidIP(ip, version2) {
+  if ((version2 === "v4" || !version2) && ipv4Regex.test(ip)) {
     return true;
   }
-  if ((version === "v6" || !version) && ipv6Regex.test(ip)) {
+  if ((version2 === "v6" || !version2) && ipv6Regex.test(ip)) {
     return true;
   }
   return false;
@@ -8719,11 +8719,11 @@ function isValidJWT(jwt, alg) {
     return false;
   }
 }
-function isValidCidr(ip, version) {
-  if ((version === "v4" || !version) && ipv4CidrRegex.test(ip)) {
+function isValidCidr(ip, version2) {
+  if ((version2 === "v4" || !version2) && ipv4CidrRegex.test(ip)) {
     return true;
   }
-  if ((version === "v6" || !version) && ipv6CidrRegex.test(ip)) {
+  if ((version2 === "v6" || !version2) && ipv6CidrRegex.test(ip)) {
     return true;
   }
   return false;
@@ -11870,9 +11870,9 @@ async function readConfig(path, label) {
     throw new Error(`${label} at ${path} is not valid JSON: ${err.message}`);
   }
 }
-function attribute(label, path, parse2) {
+function attribute(label, path, parse3) {
   try {
-    return parse2();
+    return parse3();
   } catch (err) {
     throw new Error(
       `${label} at ${path} is not valid: ${err instanceof Error ? err.message : String(err)}`
@@ -11976,12 +11976,12 @@ function validateMicroservices(services) {
     seenRepos.set(repo, service.microserviceName);
   }
 }
-function buildWorkflow(id, version, file) {
+function buildWorkflow(id, version2, file) {
   const steps = {};
   for (const [stepId, step] of Object.entries(file.steps)) steps[stepId] = { ...step, id: stepId };
   return {
     id,
-    version,
+    version: version2,
     label: file.label,
     initialStep: file.initialStep,
     steps,
@@ -12241,6 +12241,7 @@ var import_node_crypto2 = require("node:crypto");
 var import_node_path12 = require("node:path");
 var import_node_fs = require("node:fs");
 var import_promises8 = require("node:fs/promises");
+var import_node_os = require("node:os");
 var vscode2 = __toESM(require("vscode"));
 
 // src/content/ContentRoot.ts
@@ -12822,6 +12823,158 @@ function meetsMinimum(found, min) {
   return true;
 }
 
+// src/skills/Skills.ts
+var import_yaml2 = __toESM(require_dist());
+var USER_SKILLS_DIR = ".copilot/skills";
+var MINIMUM_VSCODE = "1.108";
+function skillNameOf(filename) {
+  return filename.replace(/\.md$/i, "");
+}
+function nameProblem(name) {
+  if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(name)) {
+    return `"${name}" cannot be a skill name. VS Code allows lowercase letters, numbers and hyphens, so rename the file to something like "codebase-analyst.md".`;
+  }
+  return void 0;
+}
+var FRONTMATTER2 = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/;
+function descriptionOf(raw) {
+  const match = FRONTMATTER2.exec(raw);
+  if (!match) {
+    return {
+      problem: "it declares no frontmatter. A skill needs a `description:` saying what it does and when to use it, because that is what Copilot matches on to decide whether to load it."
+    };
+  }
+  let meta;
+  try {
+    meta = (0, import_yaml2.parse)(match[1]);
+  } catch (err) {
+    return {
+      problem: `its frontmatter is not valid YAML: ${err instanceof Error ? err.message : String(err)}`
+    };
+  }
+  const declared = meta?.description;
+  if (typeof declared !== "string" || declared.trim() === "") {
+    return {
+      problem: "its frontmatter declares no usable `description:`. That line is what Copilot matches on to decide whether to load the skill, so it cannot be guessed."
+    };
+  }
+  return { description: declared.trim() };
+}
+function bodyOf(raw) {
+  const match = FRONTMATTER2.exec(raw);
+  return match ? raw.slice(match[0].length) : raw;
+}
+function skillDocument(skill) {
+  return [
+    "---",
+    `name: ${skill.name}`,
+    `description: ${skill.description}`,
+    "---",
+    skill.body.trimEnd(),
+    ""
+  ].join("\n");
+}
+function supportsSkills(vscodeVersion, minimum = MINIMUM_VSCODE) {
+  const a = vscodeVersion.split(".").map((n) => Number.parseInt(n, 10));
+  const b = minimum.split(".").map((n) => Number.parseInt(n, 10));
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    const av = a[i] ?? 0;
+    const bv = b[i] ?? 0;
+    if (Number.isNaN(av)) return false;
+    if (av !== bv) return av > bv;
+  }
+  return true;
+}
+function decide(skill, description, onDisk, lastWritten) {
+  const wanted = skillDocument({ name: skill.name, description, body: skill.body });
+  if (onDisk === void 0) {
+    return {
+      write: wanted,
+      finding: { name: skill.name, status: "installed", detail: describeSource(skill) }
+    };
+  }
+  if (onDisk === wanted) {
+    return {
+      finding: { name: skill.name, status: "unchanged", detail: describeSource(skill) }
+    };
+  }
+  if (lastWritten !== void 0 && onDisk === lastWritten) {
+    return {
+      write: wanted,
+      finding: { name: skill.name, status: "installed", detail: `updated \u2014 ${describeSource(skill)}` }
+    };
+  }
+  return {
+    finding: {
+      name: skill.name,
+      status: "changed-by-you",
+      detail: "this skill has been edited since it was installed, so it was left alone. Delete it to take the version from your prompts folder again."
+    }
+  };
+}
+function describeSource(skill) {
+  return skill.source === "external" ? "from your team's prompts folder" : "from the bundled skills";
+}
+function planSkills(files, onDisk, lastWritten) {
+  const plan = { findings: [], writes: {} };
+  for (const file of files) {
+    const badName = nameProblem(file.name);
+    if (badName) {
+      plan.findings.push({ name: file.name, status: "unusable", detail: badName });
+      continue;
+    }
+    const described = descriptionOf(file.raw);
+    if ("problem" in described) {
+      plan.findings.push({
+        name: file.name,
+        status: "unusable",
+        detail: `${file.path} could not be installed: ${described.problem}`
+      });
+      continue;
+    }
+    const { finding, write } = decide(
+      { name: file.name, path: file.path, source: file.source, body: bodyOf(file.raw) },
+      described.description,
+      onDisk[file.name],
+      lastWritten[file.name]
+    );
+    plan.findings.push(finding);
+    if (write !== void 0) plan.writes[file.name] = write;
+  }
+  return plan;
+}
+function skillLines(dir, findings, supported) {
+  if (!supported) {
+    return [
+      `Skills  \u2013  this version of VS Code does not load Agent Skills (needs ${MINIMUM_VSCODE} or newer)`
+    ];
+  }
+  if (findings.length === 0) {
+    return ["Skills  \u2013  no skill files found, so none were installed"];
+  }
+  const width = Math.max(...findings.map((f) => f.name.length));
+  const lines = findings.map((f) => `${f.name.padEnd(width)}  ${MARK[f.status]}  ${WORD[f.status]}`);
+  lines.push("", `Installed to ${dir}`);
+  for (const f of findings.filter((f2) => f2.status === "unusable" || f2.status === "changed-by-you")) {
+    lines.push("", `${f.name} \u2014 ${f.detail}`);
+  }
+  return lines;
+}
+var MARK = {
+  installed: "\u2713",
+  unchanged: "\u2713",
+  "changed-by-you": "\u26A0",
+  unusable: "\u2717",
+  unsupported: "\u2013"
+};
+var WORD = {
+  installed: "installed",
+  unchanged: "already installed",
+  "changed-by-you": "yours \u2014 left alone",
+  unusable: "could not be installed",
+  unsupported: "not supported here"
+};
+
 // src/providers/ManualProvider.ts
 var ManualProvider = class {
   name = "manual";
@@ -13366,11 +13519,12 @@ async function readEnvironment(reader) {
 // src/tasks/ToolCheck.ts
 var REPORT_BLOCK_ID = "toolCheck";
 var ToolCheck = class {
-  constructor(loadTools2, probe, sink, environment, platform = process.platform) {
+  constructor(loadTools2, probe, sink, environment, skills, platform = process.platform) {
     this.loadTools = loadTools2;
     this.probe = probe;
     this.sink = sink;
     this.environment = environment;
+    this.skills = skills;
     this.platform = platform;
   }
   name = "toolCheck";
@@ -13432,6 +13586,8 @@ var ToolCheck = class {
       // whose commands produced it.
       platform: this.platform,
       machine: machineLabel(this.platform),
+      skillsDir: state?.skills.dir ?? null,
+      skills: state?.skills.findings ?? [],
       toolsSource: state?.resolved.source ?? null,
       toolsPath: state?.resolved.path ?? null,
       findings: state?.findings ?? [],
@@ -13467,7 +13623,20 @@ var ToolCheck = class {
       })
     );
     const tools = await Promise.all(resolved.tools.map((tool) => this.examine(tool)));
-    this.cached = { resolved, findings: [...editor, ...tools] };
+    const skills = await this.skills.install().catch(
+      (err) => ({
+        dir: "",
+        supported: true,
+        findings: [
+          {
+            name: "skills",
+            status: "unusable",
+            detail: `they could not be installed: ${err instanceof Error ? err.message : String(err)}`
+          }
+        ]
+      })
+    );
+    this.cached = { resolved, findings: [...editor, ...tools], skills };
     return this.cached;
   }
   async examine(tool) {
@@ -13482,9 +13651,9 @@ var ToolCheck = class {
     const { command, args } = commandFor(tool, this.platform);
     const result = await this.probe.run(command, args);
     if (!result.found) return { ...base, status: "missing" };
-    const version = versionIn(result.output);
-    const outdated = tool.minVersion !== void 0 && version !== void 0 && !meetsMinimum(version, tool.minVersion);
-    return { ...base, version, status: outdated ? "outdated" : "ok" };
+    const version2 = versionIn(result.output);
+    const outdated = tool.minVersion !== void 0 && version2 !== void 0 && !meetsMinimum(version2, tool.minVersion);
+    return { ...base, version: version2, status: outdated ? "outdated" : "ok" };
   }
   reportBlock(state) {
     return {
@@ -13494,7 +13663,17 @@ var ToolCheck = class {
       // reading a surprising report needs to know what the step decided they
       // were on before anything else makes sense. See spec Section 17.
       note: `Machine: ${machineLabel(this.platform)} \xB7 ` + (state.resolved.source === "external" ? `Tool list: ${state.resolved.path} (external)` : "Tool list: bundled default"),
-      lines: reportLines(state.findings),
+      // Two numbered halves, because they answer different questions: what is
+      // on this machine, and what Copilot has been given to work with.
+      lines: [
+        "1. Tools on this machine",
+        "",
+        ...reportLines(state.findings),
+        "",
+        "2. Skills available to Copilot",
+        "",
+        ...skillLines(state.skills.dir, state.skills.findings, state.skills.supported)
+      ],
       // No Copy or Terminal on the block: this is a report, not commands to
       // run. The step offers Copy beside Re-check instead.
       actions: []
@@ -13517,7 +13696,7 @@ function machineLabel(platform) {
       return platform;
   }
 }
-var MARK = {
+var MARK2 = {
   ok: "\u2713",
   missing: "\u2717",
   outdated: "\u26A0",
@@ -13544,7 +13723,7 @@ function reportLines(findings) {
   if (findings.length === 0) return ["The tool list is empty, so nothing was checked."];
   const width = Math.max(...findings.map((f) => f.label.length));
   const lines = findings.map((f) => {
-    const mark = f.status === "missing" && !f.required ? "\u2013" : MARK[f.status];
+    const mark = f.status === "missing" && !f.required ? "\u2013" : MARK2[f.status];
     return `${f.label.padEnd(width)}  ${mark}  ${describeFinding(f)}`;
   });
   for (const f of findings.filter((f2) => f2.status !== "ok")) {
@@ -13669,6 +13848,58 @@ async function openInEditor(p) {
   const doc = await vscode2.workspace.openTextDocument(vscode2.Uri.file(p));
   await vscode2.window.showTextDocument(doc, { preview: false });
 }
+function userSkillsDir() {
+  return (0, import_node_path12.join)((0, import_node_os.homedir)(), ...USER_SKILLS_DIR.split("/"));
+}
+async function readSkillFiles(dirs) {
+  const found = /* @__PURE__ */ new Map();
+  for (const [source, dir] of [
+    ["bundled", dirs.bundled],
+    ["external", dirs.external]
+  ]) {
+    if (!dir) continue;
+    const names = await (0, import_promises8.readdir)(dir).catch(() => []);
+    for (const filename of names.filter((n) => n.toLowerCase().endsWith(".md"))) {
+      const path = (0, import_node_path12.join)(dir, filename);
+      found.set(skillNameOf(filename), {
+        name: skillNameOf(filename),
+        path,
+        source,
+        raw: await (0, import_promises8.readFile)(path, "utf8")
+      });
+    }
+  }
+  return [...found.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
+function skillInstaller(opts) {
+  return {
+    async install() {
+      const dir = userSkillsDir();
+      if (!supportsSkills(opts.vscodeVersion)) {
+        return { dir, findings: [], supported: false };
+      }
+      const files = await readSkillFiles({
+        external: opts.promptsDir ? (0, import_node_path12.join)(opts.promptsDir, "skills") : void 0,
+        bundled: (0, import_node_path12.join)(opts.bundledPromptsDir, "skills")
+      });
+      const onDisk = {};
+      for (const file of files) {
+        onDisk[file.name] = await (0, import_promises8.readFile)((0, import_node_path12.join)(dir, file.name, "SKILL.md"), "utf8").catch(
+          () => void 0
+        );
+      }
+      const plan = planSkills(files, onDisk, opts.remembered);
+      for (const [name, content] of Object.entries(plan.writes)) {
+        await (0, import_promises8.mkdir)((0, import_node_path12.join)(dir, name), { recursive: true });
+        await (0, import_promises8.writeFile)((0, import_node_path12.join)(dir, name, "SKILL.md"), content, "utf8");
+      }
+      if (Object.keys(plan.writes).length > 0) {
+        await opts.remember({ ...opts.remembered, ...plan.writes });
+      }
+      return { dir, findings: plan.findings, supported: true };
+    }
+  };
+}
 function buildTaskTypes(opts) {
   const composer = new PromptComposer(
     templateResolver(
@@ -13696,7 +13927,19 @@ function buildTaskTypes(opts) {
     return { tools: DEFAULT_TOOLS, source: "bundled" };
   };
   return new TaskTypeRegistry([
-    new ToolCheck(loadToolList, nodeToolProbe, sink, editorEnvironment),
+    new ToolCheck(
+      loadToolList,
+      nodeToolProbe,
+      sink,
+      editorEnvironment,
+      skillInstaller({
+        promptsDir: opts.promptsDir,
+        bundledPromptsDir: opts.bundledPromptsDir,
+        vscodeVersion: opts.vscodeVersion,
+        remembered: opts.installedSkills,
+        remember: opts.rememberSkills
+      })
+    ),
     // Providers are passed in rather than defaulted, so the one place that wires
     // the vocabulary is also the one place P3 adds an MCP provider.
     new CollectRequirement(defaultProviders()),
@@ -13736,20 +13979,21 @@ function allInsideOpenFolders(repoPaths, openFolders) {
 }
 
 // src/session/resume.ts
-var import_node_os = require("node:os");
+var import_node_os2 = require("node:os");
 var import_node_path14 = require("node:path");
 function taskIdFromWorkspaceSettings(settings) {
   const v = settings["aiDevWorkflow.taskId"];
   return typeof v === "string" && v.length > 0 ? v : void 0;
 }
 function resolveTasksRoot(configured) {
-  return configured && configured.length > 0 ? configured : (0, import_node_path14.join)((0, import_node_os.homedir)(), "ai-dev-workflow", "tasks");
+  return configured && configured.length > 0 ? configured : (0, import_node_path14.join)((0, import_node_os2.homedir)(), "ai-dev-workflow", "tasks");
 }
 function resolveCodeRoot(configured) {
-  return configured && configured.length > 0 ? configured : (0, import_node_path14.join)((0, import_node_os.homedir)(), "ai-dev-workflow", "code");
+  return configured && configured.length > 0 ? configured : (0, import_node_path14.join)((0, import_node_os2.homedir)(), "ai-dev-workflow", "code");
 }
 
 // src/session/TaskSession.ts
+var INSTALLED_SKILLS = "aiDevWorkflow.installedSkills";
 function config(key) {
   return vscode3.workspace.getConfiguration("aiDevWorkflow").get(key);
 }
@@ -13774,8 +14018,8 @@ function resolvedContent(context) {
 function contentRoot() {
   return resolveContentRootSetting(config("contentRoot") ?? "");
 }
-function workflowFilename(id, version) {
-  return `${id}_${version.replace(".", "_")}.json`;
+function workflowFilename(id, version2) {
+  return `${id}_${version2.replace(".", "_")}.json`;
 }
 var TaskSession = class _TaskSession {
   constructor(workflow, engine, registry, ctx, bridge, panel, audit, initialState) {
@@ -13933,7 +14177,15 @@ var TaskSession = class _TaskSession {
       bundledPromptsDir: (0, import_node_path15.join)(context.extensionPath, "prompts"),
       toolsConfig: resolved.ok ? resolved.toolsConfig : void 0,
       taskDir: ws.dir,
-      codeRoot: resolveCodeRoot(config("codeRoot"))
+      codeRoot: resolveCodeRoot(config("codeRoot")),
+      vscodeVersion: vscode3.version,
+      // Remembered globally rather than per workspace: the skills folder is the
+      // developer's own, and it is the same one whichever repository they have
+      // open. See spec Section 18.
+      installedSkills: context.globalState.get(INSTALLED_SKILLS) ?? {},
+      rememberSkills: async (written) => {
+        await context.globalState.update(INSTALLED_SKILLS, written);
+      }
     });
     registry.validateWorkflow(workflow.id, workflow.steps);
     if (resolved.ok) {

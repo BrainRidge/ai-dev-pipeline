@@ -92,11 +92,15 @@ describe('the editor checks inside the step', () => {
   const STEP = step('toolCheck', { stepType: 'toolCheck', taskType: 'toolCheck' })
   const CTX = context({ order: ['toolCheck'] })
 
-  it('leads the report, since it is the thing that cannot be installed', async () => {
+  it('leads the tool half of the report, being the thing that cannot be installed', async () => {
     const view = await toolCheck().describe(STEP, CTX, {})
     const lines = view.commands![0]!.lines
-    expect(lines[0]).toContain('Copilot agent mode')
-    expect(lines[1]).toContain('One-click handoff')
+    const first = lines.findIndex((l) => l.includes('Copilot agent mode'))
+    expect(first).toBeGreaterThanOrEqual(0)
+    expect(lines[first + 1]).toContain('One-click handoff')
+    // Under the first heading, ahead of the skills half.
+    expect(first).toBeGreaterThan(lines.indexOf('1. Tools on this machine'))
+    expect(first).toBeLessThan(lines.indexOf('2. Skills available to Copilot'))
   })
 
   it('stops the task when agent mode is off', async () => {

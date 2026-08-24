@@ -36,6 +36,9 @@ import type { Mechanism } from '../handoff/ChatHandoff'
 import type { Answers, StepContext } from '../tasks/context'
 import type { TaskTypeRegistry } from '../tasks/TaskType'
 
+/** What was last written into the developer's skills folder, per skill name. */
+const INSTALLED_SKILLS = 'aiDevWorkflow.installedSkills'
+
 function config<T>(key: string): T | undefined {
   return vscode.workspace.getConfiguration('aiDevWorkflow').get<T>(key)
 }
@@ -286,6 +289,14 @@ export class TaskSession {
       toolsConfig: resolved.ok ? resolved.toolsConfig : undefined,
       taskDir: ws.dir,
       codeRoot: resolveCodeRoot(config<string>('codeRoot')),
+      vscodeVersion: vscode.version,
+      // Remembered globally rather than per workspace: the skills folder is the
+      // developer's own, and it is the same one whichever repository they have
+      // open. See spec Section 18.
+      installedSkills: context.globalState.get<Record<string, string>>(INSTALLED_SKILLS) ?? {},
+      rememberSkills: async (written) => {
+        await context.globalState.update(INSTALLED_SKILLS, written)
+      },
     })
     // A snapshot can name a taskType this version no longer implements. Fail
     // here, with the list of what exists, rather than mid-workflow.
