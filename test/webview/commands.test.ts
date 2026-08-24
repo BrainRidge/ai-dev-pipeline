@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeAll } from 'vitest'
 import { renderWorkflow, type WorkflowDescriptor } from '../../webview/render/fields'
+import { WebviewBridge } from '../../src/bridge/WebviewBridge'
 
 beforeAll(() => {
   Element.prototype.scrollIntoView = () => {}
@@ -252,5 +253,63 @@ describe('a block with a note', () => {
 
   it('draws no note element for a block without one', () => {
     expect(render().querySelector('.cmd-block[data-block=ris] .cmd-note')).toBeNull()
+  })
+})
+
+/**
+ * The panel is created with `retainContextWhenHidden`, so its webview keeps its
+ * DOM and script when something opens over it — and therefore never sends a
+ * second `ready`. Resetting readiness on hide silenced it for good: every later
+ * render was stored and never posted, so the panel stayed drawn on whatever step
+ * it was showing when a `manual` step opened its artifact over the top.
+ */
+describe('a retained webview that comes back', () => {
+  function seam() {
+    const posted: unknown[] = []
+    let onMessage: ((m: unknown) => void) | undefined
+    const webview = {
+      cspSource: '',
+      postMessage: (m: unknown) => {
+        posted.push(m)
+        return Promise.resolve(true)
+      },
+      onDidReceiveMessage: (cb: (m: unknown) => void) => {
+        onMessage = cb
+        return { dispose() {} }
+      },
+    }
+    const bridge = new WebviewBridge<{ id: string }>(webview as never)
+    return { bridge, posted, ready: () => onMessage?.({ type: 'ready' }) }
+  }
+
+  it('is drawn again when its owner says it is visible', () => {
+    const { bridge, posted, ready } = seam()
+    ready()
+    bridge.render({ id: 'first' })
+    expect(posted).toHaveLength(1)
+
+    // Something opened over it, and its owner reset readiness.
+    bridge.resetReady()
+    bridge.render({ id: 'second' })
+    expect(posted).toHaveLength(1)
+
+    bridge.flush()
+    expect(posted).toHaveLength(2)
+    expect(posted[1]).toEqual({ type: 'render', descriptor: { id: 'second' } })
+  })
+
+  it('keeps drawing after that, rather than needing a flush every time', () => {
+    const { bridge, posted, ready } = seam()
+    ready()
+    bridge.resetReady()
+    bridge.flush()
+    bridge.render({ id: 'later' })
+    expect(posted.at(-1)).toEqual({ type: 'render', descriptor: { id: 'later' } })
+  })
+
+  it('does nothing when there is no descriptor to replay', () => {
+    const { bridge, posted } = seam()
+    bridge.flush()
+    expect(posted).toEqual([])
   })
 })

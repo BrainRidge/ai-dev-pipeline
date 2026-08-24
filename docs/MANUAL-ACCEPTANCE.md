@@ -171,6 +171,15 @@ Add `-- patch` or `-- minor` to bump the version at the same time. See
       has no input fields, so before there was nowhere for that message to go and
       the panel simply repainted.
 
+- [ ] **7c. The panel survives the artifact opening.** Press **Done** on a
+      handoff that writes a file.
+      *Expected:* the artifact opens **beside** the panel, the panel keeps focus,
+      and it now shows step 5 as current. Then click the artifact tab, edit it,
+      and click back to the panel.
+      *Expected:* the panel is still live and still on step 5. It used to freeze
+      on step 4 the moment anything opened over it, which read as Done merely
+      opening a file.
+
 - [ ] **8. Artifact review.** `02-analysis.md` opens in a normal editor tab.
       Edit it, then press **Revise**.
       *Expected:* the workflow returns to "Run the analysis". Then press

@@ -7556,9 +7556,24 @@ var WebviewBridge = class {
    * A hidden webview discards its DOM; when it comes back the script reloads
    * and sends `ready` again. Owners call this on hide so that flush replays the
    * current step.
+   *
+   * **Only for a webview that is actually discarded.** A panel created with
+   * `retainContextWhenHidden` keeps its DOM and its script, so it never sends a
+   * second `ready` — calling this on one silences it permanently: every later
+   * `render` is stored and never posted. That is what froze the workflow panel
+   * the moment anything opened over it, which a `manual` step does by design.
    */
   resetReady() {
     this.webviewReady = false;
+  }
+  /**
+   * Post the current descriptor again, whether or not the webview has announced
+   * itself since. For an owner that shows a retained webview: cheap, idempotent,
+   * and it cannot be forgotten the way a missing `ready` can.
+   */
+  flush() {
+    this.webviewReady = true;
+    if (this.lastDescriptor) this.post({ type: "render", descriptor: this.lastDescriptor });
   }
   onAction(cb) {
     this.handler = cb;
@@ -13892,7 +13907,11 @@ var editorEnvironment = {
 };
 async function openInEditor(p) {
   const doc = await vscode2.workspace.openTextDocument(vscode2.Uri.file(p));
-  await vscode2.window.showTextDocument(doc, { preview: false });
+  await vscode2.window.showTextDocument(doc, {
+    preview: false,
+    viewColumn: vscode2.ViewColumn.Beside,
+    preserveFocus: true
+  });
 }
 function userSkillsDir() {
   return (0, import_node_path12.join)((0, import_node_os.homedir)(), ...USER_SKILLS_DIR.split("/"));
@@ -14087,6 +14106,8 @@ var TaskSession = class _TaskSession {
   outputPresent = false;
   outputFile;
   pendingMechanism;
+  /** The manual step whose artifact is already open, so it opens once. */
+  openedFor;
   // ---------------------------------------------------------------- lifecycle
   /** Prompt-driven entry, kept so the command palette still works. */
   static async start(context) {
@@ -14267,7 +14288,7 @@ var TaskSession = class _TaskSession {
     );
     const bridge = new WebviewBridge(panel.webview);
     panel.onDidChangeViewState(() => {
-      if (!panel.visible) bridge.resetReady();
+      if (panel.visible) bridge.flush();
     });
     const asset = (name) => panel.webview.asWebviewUri(vscode3.Uri.file((0, import_node_path15.join)(context.extensionPath, "out", name)));
     panel.webview.html = bridge.html(asset("webview.js"), asset("style.css"), randomNonce());
@@ -14493,11 +14514,13 @@ var TaskSession = class _TaskSession {
     this.state = await this.engine.state();
     const step = await this.engine.current();
     const task = this.registry.get(step.taskType);
-    if (step.stepType === "manual") {
+    if (step.stepType === "manual" && this.openedFor !== step.id) {
+      this.openedFor = step.id;
       await task.open(step, this.ctx).catch(() => {
         this.bridge.error(step.id, "The artifact could not be opened.", true);
       });
     }
+    if (step.stepType !== "manual") this.openedFor = void 0;
     this.bridge.render(
       await buildWorkflowDescriptor({
         workflow: this.workflow,

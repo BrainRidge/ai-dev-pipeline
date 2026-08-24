@@ -68,9 +68,21 @@ const editorEnvironment: EnvironmentReader = {
   },
 }
 
+/**
+ * Opens an artifact for review beside the workflow panel rather than on top of
+ * it. `ViewColumn.Beside` because the panel lives in the editor area and a
+ * document opened into the same column covers it — which is not merely untidy:
+ * it is how the developer loses sight of the step they are being asked to
+ * approve. `preserveFocus` because the panel is what they are about to press a
+ * button on. See spec Section 9.
+ */
 async function openInEditor(p: string): Promise<void> {
   const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(p))
-  await vscode.window.showTextDocument(doc, { preview: false })
+  await vscode.window.showTextDocument(doc, {
+    preview: false,
+    viewColumn: vscode.ViewColumn.Beside,
+    preserveFocus: true,
+  })
 }
 
 /** Where a developer's own Agent Skills live. See spec Section 18. */

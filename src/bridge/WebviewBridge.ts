@@ -42,9 +42,25 @@ export class WebviewBridge<D = WorkflowDescriptor> {
    * A hidden webview discards its DOM; when it comes back the script reloads
    * and sends `ready` again. Owners call this on hide so that flush replays the
    * current step.
+   *
+   * **Only for a webview that is actually discarded.** A panel created with
+   * `retainContextWhenHidden` keeps its DOM and its script, so it never sends a
+   * second `ready` — calling this on one silences it permanently: every later
+   * `render` is stored and never posted. That is what froze the workflow panel
+   * the moment anything opened over it, which a `manual` step does by design.
    */
   resetReady(): void {
     this.webviewReady = false
+  }
+
+  /**
+   * Post the current descriptor again, whether or not the webview has announced
+   * itself since. For an owner that shows a retained webview: cheap, idempotent,
+   * and it cannot be forgotten the way a missing `ready` can.
+   */
+  flush(): void {
+    this.webviewReady = true
+    if (this.lastDescriptor) this.post({ type: 'render', descriptor: this.lastDescriptor })
   }
 
   onAction(cb: (m: ActionMessage) => void): void {

@@ -131,8 +131,36 @@ failing unpredictably — necessary because extension versions will drift across
 
 A webview's script loads asynchronously, so a `render` posted immediately after the HTML is
 set arrives before anything is listening. `WebviewBridge` keeps the latest descriptor and
-flushes it when the webview announces itself with `ready`; a hidden webview discards its DOM,
-so its owner resets that flag on hide and the current step is replayed when it returns.
+flushes it when the webview announces itself with `ready`.
+
+**What an owner does when its view is hidden depends on whether the view is retained**, and
+getting that wrong is not a cosmetic bug.
+
+| | Sidebar (`WebviewView`) | Panel (`WebviewPanel`, `retainContextWhenHidden`) |
+|---|---|---|
+| When hidden | discards its DOM | keeps DOM, script and state |
+| On return | script reloads, sends `ready` again | sends nothing — it never left |
+| Owner does | `resetReady()` on hide | `flush()` on show |
+
+The panel used to call `resetReady()` on hide, borrowed from the sidebar. Because the panel is
+retained it never sends a second `ready`, so the flag stayed false and **every later `render`
+was stored and never posted** — the panel froze on whatever step it was showing, permanently,
+and no action could unfreeze it.
+
+What made that reliably reachable rather than an edge case: a `manual` step opens its artifact
+in an editor tab, which is the one thing the tool does that puts a document over its own panel.
+So the freeze happened exactly when the developer pressed Done and moved to a review step. The
+state advanced, the artifact opened, and the panel went on drawing the previous step — which
+reads as Done doing nothing but opening a file.
+
+Two changes, either of which would have been enough, and both are worth having. The panel
+replays on show instead of silencing on hide. And a `manual` step opens its artifact with
+`ViewColumn.Beside` and `preserveFocus`, so the panel is not covered in the first place and
+keeps the focus the developer is about to press a button with.
+
+A manual step also opens its artifact **once, on arrival** rather than on every render.
+`refresh` runs for each progress message and each action, and reopening the document every time
+drags the developer out of whatever they were doing in it.
 
 `progress` and `error` prepend a banner and do not re-render, which is what lets a developer
 copy or send an edited prompt without the box being rebuilt underneath them.

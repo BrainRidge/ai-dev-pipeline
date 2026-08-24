@@ -93,6 +93,8 @@ export class TaskSession {
   private outputPresent = false
   private outputFile: string | undefined
   private pendingMechanism: Mechanism | undefined
+  /** The manual step whose artifact is already open, so it opens once. */
+  private openedFor: string | undefined
 
   private constructor(
     private readonly workflow: WorkflowDef,
@@ -339,8 +341,12 @@ export class TaskSession {
     )
 
     const bridge = new WebviewBridge(panel.webview)
+    // The panel is retained when hidden, so it keeps its DOM and never sends a
+    // second `ready`. Replaying on show is the whole handling it needs — and
+    // resetting `ready` on hide, which the sidebar does need, would silence this
+    // one for good. See spec Section 9.
     panel.onDidChangeViewState(() => {
-      if (!panel.visible) bridge.resetReady()
+      if (panel.visible) bridge.flush()
     })
     const asset = (name: string) =>
       panel.webview.asWebviewUri(vscode.Uri.file(join(context.extensionPath, 'out', name)))
@@ -623,11 +629,17 @@ export class TaskSession {
     const step = await this.engine.current()
     const task = this.registry.get(step.taskType)
 
-    if (step.stepType === 'manual') {
+    // A manual step opens its artifact for reading. Only on arrival, though:
+    // `refresh` runs for every progress message and every action, and reopening
+    // the document each time would drag the developer out of whatever they were
+    // doing in it.
+    if (step.stepType === 'manual' && this.openedFor !== step.id) {
+      this.openedFor = step.id
       await (task as ManualReview).open(step, this.ctx).catch(() => {
         this.bridge.error(step.id, 'The artifact could not be opened.', true)
       })
     }
+    if (step.stepType !== 'manual') this.openedFor = undefined
 
     this.bridge.render(
       await buildWorkflowDescriptor({

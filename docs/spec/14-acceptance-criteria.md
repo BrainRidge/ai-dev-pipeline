@@ -137,6 +137,12 @@ Additionally:
     case-insensitive filesystem. The counter is claimed by creating the directory rather than by
     comparing names ([Section 7](07-run-state-and-persistence.md)).
 
+35. **The panel keeps drawing after something opens over it.** Approving or reviewing puts a
+    document in the editor area; the panel is retained rather than reloaded, so it replays its
+    descriptor when it returns instead of going silent
+    ([Section 9](09-renderer-contract.md)). A `manual` step opens its artifact beside the
+    panel, once, without taking focus.
+
 ## Status
 
 All of the above are implemented, and each is covered by tests.
@@ -152,7 +158,7 @@ prompt templates and the service catalogue, which a team owns
 ([Section 16](16-external-content.md)). What it still guarantees is the part the tool was
 built for: every developer on a team passes through the same steps in the same order.
 
-Criteria 14–34 are implemented and covered by tests. Criteria 22–24 each close a failure that
+Criteria 14–35 are implemented and covered by tests. Criteria 22–24 each close a failure that
 was found by reading the code rather than by anything failing: a promise in the workflow
 documentation that nothing kept, a typo class that rendered as blank, and an engine that
 treated an unrecognised button as a submission. Criterion 21 is demonstrated on real
