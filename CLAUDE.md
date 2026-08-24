@@ -36,6 +36,9 @@ are historical records of what was built; they are not corrected after the fact.
 
 ## Commands
 
+Dependencies are not committed, so a fresh clone needs `npm ci` before anything
+else. Without it every command fails with `Cannot find package 'esbuild'`.
+
 `npm run verify` runs typecheck, lint and the unit tests. `npm run test:integration`
 runs the extension-host tests. `npm run build` produces the bundles in `out/`, which
 is tracked deliberately so a checkout stays installable without a build step.

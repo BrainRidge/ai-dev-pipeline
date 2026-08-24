@@ -79,7 +79,28 @@ if (dirty !== '') {
 // Before the bump, so a failing gate leaves the version alone.
 run('npm', ['run', 'verify'])
 
+const before = versionNow()
 if (bump) run('npm', ['version', bump, '--no-git-tag-version'])
+
+/**
+ * Puts the version back when a later step fails.
+ *
+ * Verify running before the bump was not enough: a failure in the build, the
+ * package check or `vsce package` still left package.json and the lockfile
+ * moved while the .vsix and the manifest stayed where they were — a
+ * half-released tree, which is the exact inconsistency this script exists to
+ * prevent. That happened once, when a new README's relative links made `vsce
+ * package` refuse for want of a `repository` field.
+ */
+function rollBack() {
+  if (!bump || versionNow() === before) return
+  console.error(`\nputting the version back to ${before}`)
+  run('npm', ['version', before, '--no-git-tag-version', '--allow-same-version'])
+}
+
+process.on('exit', (code) => {
+  if (code !== 0) rollBack()
+})
 
 const version = versionNow()
 console.log(`\n── releasing ${version} ──`)
@@ -102,7 +123,7 @@ console.log(`\n✓ package will contain ${shipped.length} files, and nothing it 
 
 // ------------------------------------------------------------- the artifact
 
-run('npx', ['vsce', 'package', '--allow-missing-repository', '--skip-license'])
+run('npx', ['vsce', 'package', '--skip-license'])
 
 const vsix = `ai-dev-workflow-${version}.vsix`
 const packaged = readdirSync(ROOT).filter((f) => /^ai-dev-workflow-.*\.vsix$/.test(f))

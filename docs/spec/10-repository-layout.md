@@ -4,6 +4,7 @@
 
 ```
 ai-dev-workflow/
+├── README.md                     how to clone, install and work on it
 ├── package.json                  contributes: commands, views, configuration
 ├── CLAUDE.md                     conventions an agent working here must not break
 ├── src/
@@ -86,9 +87,10 @@ because `vsce` applies negations as a union at the end rather than in order: a b
 followed by carve-outs does not work, the carve-outs lose. Naming each file has the side
 benefit that new junk at the repository root cannot leak into a release by default.
 
-The package is 24 files: four bundles, three workflows, seven prompt templates, one shared
-prompt fragment, two skill prompts, the five under `examples/content-template/`, the icon and
-`package.json`. `npx vsce ls` prints
+The package is 25 files: four bundles, three workflows, seven prompt templates, one shared
+prompt fragment, two skill prompts, the five under `examples/content-template/`, the icon,
+`package.json` and `README.md` — the last of which `vsce` ships whatever `.vscodeignore` says,
+because it is what VS Code shows on an installed extension's details page. `npx vsce ls` prints
 exactly that list, and is the cheapest way to catch the file going missing again.
 
 The four bundles and the stylesheet in `out/` are tracked because `package.json`'s `main`

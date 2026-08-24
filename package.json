@@ -2,10 +2,15 @@
   "name": "ai-dev-workflow",
   "displayName": "AI Dev Workflow",
   "description": "Interactive, standardised AI-assisted development workflows",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "publisher": "internal",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/BrainRidge/ai-dev-pipeline.git"
+  },
   "engines": {
-    "vscode": "^1.96.0"
+    "vscode": "^1.96.0",
+    "node": ">=20"
   },
   "categories": [
     "Other"
@@ -118,7 +123,7 @@
     "test:integration": "vscode-test",
     "lint": "eslint .",
     "check:package": "node package-check.mjs",
-    "package": "vsce package --allow-missing-repository --skip-license",
+    "package": "vsce package --skip-license",
     "release": "node release.mjs"
   },
   "dependencies": {

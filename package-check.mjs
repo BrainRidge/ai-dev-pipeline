@@ -39,7 +39,13 @@ export const MUST_SHIP = [
   'examples/content-template/prompts/skills/example-persona.md',
 ]
 
-/** Anything matching these must not be in the package. */
+/**
+ * Anything matching these must not be in the package.
+ *
+ * README.md is deliberately absent from this list: vsce ships it whatever
+ * .vscodeignore says, because it is what VS Code shows on an installed
+ * extension's details page. Forbidding it here just made this check fail.
+ */
 export const MUST_NOT_SHIP = [
   ['source', (f) => f.startsWith('src/')],
   ['tests', (f) => f.startsWith('test/')],
