@@ -35,6 +35,16 @@ export const workflowStepSchema = z.object({
   interactive: z.boolean().optional(),
   nextStep: z.string().optional(),
   /**
+   * The template this step composes from, named rather than found by
+   * convention. Optional: with no `prompt`, the step still resolves
+   * `<workflowId>/<stepId>.md` as it always did.
+   *
+   * Note the singular. `prompt` is this step's own functional template;
+   * `prompts` below are the personas composed ahead of it. One letter apart,
+   * which is why this schema is strict — see below. See spec Section 6.
+   */
+  prompt: z.string().min(1).optional(),
+  /**
    * Prompt files this step composes *before* its own template — the personas
    * and skills that say who the model is being asked to be, ahead of the
    * functional prompt that says what to do. Named relative to the prompts root,
@@ -42,13 +52,25 @@ export const workflowStepSchema = z.object({
    */
   prompts: z.array(z.string().min(1)).default([]),
 })
+  /**
+   * Strict, so a key nobody implements is a load error rather than silence.
+   *
+   * zod strips unknown keys by default, which meant `"promopt"` for `"prompt"`
+   * was discarded without a word and the step quietly fell back to the
+   * convention — producing the right prompt by luck, with a dead line in the
+   * JSON that read as if it were doing something. With `prompt` and `prompts`
+   * one letter apart, that was a matter of time.
+   */
+  .strict()
 
-export const workflowFileSchema = z.object({
-  schemaVersion: z.literal(1),
-  label: z.string().min(1),
-  initialStep: z.string().min(1),
-  steps: z.record(z.string(), workflowStepSchema),
-})
+export const workflowFileSchema = z
+  .object({
+    schemaVersion: z.literal(1),
+    label: z.string().min(1),
+    initialStep: z.string().min(1),
+    steps: z.record(z.string(), workflowStepSchema),
+  })
+  .strict()
 
 /** The microservice catalogue. Note: no platform key — platform is context only. */
 export const microserviceSchema = z.object({

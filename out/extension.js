@@ -11798,19 +11798,29 @@ var workflowStepSchema = external_exports.object({
   interactive: external_exports.boolean().optional(),
   nextStep: external_exports.string().optional(),
   /**
+   * The template this step composes from, named rather than found by
+   * convention. Optional: with no `prompt`, the step still resolves
+   * `<workflowId>/<stepId>.md` as it always did.
+   *
+   * Note the singular. `prompt` is this step's own functional template;
+   * `prompts` below are the personas composed ahead of it. One letter apart,
+   * which is why this schema is strict — see below. See spec Section 6.
+   */
+  prompt: external_exports.string().min(1).optional(),
+  /**
    * Prompt files this step composes *before* its own template — the personas
    * and skills that say who the model is being asked to be, ahead of the
    * functional prompt that says what to do. Named relative to the prompts root,
    * with or without a leading slash. See spec Section 6.
    */
   prompts: external_exports.array(external_exports.string().min(1)).default([])
-});
+}).strict();
 var workflowFileSchema = external_exports.object({
   schemaVersion: external_exports.literal(1),
   label: external_exports.string().min(1),
   initialStep: external_exports.string().min(1),
   steps: external_exports.record(external_exports.string(), workflowStepSchema)
-});
+}).strict();
 var microserviceSchema = external_exports.object({
   microserviceName: external_exports.string().min(1),
   shortCode: external_exports.string().min(1),
@@ -12032,6 +12042,12 @@ function validateGraph(workflowId, initialStep, steps) {
     );
   }
   for (const step of Object.values(steps)) {
+    if (step.prompt !== void 0) {
+      const problem = promptNameProblem(step.prompt);
+      if (problem) {
+        throw new Error(`${workflowId}: step "${step.id}" names prompt "${step.prompt}" \u2014 ${problem}`);
+      }
+    }
     for (const name of step.prompts) {
       const problem = promptNameProblem(name);
       if (problem) {
@@ -12044,6 +12060,9 @@ function validateGraph(workflowId, initialStep, steps) {
     throw new Error(`${workflowId}: no step is terminal, so the workflow can never finish`);
   }
   return order;
+}
+function normalisePromptName(name) {
+  return name.trim().replace(/^\/+/, "").replace(/^prompts\//, "");
 }
 function promptNameProblem(name) {
   const trimmed = name.trim();
@@ -12572,7 +12591,8 @@ var PromptComposer = class {
    * error. See spec Section 16.
    */
   async resolved(step, ctx) {
-    return this.resolve((0, import_node_path8.join)(ctx.workflowId, `${step.id}.md`));
+    const named = step.prompt !== void 0 ? normalisePromptName(step.prompt) : void 0;
+    return this.resolve(named ?? (0, import_node_path8.join)(ctx.workflowId, `${step.id}.md`));
   }
   /**
    * The artifact name is frontmatter rather than code, because which file a

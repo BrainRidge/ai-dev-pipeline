@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { join } from 'node:path'
-import { WorkflowCatalog } from '../../src/engine/WorkflowCatalog'
+import { access, readFile } from 'node:fs/promises'
+import { normalisePromptName, WorkflowCatalog } from '../../src/engine/WorkflowCatalog'
+import { workflowFileSchema } from '../../src/engine/schema'
 import { TaskTypeRegistry } from '../../src/tasks/TaskType'
 import { CollectRequirement } from '../../src/tasks/CollectRequirement'
 import { GitClone } from '../../src/tasks/GitClone'
@@ -196,5 +198,96 @@ describe('every primitive offers the actions it says complete it', () => {
     for (const primitive of primitives) {
       expect(primitive.transitions.length).toBeGreaterThan(0)
     }
+  })
+})
+
+/**
+ * Every aiHandoff step names its own template, so the mapping is visible in the
+ * workflow rather than inferred from the step id. Asserted against the real JSON
+ * and the real files, because "the right prompt for the right step" is the claim
+ * and nothing else checks it. See spec Section 6.
+ */
+describe('every handoff names the prompt it composes', () => {
+  const ROOT = join(__dirname, '../..')
+
+  const handoffs = async () => {
+    const catalog = await load()
+    return catalog
+      .all()
+      .flatMap((wf) => Object.values(wf.steps).map((step) => ({ wf: wf.id, step })))
+      .filter(({ step }) => step.stepType === 'aiHandoff')
+  }
+
+  it('declares one on every handoff in every bundled workflow', async () => {
+    const steps = await handoffs()
+    expect(steps.length).toBeGreaterThan(0)
+    for (const { wf, step } of steps) {
+      expect(step.prompt, `${wf}/${step.id}`).toBeDefined()
+    }
+  })
+
+  it('points each one at a file that is actually there', async () => {
+    for (const { wf, step } of await handoffs()) {
+      const path = join(ROOT, 'prompts', normalisePromptName(step.prompt!))
+      await expect(access(path), `${wf}/${step.id} -> ${step.prompt}`).resolves.toBeUndefined()
+    }
+  })
+
+  // The specific thing that was asked for: diagnosis composes diagnosis.md,
+  // CodeFix composes CodeFix.md. A step naming another step's prompt would be a
+  // silent wrong answer, since both files exist.
+  it('names the prompt belonging to that step, in that workflow', async () => {
+    for (const { wf, step } of await handoffs()) {
+      expect(normalisePromptName(step.prompt!), `${wf}/${step.id}`).toBe(`${wf}/${step.id}.md`)
+    }
+  })
+
+  it('composes from the declared file rather than the convention', async () => {
+    const catalog = await load()
+    const bugFix = catalog.get('bugFixWorkflow')
+    const body = await readFile(
+      join(ROOT, 'prompts', normalisePromptName(bugFix.steps.diagnosis!.prompt!)),
+      'utf8',
+    )
+    // diagnosis.md is the one that forbids fixing anything in that step.
+    expect(body).toMatch(/Do not fix anything in this step/)
+  })
+})
+
+/**
+ * `prompt` and `prompts` are one letter apart, and zod used to strip anything it
+ * did not recognise — so a misspelling was discarded in silence and the step fell
+ * back to the convention, producing the right prompt by luck with a dead line in
+ * the JSON. See spec Section 6.
+ */
+describe('a key nobody implements', () => {
+  const step = (over: Record<string, unknown>) => ({
+    schemaVersion: 1,
+    label: 'W',
+    initialStep: 'a',
+    steps: { a: { stepType: 'aiHandoff', taskType: 'invokeCopilot', documentation: 'x', ...over } },
+  })
+
+  it('is refused rather than ignored', () => {
+    expect(() => workflowFileSchema.parse(step({ promopt: '/prompts/w/a.md' }))).toThrow()
+  })
+
+  it('names the key it did not recognise', () => {
+    try {
+      workflowFileSchema.parse(step({ promopt: '/prompts/w/a.md' }))
+      expect.unreachable('should have thrown')
+    } catch (err) {
+      expect(JSON.stringify(err)).toContain('promopt')
+    }
+  })
+
+  it('still accepts the keys that are real', () => {
+    expect(() =>
+      workflowFileSchema.parse(step({ prompt: '/prompts/w/a.md', prompts: ['/skills/x.md'] })),
+    ).not.toThrow()
+  })
+
+  it('is refused at the top level of a workflow too', () => {
+    expect(() => workflowFileSchema.parse({ ...step({}), extraneous: true })).toThrow()
   })
 })

@@ -4,6 +4,7 @@ import { parse } from 'yaml'
 import type { StepDef } from '../engine/schema'
 import type { StepContext } from '../tasks/context'
 import { resolveText, unresolvedIn } from '../engine/placeholders'
+import { normalisePromptName } from '../engine/WorkflowCatalog'
 import type { ResolvedTemplate, TemplateResolver, TemplateSource } from '../content/ContentRoot'
 
 /** A file the prompt points Copilot at, rather than one it quotes. */
@@ -85,7 +86,13 @@ export class PromptComposer {
    * error. See spec Section 16.
    */
   async resolved(step: StepDef, ctx: StepContext): Promise<ResolvedTemplate> {
-    return this.resolve(join(ctx.workflowId, `${step.id}.md`))
+    // A step may name its template, and the bundled workflows now all do. The
+    // convention remains the default rather than the only way: a workflow that
+    // says nothing still resolves <workflowId>/<stepId>.md, so nothing had to be
+    // migrated and a new workflow can still be one JSON file and one markdown
+    // file. See spec Sections 6 and 8.
+    const named = step.prompt !== undefined ? normalisePromptName(step.prompt) : undefined
+    return this.resolve(named ?? join(ctx.workflowId, `${step.id}.md`))
   }
 
   /**

@@ -40,6 +40,57 @@ is in. When two versions of the same id are present the catalogue keeps the high
 }
 ```
 
+## A handoff names the prompt it composes
+
+```json
+"diagnosis": {
+  "stepType": "aiHandoff",
+  "taskType": "invokeCopilot",
+  "prompt": "/prompts/bugFixWorkflow/diagnosis.md",
+  "documentation": "Copilot reads the code and finds the cause of the defect …",
+  "nextStep": "reviewDiagnosis"
+}
+```
+
+Every bundled handoff declares one. It is **optional**, and a step that declares
+none still resolves `<workflowId>/<stepId>.md` exactly as before — so nothing had
+to be migrated, and a new workflow is still one JSON file and one markdown file
+with no TypeScript. What declaring it buys is that the mapping is *visible in the
+workflow* rather than inferred from a step id, and therefore reviewable in the
+pull request that changes it, which is where a workflow is supposed to be read.
+
+It also allows deviation, which the convention could not: two steps sharing a
+prompt, or a step whose id and template genuinely differ.
+
+**All three of these name the same file**, because a workflow author writes the
+path they can see in the repository and the resolver wants one relative to the
+prompts root:
+
+```
+/prompts/bugFixWorkflow/diagnosis.md
+/bugFixWorkflow/diagnosis.md
+bugFixWorkflow/diagnosis.md
+```
+
+Treating the first as a name *inside* the prompts folder would look for
+`prompts/prompts/bugFixWorkflow/…` and fail with a message about a file nobody
+wrote, so a leading `prompts/` is stripped. The name is checked when the
+catalogue loads — markdown, no `..`, no absolute path — so a typo fails on a tool
+developer's machine rather than three steps into a task.
+
+### Note the singular, and why this schema is strict
+
+`prompt` is this step's own functional template. `prompts` is the list of
+personas composed *ahead* of it. One letter apart, and zod strips unknown keys by
+default — so `"promopt"` used to be discarded without a word, the step fell back
+to the convention, and the JSON carried a dead line that read as though it were
+doing something. Producing the right answer by luck is worse than failing,
+because nobody goes looking.
+
+`workflowStepSchema` and `workflowFileSchema` are therefore **strict**: a key
+nothing implements is a load error naming the key. That protects every future
+addition to this format, not just this one.
+
 ## A step can be given more than one prompt
 
 An `aiHandoff` step may list prompt files, and they are composed ahead of its own

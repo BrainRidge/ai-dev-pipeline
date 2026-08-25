@@ -638,3 +638,66 @@ describe('prompts declared by the workflow', () => {
     expect(includes).toHaveLength(1)
   })
 })
+
+/**
+ * A step may name its template instead of relying on `<workflowId>/<stepId>.md`.
+ * The convention stays as the default, so nothing had to be migrated and a new
+ * workflow is still one JSON file and one markdown file. See spec Section 6.
+ */
+describe('a step that names its own prompt', () => {
+  async function tree(files: Record<string, string>): Promise<PromptComposer> {
+    const dir = await mkdtemp(join(tmpdir(), 'named-'))
+    for (const [rel, body] of Object.entries(files)) {
+      const path = join(dir, rel)
+      await mkdir(join(path, '..'), { recursive: true })
+      await writeFile(path, body)
+    }
+    return new PromptComposer(bundledResolver(dir))
+  }
+
+  const FILES = {
+    'researchTaskWorkflow/aiHandoff.md': 'BY CONVENTION',
+    'bugFixWorkflow/diagnosis.md': 'THE NAMED ONE',
+  }
+
+  const named = (prompt?: string) =>
+    step('aiHandoff', { stepType: 'aiHandoff', taskType: 'invokeCopilot', prompt })
+
+  it('composes the file it names, not the one its id implies', async () => {
+    const c = await tree(FILES)
+    const { prompt } = await c.compose(named('/prompts/bugFixWorkflow/diagnosis.md'), ctx, repos)
+    expect(prompt).toContain('THE NAMED ONE')
+    expect(prompt).not.toContain('BY CONVENTION')
+  })
+
+  it('falls back to the convention when it names none', async () => {
+    const c = await tree(FILES)
+    expect((await c.compose(named(), ctx, repos)).prompt).toContain('BY CONVENTION')
+  })
+
+  // All three forms name the same file: the one a workflow author sees in the
+  // repository, and the two that are relative to the prompts root.
+  it('reads a path with or without the prompts prefix', async () => {
+    const c = await tree(FILES)
+    const forms = [
+      '/prompts/bugFixWorkflow/diagnosis.md',
+      '/bugFixWorkflow/diagnosis.md',
+      'bugFixWorkflow/diagnosis.md',
+    ]
+    const composed = await Promise.all(forms.map((f) => c.compose(named(f), ctx, repos)))
+    expect(new Set(composed.map((r) => r.prompt)).size).toBe(1)
+  })
+
+  it('reports the file it actually used, for the caption and the log', async () => {
+    const c = await tree(FILES)
+    const { templatePath } = await c.compose(named('/prompts/bugFixWorkflow/diagnosis.md'), ctx, repos)
+    expect(templatePath).toContain('bugFixWorkflow/diagnosis.md')
+  })
+
+  it('fails on the step that names a file which is not there', async () => {
+    const c = await tree(FILES)
+    await expect(c.compose(named('/prompts/bugFixWorkflow/gone.md'), ctx, repos)).rejects.toThrow(
+      /gone\.md/,
+    )
+  })
+})

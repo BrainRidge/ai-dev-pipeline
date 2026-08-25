@@ -41,11 +41,17 @@ author never names them twice.
 ## Prompt template format
 
 Plain markdown with `{{namespace.field}}` placeholders, stored in `prompts/` in the extension
-repository and **found by convention** at `prompts/<workflowId>/<stepId>.md` — under the
-team's content folder if they have supplied that template, otherwise under the extension's own
-`prompts/` directory ([Section 16](16-external-content.md)). Nothing in the workflow JSON names
-a template. This is why adding a workflow needs a JSON file and some markdown but no
-TypeScript.
+repository. A step may **name** its template, and every bundled handoff now does
+([Section 6](06-workflow-schema.md)); a step that names none is **found by convention** at
+`prompts/<workflowId>/<stepId>.md`. Either way the file is looked for under the team's content
+folder first and falls back to the extension's own `prompts/` directory, per file
+([Section 16](16-external-content.md)).
+
+The convention used to be the only way, on the grounds that nothing in the workflow JSON should
+name a template. What that bought was brevity; what it cost was that the mapping from step to
+prompt existed only in the resolver, so a reviewer reading a workflow could not see which
+prompt a step would send. Naming it needs no TypeScript either, so the claim that matters —
+adding a workflow is JSON and markdown — is untouched.
 
 An optional YAML frontmatter block declares the artifact the model is contracted to write,
 and the other markdown files the prompt leans on:

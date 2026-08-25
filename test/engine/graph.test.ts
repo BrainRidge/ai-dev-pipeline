@@ -128,3 +128,36 @@ describe('prompt names in a workflow', () => {
     )
   })
 })
+
+describe('the prompt a step names', () => {
+  const withPrompt = (prompt: string): Record<string, StepDef> => ({
+    a: {
+      id: 'a',
+      stepType: 'aiHandoff',
+      taskType: 'invokeCopilot',
+      documentation: '',
+      prompt,
+      prompts: [],
+    },
+  })
+
+  it('accepts the path a workflow author writes', () => {
+    expect(() =>
+      validateGraph('wf', 'a', withPrompt('/prompts/bugFixWorkflow/diagnosis.md')),
+    ).not.toThrow()
+  })
+
+  it('refuses one that is not markdown', () => {
+    expect(() => validateGraph('wf', 'a', withPrompt('/prompts/w/a.txt'))).toThrow(/\.md/)
+  })
+
+  it('refuses one that climbs out of the prompts folder', () => {
+    expect(() => validateGraph('wf', 'a', withPrompt('../../secrets.md'))).toThrow(/climbs out/)
+  })
+
+  it('names the workflow and step, so the error says where to look', () => {
+    expect(() => validateGraph('myWorkflow', 'a', withPrompt('/bad.txt'))).toThrow(
+      /myWorkflow: step "a" names prompt "\/bad\.txt"/,
+    )
+  })
+})

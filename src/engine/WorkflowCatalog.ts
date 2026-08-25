@@ -242,6 +242,13 @@ export function validateGraph(
   }
 
   for (const step of Object.values(steps)) {
+    if (step.prompt !== undefined) {
+      const problem = promptNameProblem(step.prompt)
+      if (problem) {
+        throw new Error(`${workflowId}: step "${step.id}" names prompt "${step.prompt}" — ${problem}`)
+      }
+    }
+
     for (const name of step.prompts) {
       const problem = promptNameProblem(name)
       if (problem) {
@@ -266,6 +273,23 @@ export function validateGraph(
  * into somebody's task. Existence cannot be checked here — the file may live in
  * a team's content folder, which the catalogue knows nothing about.
  */
+/**
+ * A prompt name as the resolver wants it: relative to the prompts root.
+ *
+ * Leading slashes go, and so does a leading `prompts/` segment — because that is
+ * how a workflow author writes the path they see in the repository, and treating
+ * `/prompts/bugFixWorkflow/diagnosis.md` as a name *inside* the prompts folder
+ * would look for `prompts/prompts/bugFixWorkflow/...` and fail with a confusing
+ * message. All three of these mean the same file:
+ *
+ *     /prompts/bugFixWorkflow/diagnosis.md
+ *     /bugFixWorkflow/diagnosis.md
+ *     bugFixWorkflow/diagnosis.md
+ */
+export function normalisePromptName(name: string): string {
+  return name.trim().replace(/^\/+/, '').replace(/^prompts\//, '')
+}
+
 export function promptNameProblem(name: string): string | undefined {
   const trimmed = name.trim()
   if (trimmed === '' || trimmed === '/') return 'it names no file'

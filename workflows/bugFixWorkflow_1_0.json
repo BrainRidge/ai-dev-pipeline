@@ -25,6 +25,7 @@
     "diagnosis": {
       "stepType": "aiHandoff",
       "taskType": "invokeCopilot",
+      "prompt": "/prompts/bugFixWorkflow/diagnosis.md",
       "documentation": "Copilot reads the code and finds the cause of the defect. It is told not to fix anything in this step — a fix written before the cause is understood usually moves the symptom rather than removing it. Mark this step done once the root-cause file has been written.",
       "nextStep": "reviewDiagnosis"
     },
@@ -37,12 +38,14 @@
     "CodeFix": {
       "stepType": "aiHandoff",
       "taskType": "invokeCopilotCoding",
+      "prompt": "/prompts/bugFixWorkflow/CodeFix.md",
       "documentation": "Copilot makes the smallest change that removes the cause you approved, and adds a regression test that fails without the fix. This step produces edits rather than a document, so nothing is watched for on disk: it completes when you say it does. Read the diff and run the new test first.",
       "nextStep": "CodeReview"
     },
     "CodeReview": {
       "stepType": "aiHandoff",
       "taskType": "invokeCopilotCodeReview",
+      "prompt": "/prompts/bugFixWorkflow/CodeReview.md",
       "documentation": "Copilot reviews its own fix against the diagnosis: does the change remove the cause rather than mask the symptom, and does the new test actually fail without it. Nothing here is pushed, so the last judgement is still yours."
     }
   }

@@ -143,6 +143,11 @@ Additionally:
     ([Section 9](09-renderer-contract.md)). A `manual` step opens its artifact beside the
     panel, once, without taking focus.
 
+36. Every `aiHandoff` step **names the prompt it composes**, so the mapping is visible in the
+    workflow rather than inferred from the step id — and a step that names none still resolves
+    by convention. A key the schema does not implement, such as `promopt` for `prompt`, is a
+    load error naming it rather than silence ([Section 6](06-workflow-schema.md)).
+
 ## Status
 
 All of the above are implemented, and each is covered by tests.
@@ -158,7 +163,7 @@ prompt templates and the service catalogue, which a team owns
 ([Section 16](16-external-content.md)). What it still guarantees is the part the tool was
 built for: every developer on a team passes through the same steps in the same order.
 
-Criteria 14–35 are implemented and covered by tests. Criteria 22–24 each close a failure that
+Criteria 14–36 are implemented and covered by tests. Criteria 22–24 each close a failure that
 was found by reading the code rather than by anything failing: a promise in the workflow
 documentation that nothing kept, a typo class that rendered as blank, and an engine that
 treated an unrecognised button as a submission. Criterion 21 is demonstrated on real
