@@ -99,7 +99,8 @@ Add `-- patch` or `-- minor` to bump the version at the same time. See
       read the second half of the report.
       *Expected:* `codebase-analyst` and `evidence-first` listed as installed,
       and `~/.copilot/skills/<name>/SKILL.md` on disk with `name:` and
-      `description:` frontmatter. Open Copilot Chat and confirm the skills are
+      `description:` frontmatter — the same shape as `prompts/skills/<name>/SKILL.md`
+      in the repository. Open Copilot Chat and confirm the skills are
       offered there — this is the whole point of the step.
 
 - [ ] **1a4. A skill you edited is not reverted.** Change a line in

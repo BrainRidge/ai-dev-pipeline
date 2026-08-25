@@ -35,16 +35,14 @@ export interface SkillFinding {
   path?: string
 }
 
+/** The file a skill folder must contain. VS Code's name, not ours. */
+export const SKILL_FILE = 'SKILL.md'
+
 /**
  * A skill name has to be lowercase letters, numbers and hyphens — VS Code's
- * rule, not ours. Derived from the filename rather than declared, which is the
- * same convention prompt templates already follow: one source of truth, and
- * renaming the file renames the skill.
+ * rule, not ours. It is the folder's name rather than anything declared inside
+ * it: one source of truth, and renaming the folder renames the skill.
  */
-export function skillNameOf(filename: string): string {
-  return filename.replace(/\.md$/i, '')
-}
-
 export function nameProblem(name: string): string | undefined {
   if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(name)) {
     return `"${name}" cannot be a skill name. VS Code allows lowercase letters, numbers and ` +
@@ -189,12 +187,17 @@ function describeSource(skill: SkillSource): string {
   return skill.source === 'external' ? "from your team's prompts folder" : 'from the bundled skills'
 }
 
-/** A skill file as read off disk, before it is known to be usable. */
+/** A skill folder as read off disk, before it is known to be usable. */
 export interface SkillFile {
+  /** The folder's name. */
   name: string
+  /** Where its SKILL.md is, or would be. */
   path: string
   source: TemplateSource
-  raw: string
+  /** Absent when the folder holds no readable SKILL.md. */
+  raw?: string
+  /** Why the folder could not be read as a skill at all. */
+  problem?: string
 }
 
 export interface SkillPlan {
@@ -223,6 +226,15 @@ export function planSkills(
     const badName = nameProblem(file.name)
     if (badName) {
       plan.findings.push({ name: file.name, status: 'unusable', detail: badName })
+      continue
+    }
+
+    if (file.raw === undefined) {
+      plan.findings.push({
+        name: file.name,
+        status: 'unusable',
+        detail: file.problem ?? `${file.path} is not there.`,
+      })
       continue
     }
 

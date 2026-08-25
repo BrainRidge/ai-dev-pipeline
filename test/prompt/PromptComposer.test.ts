@@ -539,14 +539,14 @@ describe('prompts declared by the workflow', () => {
 
   const FILES = {
     'researchTaskWorkflow/aiHandoff.md': 'FUNCTIONAL, from the answers.',
-    'skills/java-expert.md': 'PERSONA: you are a Java engineer.',
-    'skills/security.md': 'SKILL: think about security.',
+    'skills/java-expert/SKILL.md': 'PERSONA: you are a Java engineer.',
+    'skills/security/SKILL.md': 'SKILL: think about security.',
   }
 
   it('composes them, in the order the workflow lists them', async () => {
     const c = await tree(FILES)
     const { prompt } = await c.compose(
-      withPrompts('/skills/java-expert.md', '/skills/security.md'),
+      withPrompts('/skills/java-expert/SKILL.md', '/skills/security/SKILL.md'),
       ctx,
       repos,
     )
@@ -557,13 +557,13 @@ describe('prompts declared by the workflow', () => {
   // task it applies to is a different prompt.
   it('puts them before the step’s own functional prompt', async () => {
     const c = await tree(FILES)
-    const { prompt } = await c.compose(withPrompts('/skills/java-expert.md'), ctx, repos)
+    const { prompt } = await c.compose(withPrompts('/skills/java-expert/SKILL.md'), ctx, repos)
     expect(prompt.indexOf('PERSONA')).toBeLessThan(prompt.indexOf('FUNCTIONAL'))
   })
 
   it('keeps the generated parts last, as always', async () => {
     const c = await tree(FILES)
-    const { prompt } = await c.compose(withPrompts('/skills/java-expert.md'), ctx, repos)
+    const { prompt } = await c.compose(withPrompts('/skills/java-expert/SKILL.md'), ctx, repos)
     expect(prompt.indexOf('## Repositories in scope')).toBeGreaterThan(prompt.indexOf('FUNCTIONAL'))
   })
 
@@ -571,30 +571,30 @@ describe('prompts declared by the workflow', () => {
   // workflow author writes one. Both forms mean the same file.
   it('accepts a name with or without a leading slash', async () => {
     const c = await tree(FILES)
-    const withSlash = await c.compose(withPrompts('/skills/java-expert.md'), ctx, repos)
-    const without = await c.compose(withPrompts('skills/java-expert.md'), ctx, repos)
+    const withSlash = await c.compose(withPrompts('/skills/java-expert/SKILL.md'), ctx, repos)
+    const without = await c.compose(withPrompts('skills/java-expert/SKILL.md'), ctx, repos)
     expect(withSlash.prompt).toBe(without.prompt)
   })
 
   it('resolves placeholders inside a declared prompt', async () => {
     const c = await tree({
       ...FILES,
-      'skills/java-expert.md': 'Working on {{task.platform}} for {{requirement.story}}.',
+      'skills/java-expert/SKILL.md': 'Working on {{task.platform}} for {{requirement.story}}.',
     })
-    const { prompt } = await c.compose(withPrompts('/skills/java-expert.md'), ctx, repos)
+    const { prompt } = await c.compose(withPrompts('/skills/java-expert/SKILL.md'), ctx, repos)
     expect(prompt).toContain('Working on canada-assisted for PLAT-1 body.')
   })
 
   it('records each one and whose it was, for the caption and the log', async () => {
     const c = await tree(FILES)
     const { prompts } = await c.compose(
-      withPrompts('/skills/java-expert.md', '/skills/security.md'),
+      withPrompts('/skills/java-expert/SKILL.md', '/skills/security/SKILL.md'),
       ctx,
       repos,
     )
     expect(prompts.map((p) => p.source)).toEqual(['bundled', 'bundled'])
-    expect(prompts[0]!.path).toContain('skills/java-expert.md')
-    expect(prompts[1]!.path).toContain('skills/security.md')
+    expect(prompts[0]!.path).toContain('skills/java-expert/SKILL.md')
+    expect(prompts[1]!.path).toContain('skills/security/SKILL.md')
   })
 
   it('composes nothing extra when the step declares none', async () => {
@@ -607,14 +607,14 @@ describe('prompts declared by the workflow', () => {
   // Fatal, like a missing include: the text is part of what is being asked.
   it('fails when a declared prompt is not there, naming it', async () => {
     const c = await tree(FILES)
-    await expect(c.compose(withPrompts('/skills/nope.md'), ctx, repos)).rejects.toThrow(
-      /is given the prompt "\/skills\/nope\.md", which was not found at/,
+    await expect(c.compose(withPrompts('/skills/nope/SKILL.md'), ctx, repos)).rejects.toThrow(
+      /is given the prompt "\/skills\/nope\/SKILL\.md", which was not found at/,
     )
   })
 
   it('refuses a declared prompt that declares an output of its own', async () => {
-    const c = await tree({ ...FILES, 'skills/bad.md': `---\noutput: other.md\n---\nX` })
-    await expect(c.compose(withPrompts('/skills/bad.md'), ctx, repos)).rejects.toThrow(
+    const c = await tree({ ...FILES, 'skills/bad/SKILL.md': `---\noutput: other.md\n---\nX` })
+    await expect(c.compose(withPrompts('/skills/bad/SKILL.md'), ctx, repos)).rejects.toThrow(
       /declares "output:"/,
     )
   })
@@ -628,7 +628,7 @@ describe('prompts declared by the workflow', () => {
       '_shared/rules.md': 'RULES at the end.',
     })
     const { prompt, prompts, includes } = await c.compose(
-      withPrompts('/skills/java-expert.md'),
+      withPrompts('/skills/java-expert/SKILL.md'),
       ctx,
       repos,
     )

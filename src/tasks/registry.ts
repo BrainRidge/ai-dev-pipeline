@@ -11,7 +11,7 @@ import { PromptComposer } from '../prompt/PromptComposer'
 import { DEFAULT_TOOLS, loadTools, type ResolvedTools } from '../engine/ToolCatalog'
 import {
   planSkills,
-  skillNameOf,
+  SKILL_FILE,
   supportsSkills,
   USER_SKILLS_DIR,
   type SkillFile,
@@ -108,19 +108,48 @@ async function readSkillFiles(dirs: {
     ['external', dirs.external],
   ] as const) {
     if (!dir) continue
-    const names = await readdir(dir).catch(() => [] as string[])
-    for (const filename of names.filter((n) => n.toLowerCase().endsWith('.md'))) {
-      const path = join(dir, filename)
-      found.set(skillNameOf(filename), {
-        name: skillNameOf(filename),
-        path,
-        source,
-        raw: await readFile(path, 'utf8'),
-      })
+    const entries = await readdir(dir, { withFileTypes: true }).catch(() => [])
+
+    for (const entry of entries.filter((e) => e.isDirectory())) {
+      found.set(entry.name, await readSkillFolder(join(dir, entry.name), entry.name, source))
     }
   }
 
   return [...found.values()].sort((a, b) => a.name.localeCompare(b.name))
+}
+
+/**
+ * One skill folder, and what is wrong with it if anything.
+ *
+ * The casing of `SKILL.md` is checked against a directory listing rather than by
+ * trying to open it, because on macOS — and on Windows — opening `SKILL.md`
+ * succeeds when the file on disk is `skill.md`. A team would then have working
+ * skills on their laptops and none on a case-sensitive volume, and nothing would
+ * say so. It is the same guard prompt templates already have, for the same
+ * reason. See spec Sections 16 and 18.
+ */
+async function readSkillFolder(
+  dir: string,
+  name: string,
+  source: 'bundled' | 'external',
+): Promise<SkillFile> {
+  const path = join(dir, SKILL_FILE)
+  const names = await readdir(dir).catch(() => [] as string[])
+
+  if (!names.includes(SKILL_FILE)) {
+    const variant = names.find((n) => n.toLowerCase() === SKILL_FILE.toLowerCase())
+    return {
+      name,
+      path,
+      source,
+      problem: variant
+        ? `${dir} holds "${variant}", and a skill's instructions have to be in "${SKILL_FILE}". ` +
+          `The difference is invisible on this machine and fatal on a case-sensitive one.`
+        : `${dir} holds no ${SKILL_FILE}, so there is nothing to install from it.`,
+    }
+  }
+
+  return { name, path, source, raw: await readFile(path, 'utf8') }
 }
 
 /**

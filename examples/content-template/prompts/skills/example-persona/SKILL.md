@@ -7,7 +7,7 @@ A workflow step opts into it by name:
     "aiHandoff": {
       "stepType": "aiHandoff",
       "taskType": "invokeCopilot",
-      "prompts": ["/skills/example-persona.md"],
+      "prompts": ["/skills/example-persona/SKILL.md"],
       "documentation": "…"
     }
 

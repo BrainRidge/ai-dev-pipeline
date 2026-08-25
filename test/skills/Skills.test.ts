@@ -7,24 +7,19 @@ import {
   planSkills,
   skillDocument,
   skillLines,
-  skillNameOf,
   supportsSkills,
   type SkillFile,
 } from '../../src/skills/Skills'
 
 const file = (over: Partial<SkillFile> = {}): SkillFile => ({
   name: 'codebase-analyst',
-  path: '/ext/prompts/skills/codebase-analyst.md',
+  path: '/ext/prompts/skills/codebase-analyst/SKILL.md',
   source: 'bundled',
   raw: '---\ndescription: Reading code. Use when investigating behaviour.\n---\nBODY',
   ...over,
 })
 
 describe('naming a skill', () => {
-  it('takes the name from the filename, as prompt templates do', () => {
-    expect(skillNameOf('codebase-analyst.md')).toBe('codebase-analyst')
-  })
-
   it('accepts lowercase letters, numbers and hyphens', () => {
     for (const name of ['git', 'code-review-2', 'a']) expect(nameProblem(name)).toBeUndefined()
   })
@@ -44,7 +39,7 @@ describe('naming a skill', () => {
  */
 describe('the description a skill must declare', () => {
   it('reads it from frontmatter', () => {
-    expect(descriptionOf(file().raw)).toEqual({
+    expect(descriptionOf(file().raw!)).toEqual({
       description: 'Reading code. Use when investigating behaviour.',
     })
   })
@@ -65,7 +60,7 @@ describe('the description a skill must declare', () => {
   })
 
   it('strips the frontmatter from the body, so it is not instructed twice', () => {
-    expect(bodyOf(file().raw)).toBe('BODY')
+    expect(bodyOf(file().raw!)).toBe('BODY')
   })
 })
 
@@ -188,7 +183,7 @@ describe('planning a whole folder of skills', () => {
 
   it('names the file in an unusable finding, so it can be found and fixed', () => {
     const plan = planSkills([file({ raw: 'no frontmatter' })], {}, {})
-    expect(plan.findings[0]!.detail).toContain('/ext/prompts/skills/codebase-analyst.md')
+    expect(plan.findings[0]!.detail).toContain('/ext/prompts/skills/codebase-analyst/SKILL.md')
   })
 })
 
@@ -231,5 +226,41 @@ describe('the skills half of the report', () => {
 
     expect(text).toContain('mine — edited since installed')
     expect(text).not.toContain('should not appear')
+  })
+})
+
+/**
+ * A skill is a folder now, so it can be wrong in ways a file could not: empty,
+ * or holding its instructions under a name VS Code will not read. Neither may
+ * throw, and neither may be silent. See spec Section 18.
+ */
+describe('a folder that is not a skill', () => {
+  it('reports one holding no SKILL.md', () => {
+    const plan = planSkills(
+      [{ name: 'empty', path: '/p/skills/empty/SKILL.md', source: 'bundled', problem: '/p/skills/empty holds no SKILL.md, so there is nothing to install from it.' }],
+      {},
+      {},
+    )
+    expect(plan.findings[0]!.status).toBe('unusable')
+    expect(plan.findings[0]!.detail).toMatch(/holds no SKILL\.md/)
+    expect(plan.writes).toEqual({})
+  })
+
+  it('reports a case-mismatched SKILL.md as the trap it is', () => {
+    const plan = planSkills(
+      [{ name: 'lower', path: '/p/skills/lower/SKILL.md', source: 'bundled', problem: '/p/skills/lower holds "skill.md", and a skill\'s instructions have to be in "SKILL.md". The difference is invisible on this machine and fatal on a case-sensitive one.' }],
+      {},
+      {},
+    )
+    expect(plan.findings[0]!.detail).toMatch(/invisible on this machine and fatal on a case-sensitive one/)
+  })
+
+  it('installs the good ones alongside', () => {
+    const plan = planSkills(
+      [{ name: 'broken', path: '/p/skills/broken/SKILL.md', source: 'bundled', problem: 'no SKILL.md' }, file()],
+      {},
+      {},
+    )
+    expect(Object.keys(plan.writes)).toEqual(['codebase-analyst'])
   })
 })

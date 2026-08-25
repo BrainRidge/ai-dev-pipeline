@@ -100,7 +100,7 @@ template:
 "aiHandoff": {
   "stepType": "aiHandoff",
   "taskType": "invokeCopilot",
-  "prompts": ["/skills/java-expert.md", "/skills/security.md"],
+  "prompts": ["/skills/java-expert/SKILL.md", "/skills/security/SKILL.md"],
   "documentation": "Sends the composed prompt to Copilot …"
 }
 ```
@@ -117,7 +117,7 @@ prompt. The files are composed in the order the workflow gives them, so the
 broadest goes first.
 
 **Names are relative to the prompts root, with or without a leading slash.**
-`/skills/java-expert.md` and `skills/java-expert.md` mean the same file, and the
+`/skills/java-expert/SKILL.md` and `skills/java-expert/SKILL.md` mean the same file, and the
 leading form is allowed because it is how a workflow author naturally writes a
 path from the top of a folder. It is never a filesystem path: a rooted name is
 confined to the prompts folder, so `/etc/passwd` looks for
@@ -215,7 +215,7 @@ the steps that compose a prompt.
 **Research Task uses it**, and is the worked example:
 
 ```json
-"prompts": ["/skills/codebase-analyst.md", "/skills/evidence-first.md"]
+"prompts": ["/skills/codebase-analyst/SKILL.md", "/skills/evidence-first/SKILL.md"]
 ```
 
 Those two ship under `prompts/skills/`. They were written to carry what is general and

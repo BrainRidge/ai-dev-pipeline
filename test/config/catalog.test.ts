@@ -283,7 +283,7 @@ describe('a key nobody implements', () => {
 
   it('still accepts the keys that are real', () => {
     expect(() =>
-      workflowFileSchema.parse(step({ prompt: '/prompts/w/a.md', prompts: ['/skills/x.md'] })),
+      workflowFileSchema.parse(step({ prompt: '/prompts/w/a.md', prompts: ['/skills/x/SKILL.md'] })),
     ).not.toThrow()
   })
 

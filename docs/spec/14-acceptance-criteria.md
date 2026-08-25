@@ -116,7 +116,7 @@ Additionally:
     check that Section 8 recorded as unimplemented.
 
 31. A **tool developer** can give an `aiHandoff` step several prompts from the workflow JSON —
-    `"prompts": ["/skills/java-expert.md", …]` — composed in order ahead of the step's own
+    `"prompts": ["/skills/java-expert/SKILL.md", …]` — composed in order ahead of the step's own
     template, with each one's path and origin shown in the panel caption and recorded in the
     audit log. A misnamed one fails when the catalogue loads; a missing one fails on the step
     that declares it ([Section 6](06-workflow-schema.md)).

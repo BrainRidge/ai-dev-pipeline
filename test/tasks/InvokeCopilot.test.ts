@@ -256,8 +256,8 @@ describe('the developer can see which template composed the prompt', () => {
           templatePath: '/team/prompts/w/s.md',
           templateSource: 'external' as const,
           prompts: [
-            { path: '/team/prompts/skills/java-expert.md', source: 'external' as const },
-            { path: '/ext/prompts/skills/security.md', source: 'bundled' as const },
+            { path: '/team/prompts/skills/java-expert/SKILL.md', source: 'external' as const },
+            { path: '/ext/prompts/skills/security/SKILL.md', source: 'bundled' as const },
           ],
           includes: [],
           references: [],
@@ -272,8 +272,8 @@ describe('the developer can see which template composed the prompt', () => {
 
     const note = view.commands![0]!.note!
     expect(note.split('\n')[0]).toBe(
-      'Prompts: 1. /team/prompts/skills/java-expert.md (external)  ' +
-        '2. /ext/prompts/skills/security.md (bundled default)',
+      'Prompts: 1. /team/prompts/skills/java-expert/SKILL.md (external)  ' +
+        '2. /ext/prompts/skills/security/SKILL.md (bundled default)',
     )
     // The step's own template follows, since that is the composition order.
     expect(note.split('\n')[1]).toContain('Template: /team/prompts/w/s.md')

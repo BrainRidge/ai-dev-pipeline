@@ -338,7 +338,7 @@ function stringList(value: unknown, path: string, key: string): string[] {
 /**
  * A name under the prompts root.
  *
- * A leading slash is allowed and stripped: `/skills/java-expert.md` reads as a
+ * A leading slash is allowed and stripped: `/skills/java-expert/SKILL.md` reads as a
  * path from the top of the prompts folder, which is how a workflow author
  * naturally writes one, and it is never a filesystem path. What is refused is a
  * genuinely absolute path — `C:\…`, a UNC share — and any `..`, so that every
@@ -352,7 +352,7 @@ function promptsRelative(name: string, declaredIn: string, key: string): string 
   if (trimmed === '' || windowsAbsolute || isAbsolute(trimmed) || trimmed.split(/[\\/]/).includes('..')) {
     throw new Error(
       `"${declaredIn}" names "${name}" under "${key}". Use a path inside the prompts ` +
-        `folder, such as "/skills/java-expert.md".`,
+        `folder, such as "/skills/java-expert/SKILL.md".`,
     )
   }
   return trimmed

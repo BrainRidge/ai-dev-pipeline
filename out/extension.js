@@ -12072,7 +12072,7 @@ function promptNameProblem(name) {
     return "it climbs out of the prompts folder, which is not allowed";
   }
   if (/^[A-Za-z]:/.test(trimmed) || trimmed.startsWith("\\\\")) {
-    return 'it is an absolute path. Name it relative to the prompts folder, such as "/skills/java-expert.md"';
+    return 'it is an absolute path. Name it relative to the prompts folder, such as "/skills/java-expert/SKILL.md"';
   }
   return void 0;
 }
@@ -12765,7 +12765,7 @@ function promptsRelative(name, declaredIn, key) {
   const windowsAbsolute = /^[A-Za-z]:/.test(trimmed) || name.trim().startsWith("\\\\");
   if (trimmed === "" || windowsAbsolute || (0, import_node_path8.isAbsolute)(trimmed) || trimmed.split(/[\\/]/).includes("..")) {
     throw new Error(
-      `"${declaredIn}" names "${name}" under "${key}". Use a path inside the prompts folder, such as "/skills/java-expert.md".`
+      `"${declaredIn}" names "${name}" under "${key}". Use a path inside the prompts folder, such as "/skills/java-expert/SKILL.md".`
     );
   }
   return trimmed;
@@ -12891,9 +12891,7 @@ function meetsMinimum(found, min) {
 var import_yaml2 = __toESM(require_dist());
 var USER_SKILLS_DIR = ".copilot/skills";
 var MINIMUM_VSCODE = "1.108";
-function skillNameOf(filename) {
-  return filename.replace(/\.md$/i, "");
-}
+var SKILL_FILE = "SKILL.md";
 function nameProblem(name) {
   if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(name)) {
     return `"${name}" cannot be a skill name. VS Code allows lowercase letters, numbers and hyphens, so rename the file to something like "codebase-analyst.md".`;
@@ -12985,6 +12983,14 @@ function planSkills(files, onDisk, lastWritten) {
     const badName = nameProblem(file.name);
     if (badName) {
       plan.findings.push({ name: file.name, status: "unusable", detail: badName });
+      continue;
+    }
+    if (file.raw === void 0) {
+      plan.findings.push({
+        name: file.name,
+        status: "unusable",
+        detail: file.problem ?? `${file.path} is not there.`
+      });
       continue;
     }
     const described = descriptionOf(file.raw);
@@ -13943,18 +13949,26 @@ async function readSkillFiles(dirs) {
     ["external", dirs.external]
   ]) {
     if (!dir) continue;
-    const names = await (0, import_promises8.readdir)(dir).catch(() => []);
-    for (const filename of names.filter((n) => n.toLowerCase().endsWith(".md"))) {
-      const path = (0, import_node_path12.join)(dir, filename);
-      found.set(skillNameOf(filename), {
-        name: skillNameOf(filename),
-        path,
-        source,
-        raw: await (0, import_promises8.readFile)(path, "utf8")
-      });
+    const entries = await (0, import_promises8.readdir)(dir, { withFileTypes: true }).catch(() => []);
+    for (const entry of entries.filter((e) => e.isDirectory())) {
+      found.set(entry.name, await readSkillFolder((0, import_node_path12.join)(dir, entry.name), entry.name, source));
     }
   }
   return [...found.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
+async function readSkillFolder(dir, name, source) {
+  const path = (0, import_node_path12.join)(dir, SKILL_FILE);
+  const names = await (0, import_promises8.readdir)(dir).catch(() => []);
+  if (!names.includes(SKILL_FILE)) {
+    const variant = names.find((n) => n.toLowerCase() === SKILL_FILE.toLowerCase());
+    return {
+      name,
+      path,
+      source,
+      problem: variant ? `${dir} holds "${variant}", and a skill's instructions have to be in "${SKILL_FILE}". The difference is invisible on this machine and fatal on a case-sensitive one.` : `${dir} holds no ${SKILL_FILE}, so there is nothing to install from it.`
+    };
+  }
+  return { name, path, source, raw: await (0, import_promises8.readFile)(path, "utf8") };
 }
 function skillInstaller(opts) {
   return {

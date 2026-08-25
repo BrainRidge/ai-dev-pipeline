@@ -67,7 +67,7 @@ ai-dev-workflow/
 ├── prompts/
 │   ├── <workflowId>/<stepId>.md   the per-file fallback; still bundled
 │   ├── _shared/*.md               files a template pulls in with include:
-│   └── skills/*.md                personas a workflow step names in `prompts`
+│   └── skills/<name>/SKILL.md     personas a workflow step names in `prompts`
 ├── examples/content-template/    what a team copies; config/ lives here now
 ├── .github/workflows/verify.yml  the gate on every pull request
 ├── release.mjs                   verify, bump, build, check, package, manifest

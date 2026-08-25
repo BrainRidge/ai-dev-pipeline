@@ -89,11 +89,11 @@ describe('prompt names in a workflow', () => {
   })
 
   it('accepts a rooted markdown name, which is how one is written', () => {
-    expect(() => validateGraph('wf', 'a', withPrompts(['/skills/java-expert.md']))).not.toThrow()
+    expect(() => validateGraph('wf', 'a', withPrompts(['/skills/java-expert/SKILL.md']))).not.toThrow()
   })
 
   it('accepts one without the leading slash too', () => {
-    expect(() => validateGraph('wf', 'a', withPrompts(['skills/java.md']))).not.toThrow()
+    expect(() => validateGraph('wf', 'a', withPrompts(['skills/java/SKILL.md']))).not.toThrow()
   })
 
   it('accepts a step with none', () => {

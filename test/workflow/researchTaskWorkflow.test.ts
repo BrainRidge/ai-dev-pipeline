@@ -196,8 +196,8 @@ describe('the bundled research workflow', () => {
     await refresh()
 
     expect(workflow.steps.aiHandoff!.prompts).toEqual([
-      '/skills/codebase-analyst.md',
-      '/skills/evidence-first.md',
+      '/skills/codebase-analyst/SKILL.md',
+      '/skills/evidence-first/SKILL.md',
     ])
 
     await (registry.get('invokeCopilot') as InvokeCopilot).deliver(workflow.steps.aiHandoff!, ctx)
@@ -228,8 +228,8 @@ describe('the bundled research workflow', () => {
       [],
     )
     expect(composed.prompts.map((p) => p.path)).toEqual([
-      join(ROOT, 'prompts', 'skills', 'codebase-analyst.md'),
-      join(ROOT, 'prompts', 'skills', 'evidence-first.md'),
+      join(ROOT, 'prompts', 'skills', 'codebase-analyst', 'SKILL.md'),
+      join(ROOT, 'prompts', 'skills', 'evidence-first', 'SKILL.md'),
     ])
     // Skill prompts carry no placeholders, so they cannot go stale against a
     // workflow that renames a field.

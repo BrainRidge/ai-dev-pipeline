@@ -26,8 +26,8 @@ export const MUST_SHIP = [
   'prompts/_shared/house-rules.md',
   // The research workflow declares these two by name, so a package without them
   // fails at its handoff step. See spec Section 6.
-  'prompts/skills/codebase-analyst.md',
-  'prompts/skills/evidence-first.md',
+  'prompts/skills/codebase-analyst/SKILL.md',
+  'prompts/skills/evidence-first/SKILL.md',
   // What an unconfigured install runs on, as well as the layout a team copies.
   // See spec Section 16.
   'examples/content-template/config/microservices.json',
@@ -36,7 +36,7 @@ export const MUST_SHIP = [
   'examples/content-template/README.md',
   // The persona example. A team copies it out of the installed extension, so it
   // has to be in the package. See spec Section 6.
-  'examples/content-template/prompts/skills/example-persona.md',
+  'examples/content-template/prompts/skills/example-persona/SKILL.md',
 ]
 
 /**

@@ -2,7 +2,23 @@
 
 > Part of the [AI Dev Workflow design](README.md).
 
-A skill file in `prompts/skills/` now reaches Copilot two ways, and they are not
+A skill is a folder under `prompts/skills/` holding a `SKILL.md`:
+
+```
+prompts/skills/
+├── codebase-analyst/
+│   └── SKILL.md
+└── evidence-first/
+    └── SKILL.md
+```
+
+That is VS Code's own layout for an Agent Skill, which is the point: what sits in
+the repository is shaped like what gets installed, so there is one format to
+learn rather than two. It also leaves room for the rest of the format — a skill
+may one day carry `references/` or scripts beside its `SKILL.md`, and nothing
+about the layout forbids it.
+
+A skill in that folder now reaches Copilot two ways, and they are not
 the same thing:
 
 | | Composed into the prompt | Installed as an Agent Skill |
@@ -38,10 +54,9 @@ prompt files.
 
 ## The format is converted, not copied
 
-A skill file in `prompts/skills/` is an ordinary prompt: frontmatter the
-extension understands, then the text. An Agent Skill is a folder with a
-`SKILL.md` whose frontmatter VS Code understands, requiring `name` and
-`description`. So the file is read and a new one written.
+A skill's `SKILL.md` in the prompts folder carries the description and the text.
+The installed one additionally needs `name`, which VS Code requires and which is
+derived rather than declared. So the file is read and a new one written.
 
 ```markdown
 ---
@@ -62,10 +77,12 @@ description: Reading an unfamiliar codebase to find out what it actually does.
 You are reading an unfamiliar codebase…
 ```
 
-**`name` is derived from the filename**, the same convention prompt templates
-follow: one source of truth, and renaming the file renames the skill. VS Code
-allows lowercase letters, numbers and hyphens, so a file named otherwise is
-reported rather than installed under a mangled name.
+**`name` is the folder's name**, not something declared inside it: one source of
+truth, and renaming the folder renames the skill. VS Code allows lowercase
+letters, numbers and hyphens, so a folder named otherwise — `BSA` rather than
+`bsa` — is reported rather than installed under a mangled name. Lowercasing it
+silently would leave the folder and the skill called different things, and the
+report naming one while the developer looked at the other.
 
 **`description` must be declared and is never guessed.** It is not a summary —
 it is the trigger, the text Copilot matches on to decide whether a skill is
@@ -100,6 +117,16 @@ to having opened a task.
 Installation is part of the check, so that by the time the step is on screen it
 is done and the report can say so. It runs once per session and is idempotent —
 a second render writes nothing.
+
+**A folder is checked before it is read**, in two ways a single file could not
+have gone wrong. A folder with no `SKILL.md` is reported rather than skipped —
+somebody made it, and they meant it to be a skill. And the *casing* of `SKILL.md`
+is checked against a directory listing rather than by opening it, because on
+macOS and Windows opening `SKILL.md` succeeds when the file on disk is
+`skill.md`: a team would have working skills on their laptops, none on a
+case-sensitive volume, and nothing saying why. That is the same guard prompt
+templates already carry ([Section 16](16-external-content.md)) and it is the
+likelier mistake here, since `skill.md` is what most people type.
 
 **It never blocks the step.** Every skill could fail to install and the workflow
 would still work, because the composed prompt carries the same text regardless.

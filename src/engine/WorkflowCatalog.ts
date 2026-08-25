@@ -299,7 +299,7 @@ export function promptNameProblem(name: string): string | undefined {
   }
   if (/^[A-Za-z]:/.test(trimmed) || trimmed.startsWith('\\\\')) {
     return 'it is an absolute path. Name it relative to the prompts folder, such as ' +
-      '"/skills/java-expert.md"'
+      '"/skills/java-expert/SKILL.md"'
   }
   return undefined
 }

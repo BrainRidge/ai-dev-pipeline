@@ -28,7 +28,8 @@ working in that repository resolves the same content.
         ├── <workflowId>/
         │   └── <stepId>.md       optional, per file
         └── skills/
-            └── *.md              personas a workflow step opts into
+            └── <name>/
+                └── SKILL.md      personas a workflow step opts into
 
 **Both config files are required and do not fall back.** Until both are present
 and valid, the sidebar names the setting at fault and shows nothing else. That is deliberate:
@@ -49,10 +50,12 @@ says which list it used, so the fallback is never invisible. Mark a tool
 `"required": true` only if a developer genuinely cannot finish the workflow
 without it: a required tool that is missing stops the task there.
 
-**`prompts/skills/` is whatever you want it to be.** Nothing looks in that folder by name —
-it is where the example persona lives because a workflow step names its prompts by path:
+**`prompts/skills/` holds one folder per skill**, each with a `SKILL.md` — VS Code's own
+layout, so what you write here is shaped like what gets installed into
+`~/.copilot/skills/`. The folder's name *is* the skill's name, so it has to be lowercase
+letters, numbers and hyphens. A workflow step then names one by path:
 
-    "prompts": ["/skills/java-expert.md", "/skills/security.md"]
+    "prompts": ["/skills/java-expert/SKILL.md", "/skills/security/SKILL.md"]
 
 Those are composed in order, ahead of the step's own template, and the panel caption lists
 each one so a developer can see what shaped the prompt. See
