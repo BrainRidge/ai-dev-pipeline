@@ -1,0 +1,57 @@
+<idea-plugin>
+  <id>com.brainridge.ai-dev-workflow</id>
+  <name>AI Dev Workflow</name>
+  <vendor email="dev@brainridgeconsulting.com" url="https://github.com/BrainRidge/ai-dev-pipeline">
+    BrainRidge Consulting
+  </vendor>
+
+  <description><![CDATA[
+    Interactive, standardised AI-assisted development workflows.
+    <br/>
+    The same workflow engine, the same workflow definitions and the same prompt
+    templates as the VS Code extension — see tool/core.
+  ]]></description>
+
+  <depends>com.intellij.modules.platform</depends>
+
+  <extensions defaultExtensionNs="com.intellij">
+    <toolWindow
+        id="AI Dev Pipeline"
+        anchor="left"
+        icon="/icons/toolwindow.svg"
+        factoryClass="com.brainridge.aidevworkflow.ui.SetupToolWindowFactory"/>
+
+    <applicationService
+        serviceImplementation="com.brainridge.aidevworkflow.settings.AiDevWorkflowSettings"/>
+
+    <applicationConfigurable
+        parentId="tools"
+        id="com.brainridge.aidevworkflow.settings"
+        displayName="AI Dev Workflow"
+        instance="com.brainridge.aidevworkflow.settings.AiDevWorkflowConfigurable"/>
+  </extensions>
+
+  <actions>
+    <!-- Ids mirror the VS Code extension's contributes.commands, without the
+         `aiDevWorkflow.` prefix that VS Code requires. `npm run check:parity`
+         fails if a command exists in one plugin and not the other. -->
+    <group id="aiDevWorkflow.menu" text="AI Dev Workflow" popup="true">
+      <add-to-group group-id="ToolsMenu" anchor="last"/>
+
+      <action id="aiDevWorkflow.startTask"
+              class="com.brainridge.aidevworkflow.actions.StartTaskAction"
+              text="Start Task"
+              description="Begin a new AI-assisted task"/>
+
+      <action id="aiDevWorkflow.resumeTask"
+              class="com.brainridge.aidevworkflow.actions.ResumeTaskAction"
+              text="Resume Task"
+              description="Continue an unfinished task where it stopped"/>
+
+      <action id="aiDevWorkflow.handoffReport"
+              class="com.brainridge.aidevworkflow.actions.HandoffReportAction"
+              text="Handoff Report"
+              description="Summarise which handoff mechanism has been delivering prompts"/>
+    </group>
+  </actions>
+</idea-plugin>

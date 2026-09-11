@@ -1,0 +1,248 @@
+import { createHash } from 'node:crypto'
+import { dirname, join } from 'node:path'
+import { existsSync } from 'node:fs'
+import { access, copyFile, mkdir, readFile, readdir, writeFile } from 'node:fs/promises'
+import { homedir } from 'node:os'
+import { AuditLog } from '../audit/AuditLog'
+import { nodeProbe, templateResolver } from '../content/ContentRoot'
+import { PromptComposer } from '../prompt/PromptComposer'
+import { DEFAULT_TOOLS, loadTools, type ResolvedTools } from '../engine/ToolCatalog'
+import {
+  planSkills,
+  SKILL_FILE,
+  supportsSkills,
+  type SkillFile,
+} from '../skills/Skills'
+import { defaultProviders } from '../providers/registry'
+import type { HostPort } from '../host/HostPort'
+import { CollectRequirement } from './CollectRequirement'
+import { GitClone } from './GitClone'
+import { InvokeCopilot } from './InvokeCopilot'
+import { InvokeCopilotCoding } from './InvokeCopilotCoding'
+import { InvokeCopilotCodeReview } from './InvokeCopilotCodeReview'
+import { ManualReview } from './ManualReview'
+import { ToolCheck } from './ToolCheck'
+import { TaskTypeRegistry } from './TaskType'
+import { nodeToolProbe } from './ToolProbe'
+import type { SkillInstaller, SkillReport } from './ToolCheck'
+
+async function fileExists(p: string): Promise<boolean> {
+  try {
+    await access(p)
+    return true
+  } catch {
+    return false
+  }
+}
+
+async function hashFile(p: string): Promise<string> {
+  return createHash('sha256').update(await readFile(p, 'utf8')).digest('hex')
+}
+
+/** Keeps what was approved, so the audit trail holds more than a hash. */
+async function keepCopy(from: string, to: string): Promise<void> {
+  await mkdir(dirname(to), { recursive: true })
+  await copyFile(from, to)
+}
+
+/**
+ * Every skill file available, the team's overriding the bundled one by filename.
+ *
+ * The same per-file fallback prompt templates get, applied to a folder rather
+ * than to a named file — a team overriding one skill keeps receiving every other
+ * skill a release adds. See spec Sections 16 and 18.
+ */
+async function readSkillFiles(dirs: {
+  external?: string
+  bundled: string
+}): Promise<SkillFile[]> {
+  const found = new Map<string, SkillFile>()
+
+  for (const [source, dir] of [
+    ['bundled', dirs.bundled],
+    ['external', dirs.external],
+  ] as const) {
+    if (!dir) continue
+    const entries = await readdir(dir, { withFileTypes: true }).catch(() => [])
+
+    for (const entry of entries.filter((e) => e.isDirectory())) {
+      found.set(entry.name, await readSkillFolder(join(dir, entry.name), entry.name, source))
+    }
+  }
+
+  return [...found.values()].sort((a, b) => a.name.localeCompare(b.name))
+}
+
+/**
+ * One skill folder, and what is wrong with it if anything.
+ *
+ * The casing of `SKILL.md` is checked against a directory listing rather than by
+ * trying to open it, because on macOS — and on Windows — opening `SKILL.md`
+ * succeeds when the file on disk is `skill.md`. A team would then have working
+ * skills on their laptops and none on a case-sensitive volume, and nothing would
+ * say so. It is the same guard prompt templates already have, for the same
+ * reason. See spec Sections 16 and 18.
+ */
+async function readSkillFolder(
+  dir: string,
+  name: string,
+  source: 'bundled' | 'external',
+): Promise<SkillFile> {
+  const path = join(dir, SKILL_FILE)
+  const names = await readdir(dir).catch(() => [] as string[])
+
+  if (!names.includes(SKILL_FILE)) {
+    const variant = names.find((n) => n.toLowerCase() === SKILL_FILE.toLowerCase())
+    return {
+      name,
+      path,
+      source,
+      problem: variant
+        ? `${dir} holds "${variant}", and a skill's instructions have to be in "${SKILL_FILE}". ` +
+          `The difference is invisible on this machine and fatal on a case-sensitive one.`
+        : `${dir} holds no ${SKILL_FILE}, so there is nothing to install from it.`,
+    }
+  }
+
+  return { name, path, source, raw: await readFile(path, 'utf8') }
+}
+
+/**
+ * Installs skills into the developer's own skills folder.
+ *
+ * This is the one thing the extension writes outside a task folder, so the rule
+ * from spec Section 16 applies unchanged: a file is ours to update only if it is
+ * absent or still holds exactly what we last wrote. What we last wrote is
+ * remembered per skill, so a skill somebody has tuned survives every later
+ * install. See spec Section 18.
+ */
+function skillInstaller(opts: {
+  promptsDir: string | undefined
+  bundledPromptsDir: string
+  host: HostPort
+  remembered: Record<string, string>
+  remember: (written: Record<string, string>) => Promise<void>
+}): SkillInstaller {
+  return {
+    async install(): Promise<SkillReport> {
+      const support = opts.host.skills
+      // A host with no skills support at all reports the same "unsupported" the
+      // version check reports, so the step reads the same either way.
+      if (!support) return { dir: '', findings: [], supported: false }
+
+      const dir = join(homedir(), ...support.dir.split('/'))
+      if (!supportsSkills(opts.host.editorVersion, support.minimumVersion)) {
+        return { dir, findings: [], supported: false }
+      }
+
+      const files = await readSkillFiles({
+        external: opts.promptsDir ? join(opts.promptsDir, 'skills') : undefined,
+        bundled: join(opts.bundledPromptsDir, 'skills'),
+      })
+
+      const onDisk: Record<string, string | undefined> = {}
+      for (const file of files) {
+        onDisk[file.name] = await readFile(join(dir, file.name, 'SKILL.md'), 'utf8').catch(
+          () => undefined,
+        )
+      }
+
+      const plan = planSkills(files, onDisk, opts.remembered)
+
+      for (const [name, content] of Object.entries(plan.writes)) {
+        await mkdir(join(dir, name), { recursive: true })
+        await writeFile(join(dir, name, 'SKILL.md'), content, 'utf8')
+      }
+
+      if (Object.keys(plan.writes).length > 0) {
+        await opts.remember({ ...opts.remembered, ...plan.writes })
+      }
+
+      return { dir, findings: plan.findings, supported: true }
+    },
+  }
+}
+
+/**
+ * The vocabulary a workflow may compose. Adding a step to a workflow is
+ * configuration; adding a new kind of primitive is a class registered here.
+ * See spec Section 5.
+ */
+export function buildTaskTypes(opts: {
+  /** The team's prompts folder, or undefined when they supplied none. */
+  promptsDir: string | undefined
+  /** The prompts shipped in the extension, used wherever the team supplied none. */
+  bundledPromptsDir: string
+  /** The team's tool list, or undefined when they supplied none. */
+  toolsConfig: string | undefined
+  taskDir: string
+  codeRoot: string
+  /** Everything core needs from the IDE it is running in. See spec Section 19. */
+  host: HostPort
+  /** What was last written into the developer's skills folder, per skill name. */
+  installedSkills: Record<string, string>
+  rememberSkills: (written: Record<string, string>) => Promise<void>
+}): TaskTypeRegistry {
+  // Stateless, so one instance serves every handoff. See spec Section 16.
+  const composer = new PromptComposer(
+    templateResolver(
+      { promptsDir: opts.promptsDir, bundledPromptsDir: opts.bundledPromptsDir },
+      nodeProbe,
+    ),
+  )
+
+  const { sink, handoff } = opts.host
+
+  /**
+   * The team's list if the file is there, the bundled default otherwise. A file
+   * that is present but unreadable as a tool list throws, and ToolCheck shows
+   * that on its own step. See spec Section 17.
+   */
+  const loadToolList = async (): Promise<ResolvedTools> => {
+    if (opts.toolsConfig) {
+      const tools = await loadTools(opts.toolsConfig)
+      if (tools) return { tools, source: 'external', path: opts.toolsConfig }
+    }
+    return { tools: DEFAULT_TOOLS, source: 'bundled' }
+  }
+
+  return new TaskTypeRegistry([
+    new ToolCheck(
+      loadToolList,
+      nodeToolProbe,
+      sink,
+      opts.host.environment,
+      skillInstaller({
+        promptsDir: opts.promptsDir,
+        bundledPromptsDir: opts.bundledPromptsDir,
+        host: opts.host,
+        remembered: opts.installedSkills,
+        remember: opts.rememberSkills,
+      }),
+    ),
+    // Providers are passed in rather than defaulted, so the one place that wires
+    // the vocabulary is also the one place P3 adds an MCP provider.
+    new CollectRequirement(defaultProviders()),
+    new GitClone(opts.codeRoot, existsSync, sink),
+    new InvokeCopilot(
+      composer,
+      handoff,
+      new AuditLog(opts.taskDir),
+      fileExists,
+      sink,
+    ),
+    new InvokeCopilotCoding(
+      composer,
+      handoff,
+      new AuditLog(opts.taskDir),
+      sink,
+    ),
+    new InvokeCopilotCodeReview(
+      composer,
+      handoff,
+      new AuditLog(opts.taskDir),
+      sink,
+    ),
+    new ManualReview((p) => opts.host.openInEditor(p), hashFile, keepCopy),
+  ])
+}

@@ -1,146 +1,39 @@
 {
-  "name": "ai-dev-workflow",
-  "displayName": "AI Dev Workflow",
-  "description": "Interactive, standardised AI-assisted development workflows",
+  "name": "ai-dev-pipeline",
   "version": "0.10.0",
-  "publisher": "internal",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/BrainRidge/ai-dev-pipeline.git"
-  },
+  "private": true,
+  "description": "AI Dev Pipeline: one workflow engine, one renderer, two IDE plugins.",
+  "workspaces": [
+    "tool/core",
+    "tool/vscode-plugin"
+  ],
   "engines": {
-    "vscode": "^1.96.0",
     "node": ">=20"
   },
-  "categories": [
-    "Other"
-  ],
-  "main": "./out/extension.js",
-  "activationEvents": [
-    "onStartupFinished"
-  ],
-  "contributes": {
-    "viewsContainers": {
-      "activitybar": [
-        {
-          "id": "aiDevWorkflow",
-          "title": "AI Dev Pipeline",
-          "icon": "media/icon.svg"
-        }
-      ]
-    },
-    "views": {
-      "aiDevWorkflow": [
-        {
-          "id": "aiDevWorkflow.setup",
-          "name": "Task SetUp",
-          "type": "webview"
-        }
-      ]
-    },
-    "commands": [
-      {
-        "command": "aiDevWorkflow.startTask",
-        "title": "AI Dev Workflow: Start Task"
-      },
-      {
-        "command": "aiDevWorkflow.resumeTask",
-        "title": "AI Dev Workflow: Resume Task"
-      },
-      {
-        "command": "aiDevWorkflow.handoffReport",
-        "title": "AI Dev Workflow: Handoff Report"
-      }
-    ],
-    "configuration": {
-      "title": "AI Dev Workflow",
-      "properties": {
-        "aiDevWorkflow.contentRoot": {
-          "type": "string",
-          "default": "",
-          "order": 1,
-          "markdownDescription": "Absolute path to a folder holding your team's `config/` and `prompts/`. Optional convenience: setting it fills in the four paths below, and leaves alone any you have changed yourself. Copy `examples/content-template` for the expected layout."
-        },
-        "aiDevWorkflow.microserviceConfig": {
-          "type": "string",
-          "default": "",
-          "order": 2,
-          "markdownDescription": "**Required for real work.** Absolute path to a JSON file describing your microservices and their git locations. Leave it unset and the extension uses the bundled sample instead — two placeholder services that cannot be cloned — and says so in the sidebar until you point this at your own catalogue."
-        },
-        "aiDevWorkflow.platformConfig": {
-          "type": "string",
-          "default": "",
-          "order": 3,
-          "markdownDescription": "**Required for real work.** Absolute path to a JSON file listing your platforms. Leave it unset and the four sample platforms are used instead."
-        },
-        "aiDevWorkflow.customPrompts": {
-          "type": "string",
-          "default": "",
-          "order": 4,
-          "markdownDescription": "Optional. Absolute path to a folder of markdown files used to prompt Copilot, laid out as `<workflowId>/<stepId>.md`. Any template you do not supply uses the one shipped with the extension, so overriding a single prompt needs a single file. A name differing only in case — `aiHandoff.MD` for `aiHandoff.md` — is reported rather than silently ignored."
-        },
-        "aiDevWorkflow.toolsConfig": {
-          "type": "string",
-          "default": "",
-          "order": 5,
-          "markdownDescription": "Optional. Absolute path to a JSON file listing the tools the System Check step looks for on a developer's machine. If you supply none, a default list is used — git, a JDK, Maven and Gradle — and the step's report says which list it used. Copy `examples/content-template/config/tools.json` for the expected shape."
-        },
-        "aiDevWorkflow.tasksRoot": {
-          "type": "string",
-          "default": "",
-          "description": "Where task folders are created. Defaults to ~/ai-dev-workflow/tasks.",
-          "order": 6
-        },
-        "aiDevWorkflow.codeRoot": {
-          "type": "string",
-          "default": "",
-          "description": "Where repositories are cloned. Defaults to ~/ai-dev-workflow/code.",
-          "order": 7
-        },
-        "aiDevWorkflow.updateManifestUrl": {
-          "type": "string",
-          "default": "",
-          "description": "URL of a JSON manifest stating the latest published version. Empty disables the check.",
-          "order": 8
-        },
-        "aiDevWorkflow.taskId": {
-          "type": "string",
-          "default": "",
-          "description": "Set automatically in generated workspace files. Do not edit.",
-          "order": 9
-        }
-      }
-    }
-  },
   "scripts": {
-    "build": "node esbuild.mjs",
-    "watch": "node esbuild.mjs --watch",
-    "test": "vitest run",
-    "typecheck": "tsc --noEmit",
-    "verify": "npm run typecheck && npm run lint && npm test",
-    "compile:test": "tsc --outDir out --sourceMap false",
-    "pretest:integration": "npm run compile:test",
-    "test:integration": "vscode-test",
+    "verify": "npm run typecheck && npm run lint && npm test && npm run check:parity",
+    "typecheck": "npm run typecheck -w @ai-dev-pipeline/core -w ai-dev-workflow",
+    "test": "npm test -w @ai-dev-pipeline/core",
     "lint": "eslint .",
-    "check:package": "node package-check.mjs",
-    "package": "vsce package --skip-license",
-    "release": "node release.mjs"
-  },
-  "dependencies": {
-    "yaml": "^2.5.0",
-    "zod": "^3.23.0"
+    "check:parity": "node scripts/check-parity.mjs",
+    "build": "npm run build:vscode && npm run build:intellij",
+    "build:core": "npm run build -w @ai-dev-pipeline/core",
+    "build:renderer": "npm run build:renderer -w @ai-dev-pipeline/core",
+    "build:sidecar": "npm run build:sidecar -w @ai-dev-pipeline/core",
+    "build:vscode": "npm run build:renderer && npm run build -w ai-dev-workflow",
+    "build:intellij": "tool/intellij-plugin/gradlew -p tool/intellij-plugin buildPlugin",
+    "watch": "npm run watch -w ai-dev-workflow",
+    "package": "npm run package:vscode && npm run package:intellij",
+    "package:vscode": "npm run package -w ai-dev-workflow",
+    "package:intellij": "tool/intellij-plugin/gradlew -p tool/intellij-plugin buildPlugin",
+    "compile:test": "npm run compile:test -w ai-dev-workflow",
+    "test:integration": "npm run test:integration -w ai-dev-workflow",
+    "check:package": "npm run check:package -w ai-dev-workflow",
+    "release": "node scripts/release.mjs"
   },
   "devDependencies": {
-    "@types/node": "^22.0.0",
-    "@types/vscode": "^1.96.0",
-    "@vscode/test-cli": "^0.0.15",
-    "@vscode/test-electron": "^3.1.0",
-    "@vscode/vsce": "^3.0.0",
-    "esbuild": "^0.23.0",
     "eslint": "^9.0.0",
-    "jsdom": "^25.0.0",
     "typescript": "^5.5.0",
-    "typescript-eslint": "^8.0.0",
-    "vitest": "^2.0.0"
+    "typescript-eslint": "^8.0.0"
   }
 }

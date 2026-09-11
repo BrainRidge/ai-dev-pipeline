@@ -1,0 +1,140 @@
+{
+  "name": "ai-dev-workflow",
+  "displayName": "AI Dev Workflow",
+  "description": "Interactive, standardised AI-assisted development workflows",
+  "version": "0.10.0",
+  "publisher": "internal",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/BrainRidge/ai-dev-pipeline.git"
+  },
+  "engines": {
+    "vscode": "^1.96.0",
+    "node": ">=20"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./out/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "aiDevWorkflow",
+          "title": "AI Dev Pipeline",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "aiDevWorkflow": [
+        {
+          "id": "aiDevWorkflow.setup",
+          "name": "Task SetUp",
+          "type": "webview"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "aiDevWorkflow.startTask",
+        "title": "AI Dev Workflow: Start Task"
+      },
+      {
+        "command": "aiDevWorkflow.resumeTask",
+        "title": "AI Dev Workflow: Resume Task"
+      },
+      {
+        "command": "aiDevWorkflow.handoffReport",
+        "title": "AI Dev Workflow: Handoff Report"
+      }
+    ],
+    "configuration": {
+      "title": "AI Dev Workflow",
+      "properties": {
+        "aiDevWorkflow.contentRoot": {
+          "type": "string",
+          "default": "",
+          "order": 1,
+          "markdownDescription": "Absolute path to a folder holding your team's `config/` and `prompts/`. Optional convenience: setting it fills in the four paths below, and leaves alone any you have changed yourself. Copy `examples/content-template` for the expected layout."
+        },
+        "aiDevWorkflow.microserviceConfig": {
+          "type": "string",
+          "default": "",
+          "order": 2,
+          "markdownDescription": "**Required for real work.** Absolute path to a JSON file describing your microservices and their git locations. Leave it unset and the extension uses the bundled sample instead \u2014 two placeholder services that cannot be cloned \u2014 and says so in the sidebar until you point this at your own catalogue."
+        },
+        "aiDevWorkflow.platformConfig": {
+          "type": "string",
+          "default": "",
+          "order": 3,
+          "markdownDescription": "**Required for real work.** Absolute path to a JSON file listing your platforms. Leave it unset and the four sample platforms are used instead."
+        },
+        "aiDevWorkflow.customPrompts": {
+          "type": "string",
+          "default": "",
+          "order": 4,
+          "markdownDescription": "Optional. Absolute path to a folder of markdown files used to prompt Copilot, laid out as `<workflowId>/<stepId>.md`. Any template you do not supply uses the one shipped with the extension, so overriding a single prompt needs a single file. A name differing only in case \u2014 `aiHandoff.MD` for `aiHandoff.md` \u2014 is reported rather than silently ignored."
+        },
+        "aiDevWorkflow.toolsConfig": {
+          "type": "string",
+          "default": "",
+          "order": 5,
+          "markdownDescription": "Optional. Absolute path to a JSON file listing the tools the System Check step looks for on a developer's machine. If you supply none, a default list is used \u2014 git, a JDK, Maven and Gradle \u2014 and the step's report says which list it used. Copy `examples/content-template/config/tools.json` for the expected shape."
+        },
+        "aiDevWorkflow.tasksRoot": {
+          "type": "string",
+          "default": "",
+          "description": "Where task folders are created. Defaults to ~/ai-dev-workflow/tasks.",
+          "order": 6
+        },
+        "aiDevWorkflow.codeRoot": {
+          "type": "string",
+          "default": "",
+          "description": "Where repositories are cloned. Defaults to ~/ai-dev-workflow/code.",
+          "order": 7
+        },
+        "aiDevWorkflow.updateManifestUrl": {
+          "type": "string",
+          "default": "",
+          "description": "URL of a JSON manifest stating the latest published version. Empty disables the check.",
+          "order": 8
+        },
+        "aiDevWorkflow.taskId": {
+          "type": "string",
+          "default": "",
+          "description": "Set automatically in generated workspace files. Do not edit.",
+          "order": 9
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "typecheck": "tsc --noEmit",
+    "verify": "npm run typecheck && npm run build",
+    "compile:test": "tsc -p tsconfig.test.json",
+    "pretest:integration": "npm run compile:test",
+    "test:integration": "vscode-test",
+    "check:package": "node package-check.mjs",
+    "package": "npm run build && npm run check:package && vsce package --skip-license --no-dependencies --out ../../dist/"
+  },
+  "dependencies": {
+    "@ai-dev-pipeline/core": "*",
+    "yaml": "^2.5.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/vscode": "^1.96.0",
+    "@vscode/test-cli": "^0.0.15",
+    "@vscode/test-electron": "^3.1.0",
+    "@vscode/vsce": "^3.0.0",
+    "esbuild": "^0.23.0",
+    "typescript": "^5.5.0"
+  }
+}

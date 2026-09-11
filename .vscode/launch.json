@@ -10,10 +10,11 @@
       "name": "Run Extension",
       "type": "extensionHost",
       "request": "launch",
-      "args": ["--extensionDevelopmentPath=${workspaceFolder}"],
-      "outFiles": ["${workspaceFolder}/out/*.js"],
+      "args": ["--extensionDevelopmentPath=${workspaceFolder}/tool/vscode-plugin"],
+      "outFiles": ["${workspaceFolder}/tool/vscode-plugin/out/*.js"],
       // esbuild first: `main` points at out/extension.js, so a source change is
-      // invisible until the bundles are rebuilt. See spec Section 10.
+      // invisible until the bundles are rebuilt. The task builds the renderer in
+      // core before the host bundle here. See spec Sections 10 and 19.
       "preLaunchTask": "npm: build"
     },
     {
@@ -23,9 +24,9 @@
       "name": "Integration Tests",
       "type": "extensionHost",
       "request": "launch",
-      "args": ["--extensionDevelopmentPath=${workspaceFolder}"],
-      "testConfiguration": "${workspaceFolder}/.vscode-test.mjs",
-      "outFiles": ["${workspaceFolder}/out/**/*.js"],
+      "args": ["--extensionDevelopmentPath=${workspaceFolder}/tool/vscode-plugin"],
+      "testConfiguration": "${workspaceFolder}/tool/vscode-plugin/.vscode-test.mjs",
+      "outFiles": ["${workspaceFolder}/tool/vscode-plugin/out/**/*.js"],
       "preLaunchTask": "npm: compile:test"
     }
   ]

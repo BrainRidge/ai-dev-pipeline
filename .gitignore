@@ -31,9 +31,26 @@
 # that lands here is build detritus — the unbundled tsc output that
 # `npm run compile:test` writes under out/src, out/test and out/webview, and the
 # sourcemaps, which never ship and rewrite themselves on every build.
-/out/*
-!/out/extension.js
-!/out/webview.js
-!/out/setup.js
-!/out/dev.js
-!/out/style.css
+/tool/vscode-plugin/out/*
+!/tool/vscode-plugin/out/extension.js
+!/tool/vscode-plugin/out/webview.js
+!/tool/vscode-plugin/out/setup.js
+!/tool/vscode-plugin/out/dev.js
+!/tool/vscode-plugin/out/style.css
+
+# Content copied from tool/core at package time so the .vsix keeps the layout the
+# extension resolves at runtime. Generated — never hand-edit, never commit.
+# See spec Section 19.
+/tool/vscode-plugin/workflows/
+/tool/vscode-plugin/prompts/
+/tool/vscode-plugin/examples/
+
+# Gradle's output for the IntelliJ plugin.
+/tool/intellij-plugin/build/
+/tool/intellij-plugin/.gradle/
+
+# Release artifacts are built, not committed — except the one published .vsix,
+# which is force-added by the release script. See spec Section 13.
+/dist/*
+!/dist/*.vsix
+!/dist/*.zip

@@ -6,17 +6,17 @@
   "tasks": [
     {
       "type": "npm",
-      "script": "build",
+      "script": "build:vscode",
       "problemMatcher": [],
       "label": "npm: build",
-      "detail": "esbuild the four bundles into out/"
+      "detail": "build the shared renderer, then the host bundle into tool/vscode-plugin/out/"
     },
     {
       "type": "npm",
       "script": "compile:test",
       "problemMatcher": ["$tsc"],
       "label": "npm: compile:test",
-      "detail": "tsc the integration tests into out/test/integration/"
+      "detail": "tsc the integration tests into tool/vscode-plugin/out/test/integration/"
     },
     {
       "type": "npm",
@@ -24,7 +24,7 @@
       "problemMatcher": [],
       "isBackground": true,
       "label": "npm: watch",
-      "detail": "rebuild the bundles on every change"
+      "detail": "rebuild the host bundle on every change"
     },
     {
       "type": "npm",
@@ -32,7 +32,7 @@
       "group": { "kind": "test", "isDefault": true },
       "problemMatcher": ["$tsc"],
       "label": "npm: verify",
-      "detail": "typecheck, lint and the unit tiers — the gate before a commit"
+      "detail": "typecheck, lint, the unit tiers and the parity check — the gate before a commit"
     }
   ]
 }
