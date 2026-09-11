@@ -1,0 +1,103 @@
+/*
+ * Pane 1, the Task SetUp form.
+ *
+ * The setup pane is the same renderer drawing a much narrower column, so it is
+ * not styled by `style.css`: the workflow diagram's rules are dead weight here,
+ * and a form in a sidebar wants tighter spacing and full-width controls.
+ *
+ * Both hosts load this file — the VS Code sidebar through `asWebviewUri`, the
+ * JetBrains pane off the plugin classpath — so a rule added here reaches both.
+ * It used to be an inline block in `SetupView.ts`, which meant the JetBrains
+ * pane had no setup styling at all. See spec Sections 9 and 19.
+ *
+ * VS Code theme variables only. The JetBrains host fills the same variables in
+ * from the IDE's look and feel; see `IdeTheme.kt` and spec Section 19.
+ */
+body {
+  font-family: var(--vscode-font-family);
+  color: var(--vscode-foreground);
+  /* The pane sits in the sidebar, so it matches the sidebar rather than the
+     editor. The fallback is what a host that has no sidebar colour uses. */
+  background: var(--vscode-sideBar-background, var(--vscode-editor-background));
+  padding: .75rem;
+  font-size: var(--vscode-font-size);
+}
+
+h1 { font-size: 1rem; margin: 0 0 .5rem; }
+.step-text { margin: 0 0 .75rem; color: var(--vscode-descriptionForeground); font-size: .9em; }
+
+/* Task identity and step progress belong to the workflow pane; this one is the
+   form that comes before a task exists. */
+.task-meta, .progress { display: none; }
+
+.field { margin: .75rem 0; display: flex; flex-direction: column; gap: .25rem; }
+.field-label { font-weight: 600; font-size: .9em; }
+.options { display: flex; flex-direction: column; gap: .15rem; max-height: 14rem; overflow-y: auto; }
+.option { display: flex; align-items: center; gap: .4rem; font-weight: 400; }
+
+input[type=text], select, .option-filter {
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border: 1px solid var(--vscode-input-border, transparent);
+  padding: .3rem;
+  font: inherit;
+  width: 100%;
+  box-sizing: border-box;
+}
+.option-filter { margin-bottom: .25rem; }
+
+.field-error { color: var(--vscode-inputValidation-errorForeground, #f88); font-size: .85em; }
+.error-box {
+  padding: .4rem;
+  margin-bottom: .5rem;
+  background: var(--vscode-inputValidation-errorBackground, #522);
+}
+
+/* A warning rather than an error: the form below it still works. */
+.notice-box {
+  padding: .5rem;
+  margin: 0 0 .75rem;
+  font-size: .9em;
+  line-height: 1.4;
+  background: var(--vscode-inputValidation-warningBackground, #4d3800);
+  border-left: 3px solid var(--vscode-inputValidation-warningBorder, #c93);
+  color: var(--vscode-inputValidation-warningForeground, inherit);
+}
+
+.actions { margin-top: 1rem; display: flex; gap: .4rem; }
+
+.step-footer {
+  margin-top: 1.5rem;
+  padding-top: .75rem;
+  border-top: 1px solid var(--vscode-panel-border, #333);
+}
+.step-footer-title { font-size: .9rem; margin: 0; font-weight: 600; }
+.step-footer .actions { margin-top: .5rem; }
+.step-footer button {
+  width: auto;
+  padding: .3rem .75rem;
+  /* A secondary button is told apart from the pane by its edge, not its fill.
+     Hosts that define no button border fall back to the invisible one they
+     had before. */
+  border: 1px solid var(--vscode-button-border, transparent);
+  background: var(--vscode-button-secondaryBackground, rgba(127, 127, 127, .2));
+  color: var(--vscode-button-secondaryForeground, inherit);
+}
+
+.setup-version {
+  margin-top: 1.25rem;
+  padding-top: .5rem;
+  border-top: 1px solid var(--vscode-panel-border, #333);
+  color: var(--vscode-descriptionForeground);
+  font-size: .8em;
+}
+
+button {
+  font: inherit;
+  padding: .4rem 1rem;
+  cursor: pointer;
+  border: none;
+  width: 100%;
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+}

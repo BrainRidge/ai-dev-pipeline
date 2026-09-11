@@ -65,7 +65,7 @@
           "type": "string",
           "default": "",
           "order": 2,
-          "markdownDescription": "**Required for real work.** Absolute path to a JSON file describing your microservices and their git locations. Leave it unset and the extension uses the bundled sample instead \u2014 two placeholder services that cannot be cloned \u2014 and says so in the sidebar until you point this at your own catalogue."
+          "markdownDescription": "**Required for real work.** Absolute path to a JSON file describing your microservices and their git locations. Leave it unset and the extension uses the bundled sample instead — two placeholder services that cannot be cloned — and says so in the sidebar until you point this at your own catalogue."
         },
         "aiDevWorkflow.platformConfig": {
           "type": "string",
@@ -77,13 +77,13 @@
           "type": "string",
           "default": "",
           "order": 4,
-          "markdownDescription": "Optional. Absolute path to a folder of markdown files used to prompt Copilot, laid out as `<workflowId>/<stepId>.md`. Any template you do not supply uses the one shipped with the extension, so overriding a single prompt needs a single file. A name differing only in case \u2014 `aiHandoff.MD` for `aiHandoff.md` \u2014 is reported rather than silently ignored."
+          "markdownDescription": "Optional. Absolute path to a folder of markdown files used to prompt Copilot, laid out as `<workflowId>/<stepId>.md`. Any template you do not supply uses the one shipped with the extension, so overriding a single prompt needs a single file. A name differing only in case — `aiHandoff.MD` for `aiHandoff.md` — is reported rather than silently ignored."
         },
         "aiDevWorkflow.toolsConfig": {
           "type": "string",
           "default": "",
           "order": 5,
-          "markdownDescription": "Optional. Absolute path to a JSON file listing the tools the System Check step looks for on a developer's machine. If you supply none, a default list is used \u2014 git, a JDK, Maven and Gradle \u2014 and the step's report says which list it used. Copy `examples/content-template/config/tools.json` for the expected shape."
+          "markdownDescription": "Optional. Absolute path to a JSON file listing the tools the System Check step looks for on a developer's machine. If you supply none, a default list is used — git, a JDK, Maven and Gradle — and the step's report says which list it used. Copy `examples/content-template/config/tools.json` for the expected shape."
         },
         "aiDevWorkflow.tasksRoot": {
           "type": "string",
@@ -125,16 +125,17 @@
   },
   "dependencies": {
     "@ai-dev-pipeline/core": "*",
+    "vitest": "4.1.11",
     "yaml": "^2.5.0",
     "zod": "^3.23.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "@types/vscode": "^1.96.0",
-    "@vscode/test-cli": "^0.0.15",
+    "@vscode/test-cli": "^0.0.11",
     "@vscode/test-electron": "^3.1.0",
     "@vscode/vsce": "^3.0.0",
-    "esbuild": "^0.23.0",
+    "esbuild": "^0.28.2",
     "typescript": "^5.5.0"
   }
 }

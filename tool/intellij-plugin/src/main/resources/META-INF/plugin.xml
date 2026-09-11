@@ -13,6 +13,8 @@
   ]]></description>
 
   <depends>com.intellij.modules.platform</depends>
+  <!-- IntellijHost.toTerminal hands prompts to the Terminal tool window. -->
+  <depends>org.jetbrains.plugins.terminal</depends>
 
   <extensions defaultExtensionNs="com.intellij">
     <toolWindow

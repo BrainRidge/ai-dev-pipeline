@@ -1,9 +1,9 @@
 package com.brainridge.aidevworkflow.sidecar
 
-import com.intellij.ide.CopyPasteManager
 import com.intellij.openapi.application.ApplicationInfo
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.fileEditor.FileEditorManager
+import com.intellij.openapi.ide.CopyPasteManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.LocalFileSystem
 import org.jetbrains.plugins.terminal.TerminalToolWindowManager

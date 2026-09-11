@@ -3,7 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <title>AI Dev Workflow — renderer harness</title>
-    <link rel="stylesheet" href="../style.css" />
+    <!-- One sheet per pane, as in both IDEs: the fixture picker swaps them so
+         the setup form is developed in the stylesheet it actually ships with. -->
+    <link rel="stylesheet" href="../style.css" id="sheet-workflow" />
+    <link rel="stylesheet" href="../setup.css" id="sheet-setup" disabled />
     <style>
       /* Stand-ins for the VS Code theme variables, so the harness is legible
          outside the extension host. */
@@ -22,6 +25,13 @@
         --vscode-button-foreground: #fff;
         --vscode-button-secondaryBackground: #3a3a3a;
         --vscode-button-secondaryForeground: #ddd;
+        --vscode-font-size: 13px;
+        --vscode-sideBar-background: #1e1e1e;
+        --vscode-panel-border: #444;
+        --vscode-inputValidation-errorForeground: #f88;
+        --vscode-inputValidation-errorBackground: #522;
+        --vscode-inputValidation-warningBackground: #4d3800;
+        --vscode-inputValidation-warningBorder: #c93;
       }
       .harness-bar { margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid #444; }
     </style>
@@ -32,6 +42,6 @@
       <select id="fixture"></select>
     </div>
     <div id="root"></div>
-    <script src="../../out/dev.js"></script>
+    <script src="../../out/renderer/dev.js"></script>
   </body>
 </html>

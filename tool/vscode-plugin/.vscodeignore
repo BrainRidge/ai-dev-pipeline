@@ -18,6 +18,7 @@
 !out/webview.js
 !out/setup.js
 !out/style.css
+!out/setup.css
 
 # Workflow definitions stay bundled: they are what the tool standardises.
 !workflows/*.json

@@ -58,7 +58,8 @@ ai-dev-workflow/
 │   ├── main.ts                   the workflow panel
 │   ├── setup.ts                  the sidebar
 │   ├── render/fields.ts          fields, command blocks, both layouts
-│   ├── style.css                 VS Code theme variables only — panel only
+│   ├── style.css                 VS Code theme variables only — the workflow pane
+│   ├── setup.css                 the same, for the setup pane — both hosts load it
 │   └── fixtures/                 descriptors for browser-only development
 ├── workflows/                    <id>_<major>_<minor>.json
 │   ├── researchTaskWorkflow_1_0.json

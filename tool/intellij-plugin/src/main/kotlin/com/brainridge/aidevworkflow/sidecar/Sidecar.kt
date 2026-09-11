@@ -90,7 +90,11 @@ class Sidecar(
 
       val future = pending.remove(message.get("id").asInt) ?: return@forEachLine
       if (message.get("ok")?.asBoolean == true) {
-        future.complete(message.getAsJsonObject("result") ?: JsonObject())
+        // `setupReady` and `message` answer with null, which Gson parses to
+        // JsonNull — and `getAsJsonObject` would throw on it, killing this
+        // thread and with it every later response. See spec Section 19.
+        val result = message.get("result")
+        future.complete(if (result is JsonObject) result else JsonObject())
       } else {
         future.completeExceptionally(
           SidecarException(message.get("error")?.asString ?: "unknown sidecar error"),

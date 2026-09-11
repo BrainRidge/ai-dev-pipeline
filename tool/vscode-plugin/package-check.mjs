@@ -18,6 +18,7 @@ export const MUST_SHIP = [
   'out/webview.js',
   'out/setup.js',
   'out/style.css',
+  'out/setup.css',
   'workflows/researchTaskWorkflow_1_0.json',
   'workflows/newFeatureWorkflow_1_0.json',
   'workflows/bugFixWorkflow_1_0.json',

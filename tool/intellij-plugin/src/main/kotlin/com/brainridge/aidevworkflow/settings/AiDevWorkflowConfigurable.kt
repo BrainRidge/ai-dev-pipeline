@@ -2,7 +2,9 @@ package com.brainridge.aidevworkflow.settings
 
 import com.intellij.openapi.options.Configurable
 import com.intellij.openapi.ui.TextFieldWithBrowseButton
+import com.intellij.ui.components.JBLabel
 import com.intellij.util.ui.FormBuilder
+import com.intellij.util.ui.UIUtil
 import javax.swing.JComponent
 import javax.swing.JPanel
 
@@ -49,23 +51,20 @@ class AiDevWorkflowConfigurable : Configurable {
     return built
   }
 
-  private fun hint(text: String) = com.intellij.ui.components.JBLabel(text).apply {
-    componentStyle = com.intellij.ui.components.JBLabel.FontColor.BRIGHTER.let {
-      com.intellij.util.ui.UIUtil.ComponentStyle.SMALL
-    }
-  }
+  private fun hint(text: String) =
+    JBLabel(text, UIUtil.ComponentStyle.SMALL, UIUtil.FontColor.BRIGHTER)
 
   private fun state() = AiDevWorkflowSettings.getInstance().state
 
   override fun isModified(): Boolean = with(state()) {
-    contentRoot.text != this.contentRoot ||
-      microserviceConfig.text != this.microserviceConfig ||
-      platformConfig.text != this.platformConfig ||
-      customPrompts.text != this.customPrompts ||
-      toolsConfig.text != this.toolsConfig ||
-      tasksRoot.text != this.tasksRoot ||
-      codeRoot.text != this.codeRoot ||
-      updateManifestUrl.text != this.updateManifestUrl
+    this@AiDevWorkflowConfigurable.contentRoot.text != this.contentRoot ||
+      this@AiDevWorkflowConfigurable.microserviceConfig.text != this.microserviceConfig ||
+      this@AiDevWorkflowConfigurable.platformConfig.text != this.platformConfig ||
+      this@AiDevWorkflowConfigurable.customPrompts.text != this.customPrompts ||
+      this@AiDevWorkflowConfigurable.toolsConfig.text != this.toolsConfig ||
+      this@AiDevWorkflowConfigurable.tasksRoot.text != this.tasksRoot ||
+      this@AiDevWorkflowConfigurable.codeRoot.text != this.codeRoot ||
+      this@AiDevWorkflowConfigurable.updateManifestUrl.text != this.updateManifestUrl
   }
 
   override fun apply() {

@@ -6,7 +6,11 @@ var __getOwnPropNames = Object.getOwnPropertyNames;
 var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
 var __commonJS = (cb, mod) => function __require() {
-  return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
+  try {
+    return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
+  } catch (e) {
+    throw mod = 0, e;
+  }
 };
 var __export = (target, all) => {
   for (var name in all)
@@ -34,13 +38,13 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 var require_identity = __commonJS({
   "../../node_modules/yaml/dist/nodes/identity.js"(exports2) {
     "use strict";
-    var ALIAS = Symbol.for("yaml.alias");
-    var DOC = Symbol.for("yaml.document");
-    var MAP = Symbol.for("yaml.map");
-    var PAIR = Symbol.for("yaml.pair");
-    var SCALAR = Symbol.for("yaml.scalar");
-    var SEQ = Symbol.for("yaml.seq");
-    var NODE_TYPE = Symbol.for("yaml.node.type");
+    var ALIAS = /* @__PURE__ */ Symbol.for("yaml.alias");
+    var DOC = /* @__PURE__ */ Symbol.for("yaml.document");
+    var MAP = /* @__PURE__ */ Symbol.for("yaml.map");
+    var PAIR = /* @__PURE__ */ Symbol.for("yaml.pair");
+    var SCALAR = /* @__PURE__ */ Symbol.for("yaml.scalar");
+    var SEQ = /* @__PURE__ */ Symbol.for("yaml.seq");
+    var NODE_TYPE = /* @__PURE__ */ Symbol.for("yaml.node.type");
     var isAlias = (node) => !!node && typeof node === "object" && node[NODE_TYPE] === ALIAS;
     var isDocument = (node) => !!node && typeof node === "object" && node[NODE_TYPE] === DOC;
     var isMap = (node) => !!node && typeof node === "object" && node[NODE_TYPE] === MAP;
@@ -92,9 +96,9 @@ var require_visit = __commonJS({
   "../../node_modules/yaml/dist/visit.js"(exports2) {
     "use strict";
     var identity = require_identity();
-    var BREAK = Symbol("break visit");
-    var SKIP = Symbol("skip children");
-    var REMOVE = Symbol("remove node");
+    var BREAK = /* @__PURE__ */ Symbol("break visit");
+    var SKIP = /* @__PURE__ */ Symbol("skip children");
+    var REMOVE = /* @__PURE__ */ Symbol("remove node");
     function visit(node, visitor) {
       const visitor_ = initVisitor(visitor);
       if (identity.isDocument(node)) {
@@ -5554,9 +5558,9 @@ var require_cst_stringify = __commonJS({
 var require_cst_visit = __commonJS({
   "../../node_modules/yaml/dist/parse/cst-visit.js"(exports2) {
     "use strict";
-    var BREAK = Symbol("break visit");
-    var SKIP = Symbol("skip children");
-    var REMOVE = Symbol("remove item");
+    var BREAK = /* @__PURE__ */ Symbol("break visit");
+    var SKIP = /* @__PURE__ */ Symbol("skip children");
+    var REMOVE = /* @__PURE__ */ Symbol("remove item");
     function visit(cst, visitor) {
       if ("type" in cst && cst.type === "document")
         cst = { start: cst.start, value: cst.value };
@@ -7364,8 +7368,8 @@ __export(extension_exports, {
   deactivate: () => deactivate
 });
 module.exports = __toCommonJS(extension_exports);
-var import_promises11 = require("node:fs/promises");
-var import_node_path18 = require("node:path");
+var import_promises12 = require("node:fs/promises");
+var import_node_path19 = require("node:path");
 var vscode6 = __toESM(require("vscode"));
 
 // ../core/src/audit/AuditLog.ts
@@ -7537,6 +7541,7 @@ var WebviewBridge = class {
       if (msg.type === "action" && this.handler) this.handler(msg);
     });
   }
+  transport;
   handler;
   /**
    * The webview's script loads asynchronously, so a render posted immediately
@@ -11716,7 +11721,7 @@ ZodNaN.create = (params) => {
     ...processCreateParams(params)
   });
 };
-var BRAND = Symbol("zod_brand");
+var BRAND = /* @__PURE__ */ Symbol("zod_brand");
 var ZodBranded = class extends ZodType {
   _parse(input) {
     const { ctx } = this._processInputParams(input);
@@ -11918,14 +11923,14 @@ var ostring = () => stringType().optional();
 var onumber = () => numberType().optional();
 var oboolean = () => booleanType().optional();
 var coerce = {
-  string: (arg) => ZodString.create({ ...arg, coerce: true }),
-  number: (arg) => ZodNumber.create({ ...arg, coerce: true }),
-  boolean: (arg) => ZodBoolean.create({
+  string: ((arg) => ZodString.create({ ...arg, coerce: true })),
+  number: ((arg) => ZodNumber.create({ ...arg, coerce: true })),
+  boolean: ((arg) => ZodBoolean.create({
     ...arg,
     coerce: true
-  }),
-  bigint: (arg) => ZodBigInt.create({ ...arg, coerce: true }),
-  date: (arg) => ZodDate.create({ ...arg, coerce: true })
+  })),
+  bigint: ((arg) => ZodBigInt.create({ ...arg, coerce: true })),
+  date: ((arg) => ZodDate.create({ ...arg, coerce: true }))
 };
 var NEVER = INVALID;
 
@@ -12182,6 +12187,9 @@ var WorkflowCatalog = class _WorkflowCatalog {
     this.platformDefs = platformDefs;
     this.services = services;
   }
+  workflows;
+  platformDefs;
+  services;
   /**
    * @param workflowsDir directory of `<name>_<major>_<minor>.json` workflow files
    * @param config       absolute paths to the two config files. They are given
@@ -12362,6 +12370,10 @@ var WorkflowEngine = class {
     this.registry = registry;
     this.ctx = ctx;
   }
+  workflow;
+  store;
+  registry;
+  ctx;
   async state() {
     return this.store.read();
   }
@@ -12521,6 +12533,7 @@ var PromptComposer = class {
   constructor(resolve) {
     this.resolve = resolve;
   }
+  resolve;
   /**
    * Which template this step will use, and whether it is the team's or the
    * bundled default — without reading or composing it. The panel needs this to
@@ -12777,26 +12790,6 @@ function resolveCodeRoot(configured) {
   return configured && configured.length > 0 ? configured : (0, import_node_path7.join)((0, import_node_os.homedir)(), "ai-dev-workflow", "code");
 }
 
-// ../core/src/session/setupDescriptor.ts
-var SAMPLE_NOTICE = "\u26A0 Using the bundled sample catalogue \u2014 placeholder services that cannot be cloned. Set Content Root to your team's folder to work on real repositories.";
-function unconfiguredDescriptor(message, version2) {
-  return {
-    protocolVersion: PROTOCOL_VERSION,
-    version: version2,
-    task: { id: "", platform: "", epic: "", workflowLabel: "Task setup" },
-    progress: { index: 0, total: 0, steps: [] },
-    step: {
-      id: "setup",
-      kind: "form",
-      title: "Task setup",
-      fields: [],
-      text: message,
-      values: {},
-      actions: [{ id: "openSettings", label: "Open Settings", primary: true }]
-    }
-  };
-}
-
 // ../core/src/session/taskIndex.ts
 var import_promises6 = require("node:fs/promises");
 var import_node_path8 = require("node:path");
@@ -12832,6 +12825,318 @@ async function summarise2(taskId, file) {
   } catch {
     return void 0;
   }
+}
+
+// ../core/src/session/setupDescriptor.ts
+var SAMPLE_NOTICE = "\u26A0 Using the bundled sample catalogue \u2014 placeholder services that cannot be cloned. Set Content Root to your team's folder to work on real repositories.";
+function unconfiguredDescriptor(message, version2) {
+  return {
+    protocolVersion: PROTOCOL_VERSION,
+    version: version2,
+    task: { id: "", platform: "", epic: "", workflowLabel: "Task setup" },
+    progress: { index: 0, total: 0, steps: [] },
+    step: {
+      id: "setup",
+      kind: "form",
+      title: "Task setup",
+      fields: [],
+      text: message,
+      values: {},
+      actions: [{ id: "openSettings", label: "Open Settings", primary: true }]
+    }
+  };
+}
+async function buildSetupDescriptor(input) {
+  if (!input.resolved.ok) return unconfiguredDescriptor(input.resolved.message, input.version);
+  const notice = input.resolved.source === "sample" ? SAMPLE_NOTICE : void 0;
+  let catalog;
+  try {
+    catalog = await WorkflowCatalog.load(input.workflowsDir, {
+      platformConfig: input.resolved.platformConfig,
+      microserviceConfig: input.resolved.microserviceConfig
+    });
+  } catch (err) {
+    return unconfiguredDescriptor(err instanceof Error ? err.message : String(err), input.version);
+  }
+  const modeField = {
+    id: "mode",
+    type: "select",
+    label: "Task",
+    options: [
+      { value: "new", label: "New task" },
+      { value: "existing", label: "Continue an existing task" }
+    ]
+  };
+  const mode = input.values.mode === "existing" ? "existing" : "new";
+  return mode === "existing" ? await existingDescriptor(input, catalog, modeField, notice) : newDescriptor(input, catalog, modeField, notice);
+}
+async function existingDescriptor(input, catalog, modeField, notice) {
+  const tasks = await listUnfinishedTasks(input.tasksRoot);
+  const labelOf = (id) => catalog.all().find((w) => w.id === id)?.label;
+  const chosen = String(input.values.existingTask ?? "");
+  const selected = tasks.some((t) => t.taskId === chosen) ? chosen : tasks[0]?.taskId ?? "";
+  const fields = [modeField];
+  if (tasks.length > 0) {
+    fields.push({
+      id: "existingTask",
+      type: "select",
+      label: "Task to continue",
+      options: tasks.map((t) => ({ value: t.taskId, label: taskLabel(t, labelOf(t.workflowId)) }))
+    });
+  }
+  return {
+    protocolVersion: PROTOCOL_VERSION,
+    task: { id: "", platform: "", epic: "", workflowLabel: "Task setup" },
+    progress: { index: 0, total: 0, steps: [] },
+    notice,
+    version: input.version,
+    step: {
+      id: "setup",
+      kind: "form",
+      title: "Continue a task",
+      fields,
+      text: tasks.length > 0 ? "Unfinished tasks, most recent first. Opening one picks it up at the step it stopped on." : "No unfinished tasks saved yet. Switch to New task to start one.",
+      values: { ...input.values, mode: "existing", existingTask: selected },
+      errors: Object.keys(input.errors).length > 0 ? input.errors : void 0,
+      actions: tasks.length > 0 ? [{ id: "open", label: "Open task", primary: true }] : []
+    }
+  };
+}
+function newDescriptor(input, catalog, modeField, notice) {
+  const platforms = catalog.platforms();
+  const workflows = catalog.all();
+  const selectedPlatform = String(input.values.platform ?? platforms[0]?.id ?? "");
+  const selectedWorkflow = String(input.values.workflowId ?? workflows[0]?.id ?? "");
+  const fields = [
+    modeField,
+    {
+      id: "platform",
+      type: "select",
+      label: "Platform",
+      options: platforms.map((p) => ({ value: p.id, label: p.label }))
+    },
+    { id: "epic", type: "text", label: "Epic", required: true },
+    {
+      id: "workflowId",
+      type: "select",
+      label: "Task type",
+      options: workflows.map((w) => ({ value: w.id, label: w.label }))
+    }
+  ];
+  if (needsFeatureStory(selectedWorkflow)) {
+    fields.push({ id: "featureStory", type: "text", label: "Feature story", required: true });
+  }
+  fields.push(
+    { id: "baseBranch", type: "text", label: "Base branch", required: true },
+    // Platform is recorded context, not a filter: the catalogue is one list.
+    // The renderer grows a type-to-filter box over it past five options.
+    {
+      id: "services",
+      type: "multiselect",
+      label: "Microservices",
+      required: true,
+      options: catalog.microservices().map((s) => ({ value: s.shortCode, label: `${s.microserviceName} (${s.shortCode})` }))
+    }
+  );
+  const workDir = String(input.values.workDir ?? resolveCodeRoot(input.codeRoot));
+  return {
+    protocolVersion: PROTOCOL_VERSION,
+    task: { id: "", platform: selectedPlatform, epic: "", workflowLabel: "Task setup" },
+    progress: { index: 0, total: 0, steps: [] },
+    notice,
+    version: input.version,
+    step: {
+      id: "setup",
+      kind: "form",
+      title: "Task setup",
+      fields,
+      values: {
+        ...input.values,
+        mode: "new",
+        platform: selectedPlatform,
+        workflowId: selectedWorkflow,
+        workDir
+      },
+      errors: Object.keys(input.errors).length > 0 ? input.errors : void 0,
+      // Start task, and nothing beside it. The sample-catalogue banner used to
+      // put an Open Settings button here, which made a working form look like
+      // it needed attending to — the banner already names Content Root, and the
+      // setting is one command palette away. The wall in
+      // `unconfiguredDescriptor` keeps its button, because there it is the only
+      // way forward.
+      actions: [{ id: "start", label: "Start task", primary: true }]
+    },
+    footer: {
+      title: "Work directory",
+      fields: [
+        { id: "workDir", type: "text", label: "Where repositories are cloned", required: true }
+      ],
+      actions: [{ id: "browse", label: "Browse\u2026" }]
+    }
+  };
+}
+
+// ../core/src/session/createTask.ts
+var import_promises9 = require("node:fs/promises");
+var import_node_path11 = require("node:path");
+
+// ../core/src/state/TaskStateStore.ts
+var import_promises7 = require("node:fs/promises");
+var import_node_path9 = require("node:path");
+var TaskStateStore = class {
+  engineDir;
+  file;
+  constructor(taskDir) {
+    this.engineDir = (0, import_node_path9.join)(taskDir, ".engine");
+    this.file = (0, import_node_path9.join)(this.engineDir, "_state.json");
+  }
+  async exists() {
+    try {
+      await (0, import_promises7.access)(this.file);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  async read() {
+    return JSON.parse(await (0, import_promises7.readFile)(this.file, "utf8"));
+  }
+  /** Atomic: temp file then rename, so an interrupted write cannot corrupt the task. */
+  async write(state) {
+    await (0, import_promises7.mkdir)(this.engineDir, { recursive: true });
+    const tmp = `${this.file}.tmp`;
+    await (0, import_promises7.writeFile)(tmp, JSON.stringify(state, null, 2), "utf8");
+    await (0, import_promises7.rename)(tmp, this.file);
+  }
+};
+
+// ../core/src/workspace/TaskWorkspace.ts
+var import_node_crypto = require("node:crypto");
+var import_promises8 = require("node:fs/promises");
+var import_node_path10 = require("node:path");
+var TaskWorkspace = class _TaskWorkspace {
+  constructor(dir, taskId) {
+    this.dir = dir;
+    this.taskId = taskId;
+  }
+  dir;
+  taskId;
+  /**
+   * A task folder nobody else is using.
+   *
+   * The counter is claimed by *creating* the directory rather than by comparing
+   * its name against a listing. That distinction is the whole of this method,
+   * and it is not a nicety: the listing comparison was case-sensitive and the
+   * filesystem underneath it, on macOS and Windows both, is not. An epic typed
+   * `epic-001` on Monday and `EPIC-001` on Tuesday produced two ids that looked
+   * different to `Array.includes` and named one directory to the disk — so the
+   * second task silently adopted the first one's folder, overwrote its
+   * `_state.json`, and left two panels writing the same file. What that looks
+   * like from the outside is a step that will not advance however often Done is
+   * pressed, because the other session keeps putting the old status back.
+   *
+   * `mkdir` without `recursive` fails with EEXIST if anything is already there,
+   * whatever the filesystem thinks two names mean. Asking it is the only way to
+   * be right on every platform.
+   */
+  static async create(opts) {
+    const now = opts.now ?? /* @__PURE__ */ new Date();
+    await (0, import_promises8.mkdir)(opts.tasksRoot, { recursive: true });
+    let counter = 1;
+    let taskId = buildTaskId(opts.epic, opts.workflowId, now, counter);
+    let dir = (0, import_node_path10.join)(opts.tasksRoot, taskId);
+    for (; ; ) {
+      try {
+        await (0, import_promises8.mkdir)(dir);
+        break;
+      } catch (err) {
+        if (err.code !== "EEXIST") throw err;
+        counter += 1;
+        if (counter > 99) {
+          throw new Error(
+            `there are already 99 tasks for ${opts.epic} and ${opts.workflowId} today, under ${opts.tasksRoot}. Archive some before starting another.`
+          );
+        }
+        taskId = buildTaskId(opts.epic, opts.workflowId, now, counter);
+        dir = (0, import_node_path10.join)(opts.tasksRoot, taskId);
+      }
+    }
+    await (0, import_promises8.mkdir)((0, import_node_path10.join)(dir, ".engine"), { recursive: true });
+    await (0, import_promises8.writeFile)((0, import_node_path10.join)(dir, ".engine", "workflow.json"), opts.workflowJson, "utf8");
+    return new _TaskWorkspace(dir, taskId);
+  }
+  static async open(dir, taskId) {
+    return new _TaskWorkspace(dir, taskId);
+  }
+  async snapshotJson() {
+    return (0, import_promises8.readFile)((0, import_node_path10.join)(this.dir, ".engine", "workflow.json"), "utf8");
+  }
+  async hashOfSnapshot() {
+    return (0, import_node_crypto.createHash)("sha256").update(await this.snapshotJson()).digest("hex");
+  }
+  /**
+   * Detection, not prevention — every developer has full filesystem access, so
+   * prevention is not achievable. The goal is that deviation from the standard
+   * process is visible in the audit trail. See spec Section 7.
+   */
+  async verifySnapshot(expected) {
+    return await this.hashOfSnapshot() === expected;
+  }
+  async writeWorkspaceFile(repos) {
+    const file = (0, import_node_path10.join)(this.dir, `${this.taskId}.code-workspace`);
+    const content = {
+      folders: [...repos, { name: this.taskId, path: this.dir }],
+      settings: { "aiDevWorkflow.taskId": this.taskId }
+    };
+    await (0, import_promises8.writeFile)(file, JSON.stringify(content, null, 2), "utf8");
+    return file;
+  }
+};
+
+// ../core/src/session/createTask.ts
+function workflowFilename(id, version2) {
+  return `${id}_${version2.replace(".", "_")}.json`;
+}
+async function createTask(input) {
+  const { platform, epic, workflowId } = input.selection;
+  const workflow = input.catalog.get(workflowId);
+  const source = await (0, import_promises9.readFile)(
+    (0, import_node_path11.join)(input.workflowsDir, workflowFilename(workflow.id, workflow.version)),
+    "utf8"
+  );
+  const ws = await TaskWorkspace.create({
+    tasksRoot: input.tasksRoot,
+    epic,
+    workflowId,
+    platform,
+    workflowJson: source
+  });
+  const store = new TaskStateStore(ws.dir);
+  const inputs = {
+    services: input.selection.services,
+    taskType: workflowId,
+    baseBranch: input.selection.baseBranch,
+    workDir: input.selection.workDir
+  };
+  if (input.selection.featureStory) inputs.featureStory = input.selection.featureStory;
+  const state = {
+    schemaVersion: 1,
+    taskId: ws.taskId,
+    workflowId,
+    workflowVersion: workflow.version,
+    platform,
+    epic,
+    currentStepId: workflow.initialStep,
+    workflowHash: await ws.hashOfSnapshot(),
+    inputs,
+    steps: {}
+  };
+  await store.write(state);
+  await new AuditLog(ws.dir).append({
+    kind: "task-started",
+    data: { taskId: ws.taskId, workflowId, version: workflow.version, platform, epic, inputs }
+  });
+  return { taskId: ws.taskId, dir: ws.dir, state };
 }
 
 // ../core/src/skills/Skills.ts
@@ -12991,36 +13296,6 @@ var WORD = {
   unsupported: "not supported here"
 };
 
-// ../core/src/state/TaskStateStore.ts
-var import_promises7 = require("node:fs/promises");
-var import_node_path9 = require("node:path");
-var TaskStateStore = class {
-  engineDir;
-  file;
-  constructor(taskDir) {
-    this.engineDir = (0, import_node_path9.join)(taskDir, ".engine");
-    this.file = (0, import_node_path9.join)(this.engineDir, "_state.json");
-  }
-  async exists() {
-    try {
-      await (0, import_promises7.access)(this.file);
-      return true;
-    } catch {
-      return false;
-    }
-  }
-  async read() {
-    return JSON.parse(await (0, import_promises7.readFile)(this.file, "utf8"));
-  }
-  /** Atomic: temp file then rename, so an interrupted write cannot corrupt the task. */
-  async write(state) {
-    await (0, import_promises7.mkdir)(this.engineDir, { recursive: true });
-    const tmp = `${this.file}.tmp`;
-    await (0, import_promises7.writeFile)(tmp, JSON.stringify(state, null, 2), "utf8");
-    await (0, import_promises7.rename)(tmp, this.file);
-  }
-};
-
 // ../core/src/tasks/CollectRequirement.ts
 function isEmpty(v) {
   if (v === void 0 || v === null) return true;
@@ -13032,6 +13307,7 @@ var CollectRequirement = class {
   constructor(providers = defaultProviders()) {
     this.providers = providers;
   }
+  providers;
   name = "CollectRequirement";
   stepType = "task";
   title = "Collect the requirement";
@@ -13159,6 +13435,10 @@ var CopilotEditingHandoff = class {
     this.audit = audit;
     this.sink = sink;
   }
+  composer;
+  handoff;
+  audit;
+  sink;
   stepType = "aiHandoff";
   /** Same as InvokeCopilot: Send delivers, Done completes. */
   transitions = ["done"];
@@ -13254,7 +13534,7 @@ async function readEnvironment(reader) {
 }
 
 // ../core/src/tasks/GitClone.ts
-var import_node_path10 = require("node:path");
+var import_node_path12 = require("node:path");
 var GitClone = class {
   /**
    * @param fallbackWorkDir used only by tasks started before the work
@@ -13265,6 +13545,9 @@ var GitClone = class {
     this.exists = exists3;
     this.sink = sink;
   }
+  fallbackWorkDir;
+  exists;
+  sink;
   name = "gitClone";
   stepType = "commandExecution";
   title = "Get the code";
@@ -13323,7 +13606,7 @@ var GitClone = class {
     return String(ctx.inputs.workDir ?? "").trim() || this.fallbackWorkDir;
   }
   pathOf(ctx, service) {
-    return (0, import_node_path10.join)(this.workDirOf(ctx), folderFor(service));
+    return (0, import_node_path12.join)(this.workDirOf(ctx), folderFor(service));
   }
   /** A selected shortCode with no catalogue entry is ignored, not fatal. */
   selected(ctx) {
@@ -13339,7 +13622,7 @@ function baseBranchOf(ctx) {
 }
 
 // ../core/src/tasks/InvokeCopilot.ts
-var import_node_path11 = require("node:path");
+var import_node_path13 = require("node:path");
 var InvokeCopilot = class {
   constructor(composer, handoff, audit, fileExists2, sink) {
     this.composer = composer;
@@ -13348,6 +13631,11 @@ var InvokeCopilot = class {
     this.fileExists = fileExists2;
     this.sink = sink;
   }
+  composer;
+  handoff;
+  audit;
+  fileExists;
+  sink;
   name = "invokeCopilot";
   stepType = "aiHandoff";
   title = "Hand off to Copilot";
@@ -13393,7 +13681,7 @@ var InvokeCopilot = class {
   }
   /** Where this step's artifact will land. Needed by the watcher and the review step. */
   async outputPath(step, ctx) {
-    return (0, import_node_path11.join)(ctx.taskDir, await this.composer.outputFor(step, ctx));
+    return (0, import_node_path13.join)(ctx.taskDir, await this.composer.outputFor(step, ctx));
   }
   /**
    * Looks. The watcher in `TaskSession` reports the artifact appearing while the
@@ -13439,13 +13727,13 @@ var InvokeCopilot = class {
       stepId: step.id,
       data: { mechanism, chars: prompt.length }
     });
-    return { mechanism, promptChars: prompt.length, outputPath: (0, import_node_path11.join)(ctx.taskDir, outputFile) };
+    return { mechanism, promptChars: prompt.length, outputPath: (0, import_node_path13.join)(ctx.taskDir, outputFile) };
   }
   async execute(step, ctx, values) {
     const outputPath = await this.outputPath(step, ctx);
     return {
       outputPath,
-      outputFile: (0, import_node_path11.basename)(outputPath),
+      outputFile: (0, import_node_path13.basename)(outputPath),
       outputPresent: await this.fileExists(outputPath),
       mechanism: values.mechanism ?? null
     };
@@ -13467,13 +13755,16 @@ var InvokeCopilotCoding = class extends CopilotEditingHandoff {
 };
 
 // ../core/src/tasks/ManualReview.ts
-var import_node_path12 = require("node:path");
+var import_node_path14 = require("node:path");
 var ManualReview = class {
   constructor(openFile, hashFile2, keepCopy2) {
     this.openFile = openFile;
     this.hashFile = hashFile2;
     this.keepCopy = keepCopy2;
   }
+  openFile;
+  hashFile;
+  keepCopy;
   name = "manualReview";
   stepType = "manual";
   title = "Review the result";
@@ -13482,7 +13773,7 @@ var ManualReview = class {
   async describe(step, ctx, _values) {
     const path = this.artifactPath(step, ctx);
     return {
-      text: path ? `${(0, import_node_path12.basename)(path)} is open in an editor tab. Read it, edit it if you want to, then approve it or send it back for another pass.` : "No earlier step has produced an artifact to review yet.",
+      text: path ? `${(0, import_node_path14.basename)(path)} is open in an editor tab. Read it, edit it if you want to, then approve it or send it back for another pass.` : "No earlier step has produced an artifact to review yet.",
       actions: [
         { id: "revise", label: "Revise" },
         { id: "approve", label: "Approve", primary: true }
@@ -13513,7 +13804,7 @@ var ManualReview = class {
   async execute(step, ctx, _values) {
     const artifactPath = this.artifactPath(step, ctx);
     if (!artifactPath) return { approved: true };
-    const approvedCopy = (0, import_node_path12.join)(ctx.taskDir, ".engine", "approved", `${step.id}-${(0, import_node_path12.basename)(artifactPath)}`);
+    const approvedCopy = (0, import_node_path14.join)(ctx.taskDir, ".engine", "approved", `${step.id}-${(0, import_node_path14.basename)(artifactPath)}`);
     const kept = await this.keepCopy(artifactPath, approvedCopy).then(
       () => true,
       () => false
@@ -13587,6 +13878,12 @@ var ToolCheck = class {
     this.skills = skills;
     this.platform = platform;
   }
+  loadTools;
+  probe;
+  sink;
+  environment;
+  skills;
+  platform;
   name = "toolCheck";
   stepType = "toolCheck";
   title = "Tool check";
@@ -13844,25 +14141,25 @@ ${e.stderr ?? ""}`.trim() };
 };
 
 // ../core/src/tasks/registry.ts
-var import_node_crypto = require("node:crypto");
-var import_node_path13 = require("node:path");
+var import_node_crypto2 = require("node:crypto");
+var import_node_path15 = require("node:path");
 var import_node_fs = require("node:fs");
-var import_promises8 = require("node:fs/promises");
+var import_promises10 = require("node:fs/promises");
 var import_node_os2 = require("node:os");
 async function fileExists(p) {
   try {
-    await (0, import_promises8.access)(p);
+    await (0, import_promises10.access)(p);
     return true;
   } catch {
     return false;
   }
 }
 async function hashFile(p) {
-  return (0, import_node_crypto.createHash)("sha256").update(await (0, import_promises8.readFile)(p, "utf8")).digest("hex");
+  return (0, import_node_crypto2.createHash)("sha256").update(await (0, import_promises10.readFile)(p, "utf8")).digest("hex");
 }
 async function keepCopy(from, to) {
-  await (0, import_promises8.mkdir)((0, import_node_path13.dirname)(to), { recursive: true });
-  await (0, import_promises8.copyFile)(from, to);
+  await (0, import_promises10.mkdir)((0, import_node_path15.dirname)(to), { recursive: true });
+  await (0, import_promises10.copyFile)(from, to);
 }
 async function readSkillFiles(dirs) {
   const found = /* @__PURE__ */ new Map();
@@ -13871,16 +14168,16 @@ async function readSkillFiles(dirs) {
     ["external", dirs.external]
   ]) {
     if (!dir) continue;
-    const entries = await (0, import_promises8.readdir)(dir, { withFileTypes: true }).catch(() => []);
+    const entries = await (0, import_promises10.readdir)(dir, { withFileTypes: true }).catch(() => []);
     for (const entry of entries.filter((e) => e.isDirectory())) {
-      found.set(entry.name, await readSkillFolder((0, import_node_path13.join)(dir, entry.name), entry.name, source));
+      found.set(entry.name, await readSkillFolder((0, import_node_path15.join)(dir, entry.name), entry.name, source));
     }
   }
   return [...found.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 async function readSkillFolder(dir, name, source) {
-  const path = (0, import_node_path13.join)(dir, SKILL_FILE);
-  const names = await (0, import_promises8.readdir)(dir).catch(() => []);
+  const path = (0, import_node_path15.join)(dir, SKILL_FILE);
+  const names = await (0, import_promises10.readdir)(dir).catch(() => []);
   if (!names.includes(SKILL_FILE)) {
     const variant = names.find((n) => n.toLowerCase() === SKILL_FILE.toLowerCase());
     return {
@@ -13890,31 +14187,31 @@ async function readSkillFolder(dir, name, source) {
       problem: variant ? `${dir} holds "${variant}", and a skill's instructions have to be in "${SKILL_FILE}". The difference is invisible on this machine and fatal on a case-sensitive one.` : `${dir} holds no ${SKILL_FILE}, so there is nothing to install from it.`
     };
   }
-  return { name, path, source, raw: await (0, import_promises8.readFile)(path, "utf8") };
+  return { name, path, source, raw: await (0, import_promises10.readFile)(path, "utf8") };
 }
 function skillInstaller(opts) {
   return {
     async install() {
       const support = opts.host.skills;
       if (!support) return { dir: "", findings: [], supported: false };
-      const dir = (0, import_node_path13.join)((0, import_node_os2.homedir)(), ...support.dir.split("/"));
+      const dir = (0, import_node_path15.join)((0, import_node_os2.homedir)(), ...support.dir.split("/"));
       if (!supportsSkills(opts.host.editorVersion, support.minimumVersion)) {
         return { dir, findings: [], supported: false };
       }
       const files = await readSkillFiles({
-        external: opts.promptsDir ? (0, import_node_path13.join)(opts.promptsDir, "skills") : void 0,
-        bundled: (0, import_node_path13.join)(opts.bundledPromptsDir, "skills")
+        external: opts.promptsDir ? (0, import_node_path15.join)(opts.promptsDir, "skills") : void 0,
+        bundled: (0, import_node_path15.join)(opts.bundledPromptsDir, "skills")
       });
       const onDisk = {};
       for (const file of files) {
-        onDisk[file.name] = await (0, import_promises8.readFile)((0, import_node_path13.join)(dir, file.name, "SKILL.md"), "utf8").catch(
+        onDisk[file.name] = await (0, import_promises10.readFile)((0, import_node_path15.join)(dir, file.name, "SKILL.md"), "utf8").catch(
           () => void 0
         );
       }
       const plan = planSkills(files, onDisk, opts.remembered);
       for (const [name, content] of Object.entries(plan.writes)) {
-        await (0, import_promises8.mkdir)((0, import_node_path13.join)(dir, name), { recursive: true });
-        await (0, import_promises8.writeFile)((0, import_node_path13.join)(dir, name, "SKILL.md"), content, "utf8");
+        await (0, import_promises10.mkdir)((0, import_node_path15.join)(dir, name), { recursive: true });
+        await (0, import_promises10.writeFile)((0, import_node_path15.join)(dir, name, "SKILL.md"), content, "utf8");
       }
       if (Object.keys(plan.writes).length > 0) {
         await opts.remember({ ...opts.remembered, ...plan.writes });
@@ -14001,91 +14298,10 @@ async function checkForUpdate(deps) {
   }
 }
 
-// ../core/src/workspace/TaskWorkspace.ts
-var import_node_crypto2 = require("node:crypto");
-var import_promises9 = require("node:fs/promises");
-var import_node_path14 = require("node:path");
-var TaskWorkspace = class _TaskWorkspace {
-  constructor(dir, taskId) {
-    this.dir = dir;
-    this.taskId = taskId;
-  }
-  /**
-   * A task folder nobody else is using.
-   *
-   * The counter is claimed by *creating* the directory rather than by comparing
-   * its name against a listing. That distinction is the whole of this method,
-   * and it is not a nicety: the listing comparison was case-sensitive and the
-   * filesystem underneath it, on macOS and Windows both, is not. An epic typed
-   * `epic-001` on Monday and `EPIC-001` on Tuesday produced two ids that looked
-   * different to `Array.includes` and named one directory to the disk — so the
-   * second task silently adopted the first one's folder, overwrote its
-   * `_state.json`, and left two panels writing the same file. What that looks
-   * like from the outside is a step that will not advance however often Done is
-   * pressed, because the other session keeps putting the old status back.
-   *
-   * `mkdir` without `recursive` fails with EEXIST if anything is already there,
-   * whatever the filesystem thinks two names mean. Asking it is the only way to
-   * be right on every platform.
-   */
-  static async create(opts) {
-    const now = opts.now ?? /* @__PURE__ */ new Date();
-    await (0, import_promises9.mkdir)(opts.tasksRoot, { recursive: true });
-    let counter = 1;
-    let taskId = buildTaskId(opts.epic, opts.workflowId, now, counter);
-    let dir = (0, import_node_path14.join)(opts.tasksRoot, taskId);
-    for (; ; ) {
-      try {
-        await (0, import_promises9.mkdir)(dir);
-        break;
-      } catch (err) {
-        if (err.code !== "EEXIST") throw err;
-        counter += 1;
-        if (counter > 99) {
-          throw new Error(
-            `there are already 99 tasks for ${opts.epic} and ${opts.workflowId} today, under ${opts.tasksRoot}. Archive some before starting another.`
-          );
-        }
-        taskId = buildTaskId(opts.epic, opts.workflowId, now, counter);
-        dir = (0, import_node_path14.join)(opts.tasksRoot, taskId);
-      }
-    }
-    await (0, import_promises9.mkdir)((0, import_node_path14.join)(dir, ".engine"), { recursive: true });
-    await (0, import_promises9.writeFile)((0, import_node_path14.join)(dir, ".engine", "workflow.json"), opts.workflowJson, "utf8");
-    return new _TaskWorkspace(dir, taskId);
-  }
-  static async open(dir, taskId) {
-    return new _TaskWorkspace(dir, taskId);
-  }
-  async snapshotJson() {
-    return (0, import_promises9.readFile)((0, import_node_path14.join)(this.dir, ".engine", "workflow.json"), "utf8");
-  }
-  async hashOfSnapshot() {
-    return (0, import_node_crypto2.createHash)("sha256").update(await this.snapshotJson()).digest("hex");
-  }
-  /**
-   * Detection, not prevention — every developer has full filesystem access, so
-   * prevention is not achievable. The goal is that deviation from the standard
-   * process is visible in the audit trail. See spec Section 7.
-   */
-  async verifySnapshot(expected) {
-    return await this.hashOfSnapshot() === expected;
-  }
-  async writeWorkspaceFile(repos) {
-    const file = (0, import_node_path14.join)(this.dir, `${this.taskId}.code-workspace`);
-    const content = {
-      folders: [...repos, { name: this.taskId, path: this.dir }],
-      settings: { "aiDevWorkflow.taskId": this.taskId }
-    };
-    await (0, import_promises9.writeFile)(file, JSON.stringify(content, null, 2), "utf8");
-    return file;
-  }
-};
-
 // src/session/TaskSession.ts
 var import_node_crypto3 = require("node:crypto");
-var import_promises10 = require("node:fs/promises");
-var import_node_path16 = require("node:path");
+var import_promises11 = require("node:fs/promises");
+var import_node_path17 = require("node:path");
 var vscode3 = __toESM(require("vscode"));
 
 // src/bridge/vscodeTransport.ts
@@ -14115,7 +14331,7 @@ var vscode2 = __toESM(require("vscode"));
 
 // src/handoff/ChatHandoff.ts
 var vscode = __toESM(require("vscode"));
-var import_node_path15 = require("node:path");
+var import_node_path16 = require("node:path");
 var ChatHandoff = class {
   async deliver(prompt, taskDir) {
     try {
@@ -14135,7 +14351,7 @@ var ChatHandoff = class {
       return "B";
     } catch {
     }
-    const file = vscode.Uri.file((0, import_node_path15.join)(taskDir, ".engine", "prompt.md"));
+    const file = vscode.Uri.file((0, import_node_path16.join)(taskDir, ".engine", "prompt.md"));
     await vscode.workspace.fs.writeFile(file, Buffer.from(prompt, "utf8"));
     await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(file));
     void vscode.window.showWarningMessage(
@@ -14217,16 +14433,13 @@ function contentSettings() {
   };
 }
 function sampleRoot(context) {
-  return (0, import_node_path16.join)(context.extensionPath, "examples", "content-template");
+  return (0, import_node_path17.join)(context.extensionPath, "examples", "content-template");
 }
 function resolvedContent(context) {
   return resolveAll(contentSettings(), sampleRoot(context));
 }
 function contentRoot() {
   return resolveContentRootSetting(config("contentRoot") ?? "");
-}
-function workflowFilename(id, version2) {
-  return `${id}_${version2.replace(".", "_")}.json`;
 }
 var TaskSession = class _TaskSession {
   constructor(workflow, engine, registry, ctx, bridge, panel, audit, initialState) {
@@ -14242,6 +14455,13 @@ var TaskSession = class _TaskSession {
       void this.handleAction(msg.stepId, msg.actionId, msg.values);
     });
   }
+  workflow;
+  engine;
+  registry;
+  ctx;
+  bridge;
+  panel;
+  audit;
   state;
   values = {};
   errors = {};
@@ -14316,50 +14536,21 @@ var TaskSession = class _TaskSession {
   /** Sidebar-driven entry: the task-level inputs are already chosen. */
   static async startWith(context, selection) {
     const catalog = await loadCatalog(context);
-    const { platform, epic, workflowId } = selection;
-    const workflow = catalog.get(workflowId);
-    const source = await (0, import_promises10.readFile)(
-      (0, import_node_path16.join)(workflowsDir(context), workflowFilename(workflow.id, workflow.version)),
-      "utf8"
-    );
-    const ws = await TaskWorkspace.create({
+    const created = await createTask({
       tasksRoot: tasksRoot(),
-      epic,
-      workflowId,
-      platform,
-      workflowJson: source
+      workflowsDir: workflowsDir(context),
+      catalog,
+      selection
     });
-    const store = new TaskStateStore(ws.dir);
-    const inputs = {
-      services: selection.services,
-      taskType: workflowId,
-      baseBranch: selection.baseBranch,
-      workDir: selection.workDir
-    };
-    if (selection.featureStory) inputs.featureStory = selection.featureStory;
-    const state = {
-      schemaVersion: 1,
-      taskId: ws.taskId,
-      workflowId,
-      workflowVersion: workflow.version,
-      platform,
-      epic,
-      currentStepId: workflow.initialStep,
-      workflowHash: await ws.hashOfSnapshot(),
-      inputs,
-      steps: {}
-    };
-    await store.write(state);
-    await new AuditLog(ws.dir).append({
-      kind: "task-started",
-      data: { taskId: ws.taskId, workflowId, version: workflow.version, platform, epic, inputs }
-    });
-    const session = await _TaskSession.open(context, ws, store, workflow, state);
+    const ws = await TaskWorkspace.open(created.dir, created.taskId);
+    const store = new TaskStateStore(created.dir);
+    const workflow = catalog.get(selection.workflowId);
+    const session = await _TaskSession.open(context, ws, store, workflow, created.state);
     await openCopilotChatBeside();
     return session;
   }
   static async resume(context, taskId) {
-    const dir = (0, import_node_path16.join)(tasksRoot(), taskId);
+    const dir = (0, import_node_path17.join)(tasksRoot(), taskId);
     const store = new TaskStateStore(dir);
     if (!await store.exists()) return void 0;
     const state = await store.read();
@@ -14383,7 +14574,7 @@ var TaskSession = class _TaskSession {
     const resolved = resolvedContent(context);
     const registry = buildTaskTypes({
       promptsDir: resolved.ok ? resolved.promptsDir : void 0,
-      bundledPromptsDir: (0, import_node_path16.join)(context.extensionPath, "prompts"),
+      bundledPromptsDir: (0, import_node_path17.join)(context.extensionPath, "prompts"),
       toolsConfig: resolved.ok ? resolved.toolsConfig : void 0,
       taskDir: ws.dir,
       codeRoot: resolveCodeRoot(config("codeRoot")),
@@ -14425,14 +14616,14 @@ var TaskSession = class _TaskSession {
       {
         enableScripts: true,
         retainContextWhenHidden: true,
-        localResourceRoots: [vscode3.Uri.file((0, import_node_path16.join)(context.extensionPath, "out"))]
+        localResourceRoots: [vscode3.Uri.file((0, import_node_path17.join)(context.extensionPath, "out"))]
       }
     );
     const bridge = new WebviewBridge(vscodeTransport(panel.webview));
     panel.onDidChangeViewState(() => {
       if (panel.visible) bridge.flush();
     });
-    const asset = (name) => panel.webview.asWebviewUri(vscode3.Uri.file((0, import_node_path16.join)(context.extensionPath, "out", name)));
+    const asset = (name) => panel.webview.asWebviewUri(vscode3.Uri.file((0, import_node_path17.join)(context.extensionPath, "out", name)));
     panel.webview.html = panelHtml(
       panel.webview,
       asset("webview.js"),
@@ -14540,7 +14731,7 @@ var TaskSession = class _TaskSession {
         await this.rememberEdit(stepId, values);
         const { mechanism, outputPath } = await task.deliver(step, this.ctx, editedPrompt(values));
         this.pendingMechanism = mechanism;
-        this.outputFile = outputPath ? (0, import_node_path16.basename)(outputPath) : void 0;
+        this.outputFile = outputPath ? (0, import_node_path17.basename)(outputPath) : void 0;
         this.bridge.progress(
           stepId,
           this.outputFile ? `Prompt delivered (mechanism ${mechanism}). Waiting for ${this.outputFile}\u2026` : `Prompt delivered (mechanism ${mechanism}).`
@@ -14593,7 +14784,7 @@ var TaskSession = class _TaskSession {
       ...values,
       confirmed: true,
       outputPresent: this.outputPresent || onDisk,
-      outputFile: outputPath ? (0, import_node_path16.basename)(outputPath) : this.outputFile,
+      outputFile: outputPath ? (0, import_node_path17.basename)(outputPath) : this.outputFile,
       mechanism: this.pendingMechanism
     };
   }
@@ -14625,7 +14816,7 @@ var TaskSession = class _TaskSession {
       return;
     }
     const ws = await TaskWorkspace.open(this.ctx.taskDir, this.ctx.taskId);
-    const target = (0, import_node_path16.join)(this.ctx.taskDir, `${this.ctx.taskId}.code-workspace`);
+    const target = (0, import_node_path17.join)(this.ctx.taskDir, `${this.ctx.taskId}.code-workspace`);
     if (await exists2(target)) return;
     const file = await ws.writeWorkspaceFile(repos);
     await this.audit.append({ kind: "workspace-generated", data: { file } });
@@ -14649,7 +14840,7 @@ var TaskSession = class _TaskSession {
       const expected = await task.outputPath?.(step, this.ctx).catch(() => void 0);
       if (!expected || uri.fsPath !== expected) return;
       this.outputPresent = true;
-      this.outputFile = (0, import_node_path16.basename)(expected);
+      this.outputFile = (0, import_node_path17.basename)(expected);
       await this.audit.append({ kind: "output-detected", stepId: step.id });
       await this.refresh();
     };
@@ -14684,7 +14875,7 @@ var TaskSession = class _TaskSession {
   }
 };
 function workflowsDir(context) {
-  return (0, import_node_path16.join)(context.extensionPath, "workflows");
+  return (0, import_node_path17.join)(context.extensionPath, "workflows");
 }
 function loadCatalog(context) {
   const resolved = resolvedContent(context);
@@ -14704,14 +14895,14 @@ function configuredFiles(resolved) {
 }
 async function hashOrNull(path) {
   try {
-    return (0, import_node_crypto3.createHash)("sha256").update(await (0, import_promises10.readFile)(path, "utf8")).digest("hex");
+    return (0, import_node_crypto3.createHash)("sha256").update(await (0, import_promises11.readFile)(path, "utf8")).digest("hex");
   } catch {
     return null;
   }
 }
 async function exists2(path) {
   try {
-    await (0, import_promises10.access)(path);
+    await (0, import_promises11.access)(path);
     return true;
   } catch {
     return false;
@@ -14747,7 +14938,7 @@ function randomNonce() {
 }
 
 // src/session/SetupView.ts
-var import_node_path17 = require("node:path");
+var import_node_path18 = require("node:path");
 var vscode4 = __toESM(require("vscode"));
 var SetupView = class {
   constructor(context, onStart, onResume) {
@@ -14755,6 +14946,9 @@ var SetupView = class {
     this.onStart = onStart;
     this.onResume = onResume;
   }
+  context;
+  onStart;
+  onResume;
   static viewId = "aiDevWorkflow.setup";
   bridge;
   values = {};
@@ -14762,12 +14956,10 @@ var SetupView = class {
   async resolveWebviewView(view) {
     view.webview.options = {
       enableScripts: true,
-      localResourceRoots: [vscode4.Uri.file((0, import_node_path17.join)(this.context.extensionPath, "out"))]
+      localResourceRoots: [vscode4.Uri.file((0, import_node_path18.join)(this.context.extensionPath, "out"))]
     };
-    const script = view.webview.asWebviewUri(
-      vscode4.Uri.file((0, import_node_path17.join)(this.context.extensionPath, "out", "setup.js"))
-    );
-    view.webview.html = html(script.toString());
+    const asset = (name) => view.webview.asWebviewUri(vscode4.Uri.file((0, import_node_path18.join)(this.context.extensionPath, "out", name)));
+    view.webview.html = html(view.webview, asset("setup.js"), asset("setup.css"));
     this.bridge = new WebviewBridge(vscodeTransport(view.webview));
     this.bridge.onAction(({ actionId, values }) => {
       void this.onAction(actionId, values);
@@ -14877,194 +15069,41 @@ var SetupView = class {
     const version2 = this.context.extension.packageJSON.version;
     return `AI Dev Workflow ${version2 ?? "unknown version"}`;
   }
+  /**
+   * The pane, from core.
+   *
+   * Everything about *what* the form looks like now lives in
+   * `buildSetupDescriptor`, so the JetBrains tool window draws the same one.
+   * What is left here is the half only VS Code can answer: where its settings
+   * and its bundled workflows are. See spec Section 19.
+   */
   async render() {
     if (!this.bridge) return;
-    const resolved = resolvedContent(this.context);
-    if (!resolved.ok) {
-      this.bridge.render(unconfiguredDescriptor(resolved.message, this.versionLine()));
-      return;
-    }
-    const notice = resolved.source === "sample" ? SAMPLE_NOTICE : void 0;
-    let catalog;
-    try {
-      catalog = await WorkflowCatalog.load((0, import_node_path17.join)(this.context.extensionPath, "workflows"), {
-        platformConfig: resolved.platformConfig,
-        microserviceConfig: resolved.microserviceConfig
-      });
-    } catch (err) {
-      this.bridge.render(
-        unconfiguredDescriptor(err instanceof Error ? err.message : String(err), this.versionLine())
-      );
-      return;
-    }
-    const modeField = {
-      id: "mode",
-      type: "select",
-      label: "Task",
-      options: [
-        { value: "new", label: "New task" },
-        { value: "existing", label: "Continue an existing task" }
-      ]
-    };
     this.bridge.render(
-      this.mode() === "existing" ? await this.existingDescriptor(catalog, modeField, notice) : this.newDescriptor(catalog, modeField, notice)
+      await buildSetupDescriptor({
+        resolved: resolvedContent(this.context),
+        workflowsDir: (0, import_node_path18.join)(this.context.extensionPath, "workflows"),
+        tasksRoot: tasksRoot(),
+        codeRoot: configuredCodeRoot(),
+        version: this.versionLine(),
+        values: this.values,
+        errors: this.errors
+      })
     );
-  }
-  /**
-   * The saved tasks that still have work in them. Finished tasks are left out:
-   * this list exists to answer "where was I", and a folder of everything ever
-   * started answers nothing. They remain reachable through the Resume Task
-   * command.
-   */
-  async existingDescriptor(catalog, modeField, notice) {
-    const tasks = await listUnfinishedTasks(tasksRoot());
-    const labelOf = (id) => catalog.all().find((w) => w.id === id)?.label;
-    const chosen = String(this.values.existingTask ?? "");
-    const selected = tasks.some((t) => t.taskId === chosen) ? chosen : tasks[0]?.taskId ?? "";
-    const fields = [modeField];
-    if (tasks.length > 0) {
-      fields.push({
-        id: "existingTask",
-        type: "select",
-        label: "Task to continue",
-        options: tasks.map((t) => ({
-          value: t.taskId,
-          label: taskLabel(t, labelOf(t.workflowId))
-        }))
-      });
-    }
-    return {
-      protocolVersion: PROTOCOL_VERSION,
-      task: { id: "", platform: "", epic: "", workflowLabel: "Task setup" },
-      progress: { index: 0, total: 0, steps: [] },
-      notice,
-      version: this.versionLine(),
-      step: {
-        id: "setup",
-        kind: "form",
-        title: "Continue a task",
-        fields,
-        text: tasks.length > 0 ? "Unfinished tasks, most recent first. Opening one picks it up at the step it stopped on." : "No unfinished tasks saved yet. Switch to New task to start one.",
-        values: { ...this.values, mode: "existing", existingTask: selected },
-        errors: Object.keys(this.errors).length > 0 ? this.errors : void 0,
-        actions: tasks.length > 0 ? [{ id: "open", label: "Open task", primary: true }] : []
-      }
-    };
-  }
-  newDescriptor(catalog, modeField, notice) {
-    const platforms = catalog.platforms();
-    const workflows = catalog.all();
-    const selectedPlatform = String(this.values.platform ?? platforms[0]?.id ?? "");
-    const selectedWorkflow = String(this.values.workflowId ?? workflows[0]?.id ?? "");
-    const fields = [
-      modeField,
-      {
-        id: "platform",
-        type: "select",
-        label: "Platform",
-        options: platforms.map((p) => ({ value: p.id, label: p.label }))
-      },
-      { id: "epic", type: "text", label: "Epic", required: true },
-      {
-        id: "workflowId",
-        type: "select",
-        label: "Task type",
-        options: workflows.map((w) => ({ value: w.id, label: w.label }))
-      }
-    ];
-    if (needsFeatureStory(selectedWorkflow)) {
-      fields.push({
-        id: "featureStory",
-        type: "text",
-        label: "Feature story",
-        required: true
-      });
-    }
-    fields.push(
-      { id: "baseBranch", type: "text", label: "Base branch", required: true },
-      // Platform is recorded context, not a filter: the catalogue is one list.
-      // The renderer grows a type-to-filter box over it past five options.
-      {
-        id: "services",
-        type: "multiselect",
-        label: "Microservices",
-        required: true,
-        options: catalog.microservices().map((s) => ({ value: s.shortCode, label: `${s.microserviceName} (${s.shortCode})` }))
-      }
-    );
-    const workDir = String(this.values.workDir ?? resolveCodeRoot(configuredCodeRoot()));
-    return {
-      protocolVersion: PROTOCOL_VERSION,
-      task: { id: "", platform: selectedPlatform, epic: "", workflowLabel: "Task setup" },
-      progress: { index: 0, total: 0, steps: [] },
-      notice,
-      version: this.versionLine(),
-      step: {
-        id: "setup",
-        kind: "form",
-        title: "Task setup",
-        fields,
-        values: {
-          ...this.values,
-          mode: "new",
-          platform: selectedPlatform,
-          workflowId: selectedWorkflow,
-          workDir
-        },
-        errors: Object.keys(this.errors).length > 0 ? this.errors : void 0,
-        // Start task, and nothing beside it. The sample-catalogue banner used to
-        // put an Open Settings button here, which made a working form look like
-        // it needed attending to — the banner already names Content Root, and
-        // the setting is one command palette away. The wall in
-        // `unconfiguredDescriptor` keeps its button, because there it is the
-        // only way forward.
-        actions: [{ id: "start", label: "Start task", primary: true }]
-      },
-      footer: {
-        title: "Work directory",
-        fields: [
-          { id: "workDir", type: "text", label: "Where repositories are cloned", required: true }
-        ],
-        actions: [{ id: "browse", label: "Browse\u2026" }]
-      }
-    };
   }
 };
 function configuredCodeRoot() {
   return vscode4.workspace.getConfiguration("aiDevWorkflow").get("codeRoot");
 }
-function html(scriptUri) {
+function html(webview, scriptUri, styleUri) {
   const nonce = Math.random().toString(36).slice(2);
   return `<!DOCTYPE html><html><head>
 <meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy"
-      content="default-src 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline';">
-<style>
-body{font-family:var(--vscode-font-family);color:var(--vscode-foreground);padding:.75rem;font-size:var(--vscode-font-size)}
-h1{font-size:1rem;margin:0 0 .5rem}
-.step-text{margin:0 0 .75rem;color:var(--vscode-descriptionForeground);font-size:.9em}
-.task-meta,.progress{display:none}
-.field{margin:.75rem 0;display:flex;flex-direction:column;gap:.25rem}
-.field-label{font-weight:600;font-size:.9em}
-.options{display:flex;flex-direction:column;gap:.15rem;max-height:14rem;overflow-y:auto}
-.option{display:flex;align-items:center;gap:.4rem;font-weight:400}
-input[type=text],select,.option-filter{background:var(--vscode-input-background);color:var(--vscode-input-foreground);border:1px solid var(--vscode-input-border,transparent);padding:.3rem;font:inherit;width:100%;box-sizing:border-box}
-.option-filter{margin-bottom:.25rem}
-.field-error{color:var(--vscode-inputValidation-errorForeground,#f88);font-size:.85em}
-.error-box{padding:.4rem;margin-bottom:.5rem;background:var(--vscode-inputValidation-errorBackground,#522)}
-/* A warning rather than an error: the form below it still works. The sidebar
-   carries its own stylesheet, so a rule added to webview/style.css would not
-   reach it \u2014 see spec Section 9. */
-.notice-box{padding:.5rem;margin:0 0 .75rem;font-size:.9em;line-height:1.4;background:var(--vscode-inputValidation-warningBackground,#4d3800);border-left:3px solid var(--vscode-inputValidation-warningBorder,#c93);color:var(--vscode-inputValidation-warningForeground,inherit)}
-.actions{margin-top:1rem;display:flex;gap:.4rem}
-.step-footer{margin-top:1.5rem;padding-top:.75rem;border-top:1px solid var(--vscode-panel-border,#333)}
-.step-footer-title{font-size:.9rem;margin:0;font-weight:600}
-.step-footer .actions{margin-top:.5rem}
-.setup-version{margin-top:1.25rem;padding-top:.5rem;border-top:1px solid var(--vscode-panel-border,#333);color:var(--vscode-descriptionForeground);font-size:.8em}
-.step-footer button{width:auto;padding:.3rem .75rem;background:var(--vscode-button-secondaryBackground,rgba(127,127,127,.2));color:var(--vscode-button-secondaryForeground,inherit)}
-button{font:inherit;padding:.4rem 1rem;cursor:pointer;border:none;width:100%;background:var(--vscode-button-background);color:var(--vscode-button-foreground)}
-</style></head><body><div id="root"></div>
-<script nonce="${nonce}" src="${scriptUri}"></script></body></html>`;
+      content="default-src 'none'; script-src 'nonce-${nonce}'; style-src ${webview.cspSource};">
+<link rel="stylesheet" href="${styleUri.toString()}">
+</head><body><div id="root"></div>
+<script nonce="${nonce}" src="${scriptUri.toString()}"></script></body></html>`;
 }
 
 // src/session/derivedSettings.ts
@@ -15127,7 +15166,7 @@ async function activate(context) {
       await vscode6.window.showTextDocument(doc, { preview: false });
     }),
     vscode6.commands.registerCommand("aiDevWorkflow.resumeTask", async () => {
-      const ids = (await (0, import_promises11.readdir)(tasksRoot()).catch(() => [])).filter(
+      const ids = (await (0, import_promises12.readdir)(tasksRoot()).catch(() => [])).filter(
         (n) => !n.startsWith(".")
       );
       if (ids.length === 0) {
@@ -15166,9 +15205,9 @@ async function activate(context) {
 }
 async function handoffReport() {
   const root = tasksRoot();
-  const ids = (await (0, import_promises11.readdir)(root).catch(() => [])).filter((n) => !n.startsWith("."));
+  const ids = (await (0, import_promises12.readdir)(root).catch(() => [])).filter((n) => !n.startsWith("."));
   const perTask = await Promise.all(
-    ids.map((id) => new AuditLog((0, import_node_path18.join)(root, id)).entries().catch(() => []))
+    ids.map((id) => new AuditLog((0, import_node_path19.join)(root, id)).entries().catch(() => []))
   );
   return report(summariseHandoffs(perTask.filter((entries) => entries.length > 0)));
 }

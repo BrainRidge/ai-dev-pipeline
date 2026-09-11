@@ -12,6 +12,7 @@ import { WorkflowEngine } from '@ai-dev-pipeline/core'
 import { workflowFileSchema, type StepDef, type WorkflowDef } from '@ai-dev-pipeline/core'
 import { TaskStateStore, type TaskState } from '@ai-dev-pipeline/core'
 import { TaskWorkspace } from '@ai-dev-pipeline/core'
+import { createTask } from '@ai-dev-pipeline/core'
 import { buildTaskTypes } from '@ai-dev-pipeline/core'
 import {
   resolveAll,
@@ -81,11 +82,6 @@ export function resolvedContent(context: vscode.ExtensionContext): ResolvedConte
 /** Just the content root, for the one thing that is keyed on it. */
 export function contentRoot(): string | undefined {
   return resolveContentRootSetting(config<string>('contentRoot') ?? '')
-}
-
-/** Workflows are versioned by filename: researchTaskWorkflow_1_0.json. */
-export function workflowFilename(id: string, version: string): string {
-  return `${id}_${version.replace('.', '_')}.json`
 }
 
 export class TaskSession {
@@ -198,50 +194,22 @@ export class TaskSession {
     selection: SetupSelection,
   ): Promise<TaskSession | undefined> {
     const catalog = await loadCatalog(context)
-    const { platform, epic, workflowId } = selection
-    const workflow = catalog.get(workflowId)
 
-    const source = await readFile(
-      join(workflowsDir(context), workflowFilename(workflow.id, workflow.version)),
-      'utf8',
-    )
-    const ws = await TaskWorkspace.create({
+    // Creating the task is core's job, so a task started in either IDE is the
+    // same task. Opening pane 2 is not — it is still VS Code-only.
+    // See spec Section 19.
+    const created = await createTask({
       tasksRoot: tasksRoot(),
-      epic,
-      workflowId,
-      platform,
-      workflowJson: source,
+      workflowsDir: workflowsDir(context),
+      catalog,
+      selection,
     })
 
-    const store = new TaskStateStore(ws.dir)
-    // Task-level facts, readable by every step as {{task.<id>}} and recorded
-    // once in the audit log. See spec Section 8.
-    const inputs: Answers = {
-      services: selection.services,
-      taskType: workflowId,
-      baseBranch: selection.baseBranch,
-      workDir: selection.workDir,
-    }
-    if (selection.featureStory) inputs.featureStory = selection.featureStory
-    const state: TaskState = {
-      schemaVersion: 1,
-      taskId: ws.taskId,
-      workflowId,
-      workflowVersion: workflow.version,
-      platform,
-      epic,
-      currentStepId: workflow.initialStep,
-      workflowHash: await ws.hashOfSnapshot(),
-      inputs,
-      steps: {},
-    }
-    await store.write(state)
-    await new AuditLog(ws.dir).append({
-      kind: 'task-started',
-      data: { taskId: ws.taskId, workflowId, version: workflow.version, platform, epic, inputs },
-    })
+    const ws = await TaskWorkspace.open(created.dir, created.taskId)
+    const store = new TaskStateStore(created.dir)
+    const workflow = catalog.get(selection.workflowId)
 
-    const session = await TaskSession.open(context, ws, store, workflow, state)
+    const session = await TaskSession.open(context, ws, store, workflow, created.state)
     await openCopilotChatBeside()
     return session
   }

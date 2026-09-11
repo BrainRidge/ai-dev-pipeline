@@ -4,6 +4,10 @@
 |---|---|---|
 | P1 | [`p1/`](p1/README.md) | Shipped. Tasks 0–17, one file each. |
 | — | [`external-content/`](external-content/README.md) | Implemented, tasks 0–7. Manual acceptance not yet walked. |
+| — | [`intellij-setup-pane/`](intellij-setup-pane/README.md) | Implemented, tasks 0–6. Pane 1 only; pane 2 is still VS Code-only. |
+
+`intellij-setup-pane/` implements [spec Section 19](../spec/19-two-hosts.md), which
+it also had to write: the section was cited by twenty-odd files and did not exist.
 
 `external-content/` implements [spec Section 16](../spec/16-external-content.md),
 which post-dates the P1–P4 phasing in [Section 3](../spec/03-phasing.md) and

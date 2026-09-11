@@ -284,6 +284,49 @@ Add `-- patch` or `-- minor` to bump the version at the same time. See
 
 ---
 
+## The JetBrains plugin
+
+Pane 1 only. [Section 19](spec/19-two-hosts.md) says what is and is not there.
+
+- [ ] **J1. The pane draws.** Install the plugin, open the **AI Dev Pipeline**
+      tool window. The Task SetUp form appears, with the sample-catalogue
+      banner above it and the version line at the foot. A blank pane is the
+      failure this pane was rebuilt to stop — if it happens, the IDE log says
+      whether a descriptor ever arrived (`the setup pane drew its first
+      descriptor`) and why not if it did not.
+- [ ] **J2. Node is found, or the pane says so.** The log records `sidecar on
+      node vN at <path>`. On a machine with no Node the pane must say that
+      Node 20+ is required, not sit empty.
+- [ ] **J3. The form reacts.** Changing Task type to New feature adds the
+      Feature story field. Browse opens a folder picker and the chosen path
+      lands in Work directory.
+- [ ] **J4. An invalid submit reports fields.** Clearing Epic and pressing
+      Start task shows the error under Epic and creates nothing.
+- [ ] **J5. A valid submit creates a task**, and the pane says the workflow
+      pane is not available in this IDE yet, naming the task id.
+- [ ] **J6. Cross-IDE.** That task resumes in VS Code — one state format, two
+      writers.
+- [ ] **J7. The pane follows the IDE theme.** On a dark theme the form is
+      readable — text, fields, buttons and the checkboxes and radios themselves,
+      none of them black on black. Then switch theme in Settings | Appearance
+      with the pane open: it re-colours without reloading, and text already
+      typed into the form survives the switch. Try one non-bundled theme too;
+      the colours are read from the look and feel, not from a list of known
+      theme names ([Section 19](spec/19-two-hosts.md)).
+- [ ] **J8. Settings.** Tools → AI Dev Workflow; the nine fields match the
+      VS Code settings and persist across a restart.
+
+**Known not present:** the workflow pane, and the clipboard, terminal and
+`openInEditor` round-trips that a handoff step needs — they await a
+sidecar→host request direction. Do not record these as failures.
+
+**Known broken, pre-existing:** `npm run test:integration` does not run. The
+compiled tests `require('@ai-dev-pipeline/core')`, whose `main` is
+`src/index.ts` — raw TypeScript that Node cannot load. It broke when the engine
+moved into core and needs core to gain a compiled library entry point.
+
+---
+
 ## Recording results
 
 For any criterion that fails, note what happened instead. Criterion 11 failing

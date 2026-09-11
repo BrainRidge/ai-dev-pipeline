@@ -189,7 +189,13 @@ files with no extension host running. The toolchain is TypeScript and esbuild wi
 framework and no component library, styled with VS Code theme CSS variables so light, dark
 and high-contrast themes work automatically and native form elements carry accessibility.
 
-One caveat learned the hard way: **the sidebar and the panel do not share a stylesheet.** The
-panel loads `out/style.css`; the sidebar carries its own inline block. A rule added to one
-does not reach the other, and a blanket rule in the sidebar's block once made a new control
-unusable while the panel's version of it looked fine.
+One caveat learned the hard way: **the two panes do not share a stylesheet.** The panel loads
+`style.css`; the setup pane loads `setup.css`. A rule added to one does not reach the other,
+and a blanket rule in the setup sheet once made a new control unusable while the panel's
+version of it looked fine. They are deliberately separate — the workflow diagram's rules are
+dead weight in a sidebar column, and a form there wants tighter spacing and full-width
+controls — but they are separate *files in core*, and every host loads the same two.
+
+`setup.css` used to be an inline block in the VS Code `SetupView`, which is why the JetBrains
+setup pane drew with no setup styling at all. An inline block is a stylesheet only one host
+can load, which is the same duplication as a second copy and failed the same way.

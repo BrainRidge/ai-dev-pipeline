@@ -21,6 +21,8 @@ const FIXTURES: Record<string, Fixture> = {
   'setup form (sidebar)': { kind: 'single', data: formStep as StepDescriptor },
 }
 
+const sheet = (id: string) => document.getElementById(id) as HTMLLinkElement
+
 const root = document.getElementById('root')!
 const picker = document.getElementById('fixture') as HTMLSelectElement
 
@@ -34,6 +36,10 @@ for (const name of Object.keys(FIXTURES)) {
 function show(name: string): void {
   const fixture = FIXTURES[name]
   if (!fixture) return
+  // Each pane is styled by its own sheet in both IDEs, so the harness picks the
+  // matching one rather than showing the setup form in the panel's styling.
+  sheet('sheet-workflow').disabled = fixture.kind !== 'workflow'
+  sheet('sheet-setup').disabled = fixture.kind === 'workflow'
   if (fixture.kind === 'workflow') {
     renderWorkflow(fixture.data, root, (stepId, actionId, values) =>
       console.log('step:', stepId, 'action:', actionId, 'values:', values),

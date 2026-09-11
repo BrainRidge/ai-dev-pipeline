@@ -19,6 +19,13 @@ dependencies {
       providers.gradleProperty("platformType").get(),
       providers.gradleProperty("platformVersion").get(),
     )
+    // TerminalToolWindowManager ships in the bundled Terminal plugin rather than
+    // in the platform itself, so IntellijHost.toTerminal does not compile without
+    // this. plugin.xml declares the matching runtime <depends>.
+    bundledPlugin("org.jetbrains.plugins.terminal")
+    // The form-instrumentation compiler `:instrumentCode` runs on. Not pulled in
+    // by create(), so without it buildPlugin fails after a clean compile.
+    instrumentationTools()
     testFramework(TestFrameworkType.Platform)
   }
   implementation(kotlin("stdlib"))
@@ -74,6 +81,25 @@ val bundleCore by tasks.registering(Copy::class) {
   from(rootProject.file("../core/workflows")) { into("workflows") }
   from(rootProject.file("../core/prompts")) { into("prompts") }
   from(rootProject.file("../core/examples")) { into("examples") }
+
+  /**
+   * A list of everything above, as one resource.
+   *
+   * The sidecar is a separate process and cannot read the plugin's classpath,
+   * so `BundledContent` unpacks this tree to disk. Enumerating a jar from
+   * inside the IDE is not reliable — `codeSource` is null under the platform's
+   * own class loader — so the build records the file list instead.
+   */
+  doLast {
+    val root = layout.buildDirectory.dir("generated-resources/core").get().asFile
+    val files = root.walkTopDown()
+      .filter { it.isFile && it.name != "manifest.txt" }
+      .map { it.relativeTo(root).path }
+      .sorted()
+      .toList()
+    root.resolve("manifest.txt").writeText(files.joinToString("\n", postfix = "\n"))
+    logger.lifecycle("bundled ${files.size} core files")
+  }
 }
 
 sourceSets["main"].resources.srcDir(layout.buildDirectory.dir("generated-resources"))

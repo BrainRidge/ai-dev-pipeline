@@ -15,19 +15,21 @@
 # built for one platform. `npm ci` reproduces them exactly from the lockfile, so
 # there was nothing to be gained. A checkout is still installable without them,
 # because the bundles in out/ are tracked. See spec Section 10.
-/node_modules/
+# Anchored at the root once, which missed the workspace copies under tool/*
+# entirely — `git add -A` would have committed them.
+node_modules/
 
 # The VS Code build that @vscode/test-cli downloads for the integration tier.
 # Close to a gigabyte once unpacked, and re-downloaded on demand, so it must
 # never be committed. See spec Section 11.
-/.vscode-test/
+.vscode-test/
 
 .DS_Store
 
 # out/ is deliberately NOT ignored in full: package.json's `main` points into it,
 # so a checkout stays installable without a build step. See spec Section 10.
 #
-# Only the four esbuild bundles and the stylesheet belong in git. Everything else
+# Only the four esbuild bundles and the two stylesheets belong in git. Everything else
 # that lands here is build detritus — the unbundled tsc output that
 # `npm run compile:test` writes under out/src, out/test and out/webview, and the
 # sourcemaps, which never ship and rewrite themselves on every build.
@@ -37,6 +39,7 @@
 !/tool/vscode-plugin/out/setup.js
 !/tool/vscode-plugin/out/dev.js
 !/tool/vscode-plugin/out/style.css
+!/tool/vscode-plugin/out/setup.css
 
 # Content copied from tool/core at package time so the .vsix keeps the layout the
 # extension resolves at runtime. Generated — never hand-edit, never commit.
@@ -45,8 +48,10 @@
 /tool/vscode-plugin/prompts/
 /tool/vscode-plugin/examples/
 
-# Gradle's output for the IntelliJ plugin.
+# Gradle's output for the IntelliJ plugin, and the IntelliJ Platform Gradle
+# plugin's own local cache of the platform it resolved.
 /tool/intellij-plugin/build/
+/tool/intellij-plugin/.intellijPlatform/localPlatformArtifacts/
 /tool/intellij-plugin/.gradle/
 
 # Release artifacts are built, not committed — except the one published .vsix,

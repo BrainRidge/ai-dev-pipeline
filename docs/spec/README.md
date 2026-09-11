@@ -1,7 +1,7 @@
 # AI Dev Workflow — Phase 1 Design
 
 **Date:** 2026-08-14
-**Status:** Sections 1-18 implemented, revised 2026-08-21 to match the code as built.
+**Status:** Sections 1-19 implemented, revised 2026-08-21 to match the code as built.
 **Scope:** Phase 1 (see [Phasing](03-phasing.md)), plus Sections 16-18, which
 post-date it
 
@@ -27,6 +27,7 @@ post-date it
 16. [External content](16-external-content.md)
 17. [The Tool Check step](17-tool-check.md)
 18. [Skills](18-skills.md)
+19. [Two hosts, one engine](19-two-hosts.md)
 
 ---
 

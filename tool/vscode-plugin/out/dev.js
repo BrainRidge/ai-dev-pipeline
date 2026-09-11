@@ -1,11 +1,20 @@
 "use strict";
 (() => {
   var __getOwnPropNames = Object.getOwnPropertyNames;
-  var __esm = (fn, res) => function __init() {
-    return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+  var __esm = (fn, res, err) => function __init() {
+    if (err) throw err[0];
+    try {
+      return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+    } catch (e) {
+      throw err = [e], e;
+    }
   };
   var __commonJS = (cb, mod) => function __require() {
-    return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
+    try {
+      return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
+    } catch (e) {
+      throw mod = 0, e;
+    }
   };
 
   // webview/render/fields.ts
@@ -597,6 +606,7 @@
         "workflow (middle pane)": { kind: "workflow", data: workflow_default },
         "setup form (sidebar)": { kind: "single", data: form_step_default }
       };
+      var sheet = (id) => document.getElementById(id);
       var root = document.getElementById("root");
       var picker = document.getElementById("fixture");
       for (const name of Object.keys(FIXTURES)) {
@@ -608,6 +618,8 @@
       function show(name) {
         const fixture = FIXTURES[name];
         if (!fixture) return;
+        sheet("sheet-workflow").disabled = fixture.kind !== "workflow";
+        sheet("sheet-setup").disabled = fixture.kind === "workflow";
         if (fixture.kind === "workflow") {
           renderWorkflow(
             fixture.data,

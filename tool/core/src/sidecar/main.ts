@@ -16,6 +16,7 @@ import { PROTOCOL_VERSION } from '../engine/StepDescriptor'
 import { listUnfinishedTasks } from '../session/taskIndex'
 import type { SidecarEvent, SidecarRequest, SidecarResponse } from './protocol'
 import { createSession, type SidecarSession } from './session'
+import { createSetupSession, type SetupSession } from './setupSession'
 
 const CORE_VERSION = process.env.AI_DEV_CORE_VERSION ?? '0.0.0-dev'
 
@@ -29,6 +30,8 @@ function log(message: string): void {
 
 async function main(): Promise<void> {
   const sessions = new Map<string, SidecarSession>()
+  // Pane 1. One per process: the tool window is a singleton in both IDEs.
+  let setup: SetupSession | undefined
 
   const session = async (taskId: string): Promise<SidecarSession> => {
     const existing = sessions.get(taskId)
@@ -53,7 +56,16 @@ async function main(): Promise<void> {
     }
 
     try {
-      send({ id: request.id, ok: true, result: await dispatch(request, session) })
+      send({
+        id: request.id,
+        ok: true,
+        result: await dispatch(request, session, {
+          get: () => setup,
+          set: (s) => {
+            setup = s
+          },
+        }),
+      })
     } catch (err) {
       send({ id: request.id, ok: false, error: err instanceof Error ? err.message : String(err) })
     }
@@ -63,6 +75,7 @@ async function main(): Promise<void> {
 async function dispatch(
   request: SidecarRequest,
   session: (taskId: string) => Promise<SidecarSession>,
+  setup: { get: () => SetupSession | undefined; set: (s: SetupSession) => void },
 ): Promise<unknown> {
   const p = request.params as Record<string, string>
 
@@ -85,6 +98,19 @@ async function dispatch(
 
     case 'tasks':
       return await listUnfinishedTasks(process.env.AI_DEV_TASKS_ROOT ?? '')
+
+    // Pane 1 pushes rather than answers, so both of these return null and the
+    // renders arrive as `page` events. See spec Section 19.
+    case 'setupReady':
+      setup.set(createSetupSession(p.version ?? '', (event) => send(event)))
+      return null
+
+    case 'message': {
+      const pane = setup.get()
+      if (!pane) throw new Error('setupReady has not been called')
+      await pane.handle((request.params as { message?: unknown }).message)
+      return null
+    }
 
     default:
       throw new Error(`unknown method "${String(request.method)}"`)
