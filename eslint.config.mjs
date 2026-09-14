@@ -1,7 +1,10 @@
 import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
-  { ignores: ['out/**', 'node_modules/**', '.vscode-test/**', '*.mjs'] },
+  // tool/ is a separate, untracked project sitting inside this repo's working
+  // directory (its own node_modules, Gradle build caches, and so on). It is
+  // not this extension's source, and walking it OOMs eslint.
+  { ignores: ['out/**', 'node_modules/**', '.vscode-test/**', '*.mjs', 'tool/**'] },
   ...tseslint.configs.recommended,
 
   // Implementing an interface often means accepting a parameter this particular
