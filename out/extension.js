@@ -46376,6 +46376,9 @@ function chromiumLauncher(executable, userDataDir, port = DEFAULT_PORT) {
               });
               return result.value;
             },
+            async bringToFront() {
+              await client.Page.bringToFront();
+            },
             async close() {
               await client.close();
               await CDP.Close({ port, id: target.id });
@@ -46426,21 +46429,24 @@ async function fetchEpic(epicKey, jiraBaseUrl, launcher) {
     await target.navigate(url);
     const landedUrl = await target.extract("location.href");
     if (landedUrl.includes(LOGIN_PATH_HINT)) {
+      await target.bringToFront();
       return {
         ok: false,
-        message: "Not signed in \u2014 a browser window has opened; sign in and press Fetch again."
+        message: "Not signed in \u2014 sign in on the browser tab that just came to the front, then press Fetch again."
       };
     }
     const raw = await target.extract(EXTRACT_SCRIPT);
     const ticket = parseExtracted(raw);
     if (!ticket.title) {
+      await target.close();
       return { ok: false, message: `No ticket found for "${key}".` };
     }
+    await target.close();
     return { ok: true, ticket };
   } catch (err) {
+    await target.close().catch(() => {
+    });
     return { ok: false, message: `Could not read the ticket: ${String(err)}` };
-  } finally {
-    await target.close();
   }
 }
 

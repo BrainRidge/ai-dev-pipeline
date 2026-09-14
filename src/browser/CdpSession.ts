@@ -10,6 +10,8 @@ export interface BrowserTarget {
   navigate(url: string): Promise<void>
   /** Waits for the page to settle, then evaluates `script` in it and returns the result. */
   extract<T>(script: string): Promise<T>
+  /** Brings this tab to the front — used only when a developer needs to act in it (sign in). */
+  bringToFront(): Promise<void>
   close(): Promise<void>
 }
 
@@ -175,6 +177,9 @@ export function chromiumLauncher(
                 returnByValue: true,
               })
               return result.value as T
+            },
+            async bringToFront() {
+              await client.Page.bringToFront()
             },
             async close() {
               // Ends the debugger connection, then destroys the tab itself —

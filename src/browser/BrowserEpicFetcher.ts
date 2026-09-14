@@ -40,21 +40,29 @@ export async function fetchEpic(
 
     const landedUrl = await target.extract<string>('location.href')
     if (landedUrl.includes(LOGIN_PATH_HINT)) {
+      // Deliberately not closed: this is the tab to sign in on. Closing it
+      // here left nothing for the developer to act on — the window fell back
+      // to a blank new tab, found by testing against a real signed-out
+      // ticket, where "a browser window has opened" was true but there was
+      // nothing left in it to sign into.
+      await target.bringToFront()
       return {
         ok: false,
-        message: 'Not signed in — a browser window has opened; sign in and press Fetch again.',
+        message:
+          'Not signed in — sign in on the browser tab that just came to the front, then press Fetch again.',
       }
     }
 
     const raw = await target.extract<unknown>(EXTRACT_SCRIPT)
     const ticket = parseExtracted(raw)
     if (!ticket.title) {
+      await target.close()
       return { ok: false, message: `No ticket found for "${key}".` }
     }
+    await target.close()
     return { ok: true, ticket }
   } catch (err) {
+    await target.close().catch(() => {})
     return { ok: false, message: `Could not read the ticket: ${String(err)}` }
-  } finally {
-    await target.close()
   }
 }
