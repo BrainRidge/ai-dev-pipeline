@@ -28,9 +28,9 @@ Add `-- patch` or `-- minor` to bump the version at the same time. See
 ## Criteria
 
 - [ ] **0a. Settings pane.** Open Settings → Extensions → AI Dev Workflow.
-      *Expected:* five entries in this order — Content Root, Microservice
-      Config, Platform Config, Custom Prompts, Tool Config — each saying what it
-      expects.
+      *Expected:* six entries in this order — Content Root, Microservice
+      Config, Platform Config, Custom Prompts, Tool Config, Jira Base Url —
+      each saying what it expects.
 
 - [ ] **0b. Unset — the sample runs.** Clear all five and open the sidebar.
       *Expected:* a **working form**, with four platforms and two
@@ -281,6 +281,47 @@ Add `-- patch` or `-- minor` to bump the version at the same time. See
       task on this machine. This is the answer to V1
       ([spec Section 12](spec/12-verification-tasks.md)) — record it, because
       nobody has ever had it.
+
+- [ ] **20. Fetch from browser — no Chromium installed.** Temporarily rename
+      or hide both Chrome and Edge (or run this on a machine with neither).
+      Press **Fetch from browser** beside Epic.
+      *Expected:* a field error under Epic naming both Chrome and Edge; nothing
+      is spawned.
+
+- [ ] **20a. Jira base URL unset.** Leave `aiDevWorkflow.jiraBaseUrl` empty.
+      Press **Fetch from browser**.
+      *Expected:* a field error quoting `aiDevWorkflow.jiraBaseUrl` and where to
+      set it — no browser window opens.
+
+- [ ] **20b. Cold start — first sign-in.** Set the base URL to a real Jira
+      instance. Clear the extension's dedicated automation profile (delete the
+      `browser-fetch-profile` folder under its global storage directory, or use
+      a fresh machine/profile). Type a real epic key and press **Fetch from
+      browser**.
+      *Expected:* a Chrome or Edge window opens showing the organisation's SSO
+      prompt. Sign in, then press **Fetch from browser** again.
+      *Expected:* the field error clears and the fetch succeeds.
+
+- [ ] **20c. Warm fetch.** With the dedicated profile already signed in, type a
+      different real epic key and press **Fetch from browser** again.
+      *Expected:* succeeds with no visible browser window at all.
+
+- [ ] **20d. A key that does not exist.** Type an epic key with no matching
+      ticket and press **Fetch from browser**.
+      *Expected:* a field error quoting the key, not a generic failure.
+
+- [ ] **20e. The story field is prefilled, and stays editable.** Start a task
+      using an epic fetched in 20c, and continue to **Collect the
+      requirement**.
+      *Expected:* the story field already contains the fetched text. Editing
+      or clearing it and pressing **Continue** behaves exactly as manual entry
+      always has — nothing about this step treats the prefilled text
+      specially.
+
+- [ ] **20f. Never fetching at all still works.** Start a task without ever
+      pressing **Fetch from browser**.
+      *Expected:* the story field is empty, exactly as it was before this
+      feature existed.
 
 ---
 
