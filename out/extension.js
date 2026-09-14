@@ -6,11 +6,7 @@ var __getOwnPropNames = Object.getOwnPropertyNames;
 var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
 var __commonJS = (cb, mod) => function __require() {
-  try {
-    return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
-  } catch (e) {
-    throw mod = 0, e;
-  }
+  return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
 };
 var __export = (target, all) => {
   for (var name in all)
@@ -38,13 +34,13 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 var require_identity = __commonJS({
   "node_modules/yaml/dist/nodes/identity.js"(exports2) {
     "use strict";
-    var ALIAS = /* @__PURE__ */ Symbol.for("yaml.alias");
-    var DOC = /* @__PURE__ */ Symbol.for("yaml.document");
-    var MAP = /* @__PURE__ */ Symbol.for("yaml.map");
-    var PAIR = /* @__PURE__ */ Symbol.for("yaml.pair");
-    var SCALAR = /* @__PURE__ */ Symbol.for("yaml.scalar");
-    var SEQ = /* @__PURE__ */ Symbol.for("yaml.seq");
-    var NODE_TYPE = /* @__PURE__ */ Symbol.for("yaml.node.type");
+    var ALIAS = Symbol.for("yaml.alias");
+    var DOC = Symbol.for("yaml.document");
+    var MAP = Symbol.for("yaml.map");
+    var PAIR = Symbol.for("yaml.pair");
+    var SCALAR = Symbol.for("yaml.scalar");
+    var SEQ = Symbol.for("yaml.seq");
+    var NODE_TYPE = Symbol.for("yaml.node.type");
     var isAlias = (node) => !!node && typeof node === "object" && node[NODE_TYPE] === ALIAS;
     var isDocument = (node) => !!node && typeof node === "object" && node[NODE_TYPE] === DOC;
     var isMap = (node) => !!node && typeof node === "object" && node[NODE_TYPE] === MAP;
@@ -96,9 +92,9 @@ var require_visit = __commonJS({
   "node_modules/yaml/dist/visit.js"(exports2) {
     "use strict";
     var identity = require_identity();
-    var BREAK = /* @__PURE__ */ Symbol("break visit");
-    var SKIP = /* @__PURE__ */ Symbol("skip children");
-    var REMOVE = /* @__PURE__ */ Symbol("remove node");
+    var BREAK = Symbol("break visit");
+    var SKIP = Symbol("skip children");
+    var REMOVE = Symbol("remove node");
     function visit(node, visitor) {
       const visitor_ = initVisitor(visitor);
       if (identity.isDocument(node)) {
@@ -5558,9 +5554,9 @@ var require_cst_stringify = __commonJS({
 var require_cst_visit = __commonJS({
   "node_modules/yaml/dist/parse/cst-visit.js"(exports2) {
     "use strict";
-    var BREAK = /* @__PURE__ */ Symbol("break visit");
-    var SKIP = /* @__PURE__ */ Symbol("skip children");
-    var REMOVE = /* @__PURE__ */ Symbol("remove item");
+    var BREAK = Symbol("break visit");
+    var SKIP = Symbol("skip children");
+    var REMOVE = Symbol("remove item");
     function visit(cst, visitor) {
       if ("type" in cst && cst.type === "document")
         cst = { start: cst.start, value: cst.value };
@@ -7547,7 +7543,6 @@ var WebviewBridge = class {
       if (msg.type === "action" && this.handler) this.handler(msg);
     });
   }
-  webview;
   handler;
   /**
    * The webview's script loads asynchronously, so a render posted immediately
@@ -11558,7 +11553,7 @@ ZodNaN.create = (params) => {
     ...processCreateParams(params)
   });
 };
-var BRAND = /* @__PURE__ */ Symbol("zod_brand");
+var BRAND = Symbol("zod_brand");
 var ZodBranded = class extends ZodType {
   _parse(input) {
     const { ctx } = this._processInputParams(input);
@@ -11760,14 +11755,14 @@ var ostring = () => stringType().optional();
 var onumber = () => numberType().optional();
 var oboolean = () => booleanType().optional();
 var coerce = {
-  string: ((arg) => ZodString.create({ ...arg, coerce: true })),
-  number: ((arg) => ZodNumber.create({ ...arg, coerce: true })),
-  boolean: ((arg) => ZodBoolean.create({
+  string: (arg) => ZodString.create({ ...arg, coerce: true }),
+  number: (arg) => ZodNumber.create({ ...arg, coerce: true }),
+  boolean: (arg) => ZodBoolean.create({
     ...arg,
     coerce: true
-  })),
-  bigint: ((arg) => ZodBigInt.create({ ...arg, coerce: true })),
-  date: ((arg) => ZodDate.create({ ...arg, coerce: true }))
+  }),
+  bigint: (arg) => ZodBigInt.create({ ...arg, coerce: true }),
+  date: (arg) => ZodDate.create({ ...arg, coerce: true })
 };
 var NEVER = INVALID;
 
@@ -11915,9 +11910,6 @@ var WorkflowCatalog = class _WorkflowCatalog {
     this.platformDefs = platformDefs;
     this.services = services;
   }
-  workflows;
-  platformDefs;
-  services;
   /**
    * @param workflowsDir directory of `<name>_<major>_<minor>.json` workflow files
    * @param config       absolute paths to the two config files. They are given
@@ -12098,10 +12090,6 @@ var WorkflowEngine = class {
     this.registry = registry;
     this.ctx = ctx;
   }
-  workflow;
-  store;
-  registry;
-  ctx;
   async state() {
     return this.store.read();
   }
@@ -12239,8 +12227,6 @@ var TaskWorkspace = class _TaskWorkspace {
     this.dir = dir;
     this.taskId = taskId;
   }
-  dir;
-  taskId;
   /**
    * A task folder nobody else is using.
    *
@@ -12598,7 +12584,6 @@ var PromptComposer = class {
   constructor(resolve) {
     this.resolve = resolve;
   }
-  resolve;
   /**
    * Which template this step will use, and whether it is the team's or the
    * bundled default — without reading or composing it. The panel needs this to
@@ -13107,7 +13092,6 @@ var CollectRequirement = class {
   constructor(providers = defaultProviders()) {
     this.providers = providers;
   }
-  providers;
   name = "CollectRequirement";
   stepType = "task";
   title = "Collect the requirement";
@@ -13168,9 +13152,6 @@ var GitClone = class {
     this.exists = exists3;
     this.sink = sink;
   }
-  fallbackWorkDir;
-  exists;
-  sink;
   name = "gitClone";
   stepType = "commandExecution";
   title = "Get the code";
@@ -13327,11 +13308,6 @@ var InvokeCopilot = class {
     this.fileExists = fileExists2;
     this.sink = sink;
   }
-  composer;
-  handoff;
-  audit;
-  fileExists;
-  sink;
   name = "invokeCopilot";
   stepType = "aiHandoff";
   title = "Hand off to Copilot";
@@ -13444,10 +13420,6 @@ var CopilotEditingHandoff = class {
     this.audit = audit;
     this.sink = sink;
   }
-  composer;
-  handoff;
-  audit;
-  sink;
   stepType = "aiHandoff";
   /** Same as InvokeCopilot: Send delivers, Done completes. */
   transitions = ["done"];
@@ -13531,9 +13503,6 @@ var ManualReview = class {
     this.hashFile = hashFile2;
     this.keepCopy = keepCopy2;
   }
-  openFile;
-  hashFile;
-  keepCopy;
   name = "manualReview";
   stepType = "manual";
   title = "Review the result";
@@ -13641,12 +13610,6 @@ var ToolCheck = class {
     this.skills = skills;
     this.platform = platform;
   }
-  loadTools;
-  probe;
-  sink;
-  environment;
-  skills;
-  platform;
   name = "toolCheck";
   stepType = "toolCheck";
   title = "Tool check";
@@ -14171,13 +14134,6 @@ var TaskSession = class _TaskSession {
       void this.handleAction(msg.stepId, msg.actionId, msg.values);
     });
   }
-  workflow;
-  engine;
-  registry;
-  ctx;
-  bridge;
-  panel;
-  audit;
   state;
   values = {};
   errors = {};
@@ -14745,9 +14701,6 @@ var SetupView = class {
     this.onStart = onStart;
     this.onResume = onResume;
   }
-  context;
-  onStart;
-  onResume;
   static viewId = "aiDevWorkflow.setup";
   bridge;
   values = {};

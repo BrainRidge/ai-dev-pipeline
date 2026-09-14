@@ -127,10 +127,12 @@
     "release": "node release.mjs"
   },
   "dependencies": {
+    "chrome-remote-interface": "^0.34.0",
     "yaml": "^2.5.0",
     "zod": "^3.23.0"
   },
   "devDependencies": {
+    "@types/chrome-remote-interface": "^0.34.0",
     "@types/node": "^22.0.0",
     "@types/vscode": "^1.96.0",
     "@vscode/test-cli": "^0.0.15",
