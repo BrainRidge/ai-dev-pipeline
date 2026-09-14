@@ -46393,10 +46393,23 @@ function chromiumLauncher(executable, userDataDir, port = DEFAULT_PORT) {
 // src/browser/JiraExtractor.ts
 var EXTRACT_SCRIPT = `(() => {
   const text = (sel) => document.querySelector(sel)?.textContent?.trim() ?? ''
+  // An empty rich-text field renders as an "Add <Field>, edit" button holding
+  // placeholder text ("Add a description...") rather than being absent \u2014 so
+  // a naive textContent read returns that placeholder as if it were real
+  // content. Found by testing against a real ticket with no description.
+  // Jira's read view for a field that actually has content does not carry
+  // this "Add \u2026" button, so its presence is the signal an empty field
+  // leaves behind.
+  const richText = (sel) => {
+    const el = document.querySelector(sel)
+    if (!el) return ''
+    if (el.querySelector('button[aria-label^="Add "]')) return ''
+    return el.textContent?.trim() ?? ''
+  }
   return {
     title: text('[data-testid="issue.views.issue-base.foundation.summary.heading"]'),
-    description: text('[data-testid="issue.views.field.rich-text.description"]'),
-    acceptanceCriteria: text('[data-testid="issue.views.field.rich-text"][aria-label*="Acceptance Criteria" i]'),
+    description: richText('[data-testid="issue.views.field.rich-text.description"]'),
+    acceptanceCriteria: richText('[data-testid="issue.views.field.rich-text"][aria-label*="Acceptance Criteria" i]'),
   }
 })()`;
 function parseExtracted(value) {
