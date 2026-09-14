@@ -16,6 +16,7 @@ implementation. Changing one is a spec change.
 | D7 | **Distribution is `.vsix` installed from an internal artifact location.** No Azure DevOps gallery. | Confirmed as the only acceptable option. Accepted cost: no auto-update; version drift is mitigated but not solved by a startup version check. |
 | D8 | **Each task snapshots its workflow definition at start.** | A task runs the definition it began with, immune to extension updates mid-flight. Accepted cost: workflow fixes do not reach in-flight tasks. |
 | D9 | **A handoff step completes only when the output file exists *and* the developer confirms.** | Neither signal alone is trustworthy. Accepted cost: slightly more friction, explicitly agreed. |
+| D10 | **Epic content can also be pulled from the developer's own signed-in browser (Chrome or Edge), over the Chrome DevTools Protocol, as an alternative to manual paste.** A **Fetch from browser** action beside the Epic field drives a background tab, reads the ticket, and offers the result as the story field's starting text — still fully editable. See [Section 19](19-epic-browser-fetch.md). | Reuses the organisation's SSO instead of a new credentials flow that would need separate approval. Accepted cost: Chromium-only — Safari's automation surface shares no cookies with the developer's normal browsing; DOM scraping coupled to Jira's current markup; and the first runtime dependency added beyond `yaml`/`zod`. |
 
 ## Where implementation departed from these
 

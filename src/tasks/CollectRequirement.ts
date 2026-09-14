@@ -41,9 +41,13 @@ export class CollectRequirement implements TaskType {
 
   constructor(private readonly providers: ProviderRegistry = defaultProviders()) {}
 
-  async describe(_step: StepDef, _ctx: StepContext, _values: Answers): Promise<TaskView> {
+  async describe(_step: StepDef, ctx: StepContext, _values: Answers): Promise<TaskView> {
+    // Set only when Fetch from browser was used in the sidebar; otherwise this
+    // step is unchanged from before that feature existed. See spec Section 19.
+    const epicContext = String(ctx.inputs.epicContext ?? '')
     return {
       fields: await Promise.all(this.fields.map((field) => this.offer(field))),
+      initialValues: epicContext ? { story: epicContext } : undefined,
       actions: [
         { id: 'back', label: 'Back' },
         { id: 'submit', label: 'Continue', primary: true },

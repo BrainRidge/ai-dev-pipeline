@@ -14,6 +14,12 @@ export interface TaskView {
   /** Commands for the developer to run themselves. See spec Section 9. */
   commands?: CommandBlock[]
   actions: ActionDef[]
+  /**
+   * Shown only until the developer types something, or a saved answer exists —
+   * lower priority than both. A taskType's own way of offering a starting
+   * point without the generic step machinery knowing why. See spec Section 19.
+   */
+  initialValues?: Answers
 }
 
 /**

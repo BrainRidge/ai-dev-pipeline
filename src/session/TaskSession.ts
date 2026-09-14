@@ -174,6 +174,8 @@ export class TaskSession {
     const selection = normaliseSetup({
       platform,
       epic: epic.trim(),
+      // Only the sidebar's Fetch from browser action can set this.
+      epicContext: '',
       workflowId,
       featureStory,
       baseBranch,
@@ -221,6 +223,7 @@ export class TaskSession {
       workDir: selection.workDir,
     }
     if (selection.featureStory) inputs.featureStory = selection.featureStory
+    if (selection.epicContext) inputs.epicContext = selection.epicContext
     const state: TaskState = {
       schemaVersion: 1,
       taskId: ws.taskId,

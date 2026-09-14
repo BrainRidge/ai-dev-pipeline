@@ -190,7 +190,11 @@ export async function buildWorkflowDescriptor(args: {
       fields: view.fields,
       text: view.text,
       commands: view.commands,
-      values: prefill,
+      // Lowest priority: visible only on the one render where prefill is
+      // still empty. The moment the developer types anything, or the step is
+      // submitted and revisited, prefill carries real values and wins. See
+      // spec Section 19.
+      values: { ...view.initialValues, ...prefill },
       errors: Object.keys(errors).length > 0 ? errors : undefined,
       actions: view.actions,
     }

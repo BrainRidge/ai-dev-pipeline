@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { TaskWorkspace, type CreateOpts } from '../../src/workspace/TaskWorkspace'
@@ -116,12 +116,22 @@ describe('two tasks never share a folder', () => {
   // The bug, exactly. On a case-insensitive filesystem these two ids name one
   // directory; on a case-sensitive one they name two. Either way neither task
   // may end up in the other's folder.
+  //
+  // Asserted by inode identity, not by string-folding the two paths: on a
+  // case-sensitive filesystem (Linux CI) `EPIC-001` and `epic-001` are
+  // legitimately different directory names and the counter has no need to
+  // bump, so `lower.dir.toLowerCase()` and `upper.dir.toLowerCase()` come out
+  // equal even though nothing collided — that is a fact about string case,
+  // not about whether a folder was shared. Comparing `(dev, ino)` instead
+  // checks the thing this test actually cares about, and does so correctly
+  // on every platform.
   it('does not collide when the epic differs only by case', async () => {
     const tasksRoot = await mkdtemp(join(tmpdir(), 'tasks-'))
     const upper = await TaskWorkspace.create(opts({ tasksRoot, epic: 'EPIC-001' }))
     const lower = await TaskWorkspace.create(opts({ tasksRoot, epic: 'epic-001' }))
 
-    expect(lower.dir.toLowerCase()).not.toBe(upper.dir.toLowerCase())
+    const [upperStat, lowerStat] = await Promise.all([stat(upper.dir), stat(lower.dir)])
+    expect(`${lowerStat.dev}:${lowerStat.ino}`).not.toBe(`${upperStat.dev}:${upperStat.ino}`)
   })
 
   it('leaves the first task’s snapshot untouched', async () => {

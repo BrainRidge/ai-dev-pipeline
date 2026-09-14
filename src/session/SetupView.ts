@@ -1,3 +1,4 @@
+import { access } from 'node:fs/promises'
 import { join } from 'node:path'
 import * as vscode from 'vscode'
 import { WorkflowCatalog } from '../engine/WorkflowCatalog'
@@ -10,11 +11,34 @@ import { PROTOCOL_VERSION } from '../engine/StepDescriptor'
 import { WebviewBridge } from '../bridge/WebviewBridge'
 import type { RenderField } from '../tasks/context'
 import {
+  chromiumLauncher,
+  findBrowser,
+  profileDir,
+  type BrowserLauncher,
+  type ExecutableProbe,
+} from '../browser/CdpSession'
+import { fetchEpic } from '../browser/BrowserEpicFetcher'
+import {
   needsFeatureStory,
   normaliseSetup,
   validateSetup,
   type SetupSelection,
 } from './SetupSelection'
+
+/** Exists on disk, tried in the order given. Used to locate an installed browser. */
+const nodeExecutableProbe: ExecutableProbe = {
+  async firstExisting(candidates) {
+    for (const candidate of candidates) {
+      try {
+        await access(candidate)
+        return candidate
+      } catch {
+        continue
+      }
+    }
+    return undefined
+  },
+}
 
 export type { SetupDescriptor, SetupSelection }
 
@@ -34,6 +58,9 @@ export class SetupView implements vscode.WebviewViewProvider {
   private bridge: WebviewBridge<SetupDescriptor> | undefined
   private values: Record<string, unknown> = {}
   private errors: Record<string, string> = {}
+  private launcher: BrowserLauncher | undefined
+  /** True while fetchEpic() is in flight, including a wait on sign-in. */
+  private fetching = false
 
   constructor(
     private readonly context: vscode.ExtensionContext,
@@ -102,7 +129,77 @@ export class SetupView implements vscode.WebviewViewProvider {
       return
     }
 
+    if (actionId === 'fetchEpic') {
+      // The button disables itself while a fetch is in flight, but a click
+      // can still land in the gap before a disabled re-render reaches the
+      // webview — this is the guard against starting a second one under it.
+      if (!this.fetching) await this.fetchEpic()
+      return
+    }
+
     if (actionId === 'start') await this.start()
+  }
+
+  /** Found and launched at most once per pane, and only when actually used. */
+  private async browserLauncher(): Promise<BrowserLauncher> {
+    if (!this.launcher) {
+      const executable = await findBrowser(process.platform, nodeExecutableProbe)
+      this.launcher = chromiumLauncher(executable, profileDir(this.context.globalStorageUri.fsPath))
+    }
+    return this.launcher
+  }
+
+  /**
+   * Fetches the epic currently typed into the field, over the developer's own
+   * signed-in Chrome or Edge, and offers the result as the story field's
+   * starting text two screens from now (`CollectRequirement.describe`). Every
+   * outcome is either `this.values.epicContext` or a field error on `epic` —
+   * never silent. See spec Section 19.
+   */
+  private async fetchEpic(): Promise<void> {
+    const epic = String(this.values.epic ?? '').trim()
+    delete this.errors.epic
+
+    if (!epic) {
+      this.errors.epic = 'Enter an epic key before fetching.'
+      await this.render()
+      return
+    }
+
+    // A sign-in wait can run for minutes (see BrowserEpicFetcher), so the
+    // button says so and disables itself rather than leaving the pane
+    // looking frozen with no explanation. One render() at the end, via
+    // finally, covers every way out of the block below.
+    this.fetching = true
+    await this.render()
+
+    try {
+      const jiraBaseUrl = vscode.workspace.getConfiguration('aiDevWorkflow').get<string>('jiraBaseUrl')
+
+      let launcher: BrowserLauncher
+      try {
+        launcher = await this.browserLauncher()
+      } catch (err) {
+        this.errors.epic = err instanceof Error ? err.message : String(err)
+        return
+      }
+
+      const result = await fetchEpic(epic, jiraBaseUrl, launcher)
+      if (!result.ok) {
+        this.errors.epic = result.message
+        return
+      }
+
+      // The story field the developer will see two screens from now still
+      // gets to be edited or ignored entirely — this only sets a starting
+      // point.
+      this.values.epicContext = [result.ticket.description, result.ticket.acceptanceCriteria]
+        .filter(Boolean)
+        .join('\n\n')
+    } finally {
+      this.fetching = false
+      await this.render()
+    }
   }
 
   private mode(): Mode {
@@ -171,6 +268,7 @@ export class SetupView implements vscode.WebviewViewProvider {
     return {
       platform: String(this.values.platform ?? ''),
       epic: String(this.values.epic ?? ''),
+      epicContext: String(this.values.epicContext ?? ''),
       workflowId: String(this.values.workflowId ?? ''),
       featureStory: String(this.values.featureStory ?? ''),
       baseBranch: String(this.values.baseBranch ?? ''),
@@ -308,7 +406,17 @@ export class SetupView implements vscode.WebviewViewProvider {
         label: 'Platform',
         options: platforms.map((p) => ({ value: p.id, label: p.label })),
       },
-      { id: 'epic', type: 'text', label: 'Epic', required: true },
+      {
+        id: 'epic',
+        type: 'text',
+        label: 'Epic',
+        required: true,
+        action: {
+          id: 'fetchEpic',
+          label: this.fetching ? 'Fetching…' : 'Fetch from browser',
+          disabled: this.fetching,
+        },
+      },
       {
         id: 'workflowId',
         type: 'select',
@@ -399,6 +507,8 @@ h1{font-size:1rem;margin:0 0 .5rem}
 .task-meta,.progress{display:none}
 .field{margin:.75rem 0;display:flex;flex-direction:column;gap:.25rem}
 .field-label{font-weight:600;font-size:.9em}
+.field-label-row{display:flex;align-items:center;justify-content:space-between;gap:.5rem}
+.field-action{width:auto;padding:.15rem .5rem;font-size:.8em;background:var(--vscode-button-secondaryBackground,rgba(127,127,127,.2));color:var(--vscode-button-secondaryForeground,inherit)}
 .options{display:flex;flex-direction:column;gap:.15rem;max-height:14rem;overflow-y:auto}
 .option{display:flex;align-items:center;gap:.4rem;font-weight:400}
 input[type=text],select,.option-filter{background:var(--vscode-input-background);color:var(--vscode-input-foreground);border:1px solid var(--vscode-input-border,transparent);padding:.3rem;font:inherit;width:100%;box-sizing:border-box}
