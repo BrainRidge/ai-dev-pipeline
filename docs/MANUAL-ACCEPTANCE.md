@@ -304,7 +304,9 @@ Add `-- patch` or `-- minor` to bump the version at the same time. See
 
 - [ ] **20c. Warm fetch.** With the dedicated profile already signed in, type a
       different real epic key and press **Fetch from browser** again.
-      *Expected:* succeeds with no visible browser window at all.
+      *Expected:* succeeds with no new window opening and no window stealing
+      focus — the background tab is opened and closed in the already-running
+      profile from 20b.
 
 - [ ] **20d. A key that does not exist.** Type an epic key with no matching
       ticket and press **Fetch from browser**.

@@ -60,9 +60,12 @@ under the extension's storage directory
 time a developer presses **Fetch from browser**, that profile has no Jira
 session yet, so the window that opens shows the organisation's SSO prompt —
 the same one they use everywhere else, so it is normally one click, not a
-password. Every fetch after that reuses the same profile's cookies silently:
-no window even needs to become visible once the session exists, because CDP
-can open and close a background tab in it without focusing the window.
+password. That browser process is left running (detached) afterwards, so every
+fetch in the rest of the VS Code session reuses the same profile's cookies:
+CDP opens and closes a background tab in the already-running window without
+bringing it to the front, so a warm fetch causes no new window and steals no
+focus — though the window from that first sign-in is still there, sitting in
+the background, unless the developer closes it themselves.
 
 This is the sense in which the session is "the browser they're already
 signed into" — the SSO flow is identical to the one they use daily, and nothing
@@ -90,12 +93,26 @@ literal read of whatever tab happens to be focused right now.
 
 The fetched text is carried on `SetupSelection` as a new field, `epicContext`,
 alongside `epic` — set once, at Setup time, and never re-derived by the engine
-itself. It flows into `TaskState` the same way `epic` does, and
-`CollectRequirement` reads it as the story field's initial value instead of an
-empty string. The field keeps `provider: 'manual'`: this is a starting value, not
-a new provider, and D5's distinction between "free entry" and "a provider
-turns the field into a selection" is untouched — a fetched value is still free
-text the developer can edit before it is used in any prompt.
+itself. It flows into `TaskState.inputs` conditionally, the same way
+`featureStory` already does (not as a new top-level `TaskState` field the way
+`epic` and `platform` are) — so `{{task.epicContext}}` is usable from a prompt
+template with no further change, via the existing fallback in
+`resolveValue` ([Section 6](06-workflow-schema.md)) that reads an unrecognised
+`task.<name>` straight from `inputs`.
+
+Landing it in `inputs` is not enough by itself to prefill a field, though:
+`CollectRequirement`'s story field would still render empty on first view,
+because the value a step shows comes from what the developer has typed or
+what the step already answered, never from `inputs` directly. `TaskType`
+gains a third source, `TaskView.initialValues`, lowest priority under both —
+`CollectRequirement` sets `initialValues: { story: ctx.inputs.epicContext }`
+when it is set, and that is what `StepDescriptor.ts` actually merges into the
+step's `values` on the one render where nothing else has supplied one yet.
+
+The field keeps `provider: 'manual'`: this is a starting value, not a new
+provider, and D5's distinction between "free entry" and "a provider turns the
+field into a selection" is untouched — a fetched value is still free text the
+developer can edit before it is used in any prompt.
 
 ### The renderer contract gains a field action
 
