@@ -145,9 +145,28 @@ manual textarea underneath remains fully usable regardless:
 |---|---|
 | Setting unset | Naming `aiDevWorkflow.jiraBaseUrl` and where to set it, matching the [Section 16](16-external-content.md) wording convention |
 | Neither Chrome nor Edge found on the machine | States which two browsers were looked for |
-| Ticket page redirects to a Jira login screen | "Not signed in — a browser window has opened; sign in and press Fetch again" |
+| Ticket page redirects to a Jira login screen, and the developer signs in within the wait | No failure — see *Waiting for sign-in* below |
+| Ticket page redirects to a Jira login screen, and the wait times out | "Still not signed in after 5 minutes — sign in on the browser tab, then press Fetch again" |
 | Epic key not found (404 from Jira) | Quotes the key typed |
 | CDP connection or navigation times out | States the timeout and that the manual field still works |
+
+### Waiting for sign-in
+
+A login redirect is not treated as an immediate failure. The tab is brought
+to the front — deliberately left open rather than closed, so there is
+something to actually sign in on — and the fetch then waits, polling the
+tab's URL, for the developer to complete sign-in: bounded (five minutes by
+default), so a developer who never signs in does not hang the sidebar
+forever, but long enough that clicking **Fetch from browser** and then
+signing in normally completes the same fetch with no second click.
+
+If sign-in happens before the timeout, the fetch re-navigates to the ticket
+(Jira's own `continue=` redirect after login normally lands there already;
+re-navigating is cheap and removes any doubt) and proceeds exactly as a
+signed-in fetch always has. Only a wait that times out is reported as a
+failure — the tab stays open either way, so a developer who takes longer
+than five minutes can still finish signing in and press **Fetch from
+browser** again.
 
 ## Consequences
 

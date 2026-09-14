@@ -46317,20 +46317,32 @@ async function isReachable(port) {
     return false;
   }
 }
+async function readUrl(client) {
+  const { result } = await client.Runtime.evaluate({
+    expression: "location.href",
+    returnByValue: true
+  });
+  return result.value;
+}
 async function waitForStableUrl(client, { minDelayMs = 1200, timeoutMs = 4e3, intervalMs = 300 } = {}) {
   await new Promise((resolve) => setTimeout(resolve, minDelayMs));
   let previous;
   let first = true;
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
-    const { result } = await client.Runtime.evaluate({
-      expression: "location.href",
-      returnByValue: true
-    });
-    if (!first && result.value === previous) return;
-    previous = result.value;
+    const current = await readUrl(client);
+    if (!first && current === previous) return;
+    previous = current;
     first = false;
     await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+}
+async function waitWhileUrlIncludes(client, needle, timeoutMs, pollMs = 1e3) {
+  const start = Date.now();
+  for (; ; ) {
+    const url = await readUrl(client);
+    if (!url.includes(needle) || Date.now() - start >= timeoutMs) return url;
+    await new Promise((resolve) => setTimeout(resolve, pollMs));
   }
 }
 async function waitForPort(port, timeoutMs = 15e3) {
@@ -46379,6 +46391,9 @@ function chromiumLauncher(executable, userDataDir, port = DEFAULT_PORT) {
             async bringToFront() {
               await client.Page.bringToFront();
             },
+            async waitWhileUrlIncludes(needle, timeoutMs) {
+              return waitWhileUrlIncludes(client, needle, timeoutMs);
+            },
             async close() {
               await client.close();
               await CDP.Close({ port, id: target.id });
@@ -46424,7 +46439,8 @@ function parseExtracted(value) {
 // src/browser/BrowserEpicFetcher.ts
 var JIRA_BASE_URL_NOT_SET = "Set aiDevWorkflow.jiraBaseUrl in Settings \u2192 Extensions \u2192 AI Dev Workflow to use Fetch from browser.";
 var LOGIN_PATH_HINT = "/login";
-async function fetchEpic(epicKey, jiraBaseUrl, launcher) {
+var DEFAULT_SIGN_IN_TIMEOUT_MS = 5 * 6e4;
+async function fetchEpic(epicKey, jiraBaseUrl, launcher, opts = {}) {
   const base = (jiraBaseUrl ?? "").trim();
   if (!base) return { ok: false, message: JIRA_BASE_URL_NOT_SET };
   const key = epicKey.trim();
@@ -46440,13 +46456,19 @@ async function fetchEpic(epicKey, jiraBaseUrl, launcher) {
   try {
     const url = `${base.replace(/\/$/, "")}/browse/${key}`;
     await target.navigate(url);
-    const landedUrl = await target.extract("location.href");
+    let landedUrl = await target.extract("location.href");
     if (landedUrl.includes(LOGIN_PATH_HINT)) {
       await target.bringToFront();
-      return {
-        ok: false,
-        message: "Not signed in \u2014 sign in on the browser tab that just came to the front, then press Fetch again."
-      };
+      const timeoutMs = opts.signInTimeoutMs ?? DEFAULT_SIGN_IN_TIMEOUT_MS;
+      landedUrl = await target.waitWhileUrlIncludes(LOGIN_PATH_HINT, timeoutMs);
+      if (landedUrl.includes(LOGIN_PATH_HINT)) {
+        const minutes = Math.round(timeoutMs / 6e4);
+        return {
+          ok: false,
+          message: `Still not signed in after ${minutes} minute${minutes === 1 ? "" : "s"} \u2014 sign in on the browser tab, then press Fetch again.`
+        };
+      }
+      await target.navigate(url);
     }
     const raw = await target.extract(EXTRACT_SCRIPT);
     const ticket = parseExtracted(raw);

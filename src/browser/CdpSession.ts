@@ -12,6 +12,13 @@ export interface BrowserTarget {
   extract<T>(script: string): Promise<T>
   /** Brings this tab to the front — used only when a developer needs to act in it (sign in). */
   bringToFront(): Promise<void>
+  /**
+   * Polls `location.href` until it no longer contains `needle`, or `timeoutMs`
+   * elapses — whichever comes first. Returns whatever URL was last read
+   * either way, so the caller can tell which one happened by checking it
+   * again rather than needing a separate timed-out flag.
+   */
+  waitWhileUrlIncludes(needle: string, timeoutMs: number): Promise<string>
   close(): Promise<void>
 }
 
@@ -98,24 +105,49 @@ async function isReachable(port: number): Promise<boolean> {
  *   `minDelayMs` rules that out by not taking the first reading until after
  *   the observed pause has had time to end.
  */
+async function readUrl(client: CDP.Client): Promise<string> {
+  const { result } = await client.Runtime.evaluate({
+    expression: 'location.href',
+    returnByValue: true,
+  })
+  return result.value as string
+}
+
 async function waitForStableUrl(
   client: CDP.Client,
   { minDelayMs = 1_200, timeoutMs = 4_000, intervalMs = 300 } = {},
 ): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, minDelayMs))
 
-  let previous: unknown
+  let previous: string | undefined
   let first = true
   const start = Date.now()
   while (Date.now() - start < timeoutMs) {
-    const { result } = await client.Runtime.evaluate({
-      expression: 'location.href',
-      returnByValue: true,
-    })
-    if (!first && result.value === previous) return
-    previous = result.value
+    const current = await readUrl(client)
+    if (!first && current === previous) return
+    previous = current
     first = false
     await new Promise((resolve) => setTimeout(resolve, intervalMs))
+  }
+}
+
+/**
+ * Waits out a developer signing in by hand. Bounded, because nothing here
+ * should hold the sidebar's Fetch action open forever if they never do —
+ * see `fetchEpic`'s use of this, which reports the timeout as still not
+ * signed in rather than hanging.
+ */
+async function waitWhileUrlIncludes(
+  client: CDP.Client,
+  needle: string,
+  timeoutMs: number,
+  pollMs = 1_000,
+): Promise<string> {
+  const start = Date.now()
+  for (;;) {
+    const url = await readUrl(client)
+    if (!url.includes(needle) || Date.now() - start >= timeoutMs) return url
+    await new Promise((resolve) => setTimeout(resolve, pollMs))
   }
 }
 
@@ -180,6 +212,9 @@ export function chromiumLauncher(
             },
             async bringToFront() {
               await client.Page.bringToFront()
+            },
+            async waitWhileUrlIncludes(needle, timeoutMs) {
+              return waitWhileUrlIncludes(client, needle, timeoutMs)
             },
             async close() {
               // Ends the debugger connection, then destroys the tab itself —

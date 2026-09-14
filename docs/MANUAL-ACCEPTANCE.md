@@ -293,20 +293,30 @@ Add `-- patch` or `-- minor` to bump the version at the same time. See
       *Expected:* a field error quoting `aiDevWorkflow.jiraBaseUrl` and where to
       set it — no browser window opens.
 
-- [ ] **20b. Cold start — first sign-in.** Set the base URL to a real Jira
-      instance. Clear the extension's dedicated automation profile (delete the
-      `browser-fetch-profile` folder under its global storage directory, or use
-      a fresh machine/profile). Type a real epic key and press **Fetch from
-      browser**.
+- [ ] **20b. Cold start — first sign-in resumes automatically.** Set the base
+      URL to a real Jira instance. Clear the extension's dedicated automation
+      profile (delete the `browser-fetch-profile` folder under its global
+      storage directory, or use a fresh machine/profile). Type a real epic key
+      and press **Fetch from browser**.
       *Expected:* a Chrome or Edge window opens showing the organisation's SSO
-      prompt. Sign in, then press **Fetch from browser** again.
-      *Expected:* the field error clears and the fetch succeeds.
+      prompt, and the sidebar shows no error yet. Sign in within a few
+      minutes, without touching **Fetch from browser** again.
+      *Expected:* the fetch completes on its own — the tab it was waiting on
+      re-navigates to the ticket and the fetch succeeds with no second click.
+
+- [ ] **20b1. A sign-in that never happens times out, and can still be retried
+      afterwards.** Repeat 20b, but leave the sign-in prompt untouched.
+      *Expected:* after five minutes, a field error reads *"Still not signed
+      in after 5 minutes — sign in on the browser tab, then press Fetch
+      again"*, and the browser tab is still open on the sign-in prompt (not
+      closed). Sign in now and press **Fetch from browser** again.
+      *Expected:* it succeeds — the tab from 20b was never lost.
 
 - [ ] **20c. Warm fetch.** With the dedicated profile already signed in, type a
       different real epic key and press **Fetch from browser** again.
-      *Expected:* succeeds with no new window opening and no window stealing
-      focus — the background tab is opened and closed in the already-running
-      profile from 20b.
+      *Expected:* succeeds immediately with no new window opening and no
+      window stealing focus — the background tab is opened and closed in the
+      already-running profile from 20b.
 
 - [ ] **20d. A key that does not exist.** Type an epic key with no matching
       ticket and press **Fetch from browser**.
