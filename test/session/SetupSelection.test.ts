@@ -10,6 +10,7 @@ import {
 const complete: SetupSelection = {
   platform: 'canada-assisted',
   epic: 'PLAT-1234',
+  epicContext: '',
   workflowId: 'researchTaskWorkflow',
   featureStory: '',
   baseBranch: 'develop',
@@ -109,6 +110,22 @@ describe('validateSetup', () => {
 
     it('is ignored entirely by other workflows', () => {
       expect(validateSetup({ ...complete, featureStory: 'nonsense' })).toEqual({})
+    })
+  })
+
+  describe('epic context', () => {
+    it('is never required — an unfetched epic is still a valid selection', () => {
+      expect(validateSetup({ ...complete, epicContext: '' })).toEqual({})
+    })
+
+    it('an empty value is not treated as an error even when other fields are wrong too', () => {
+      expect(validateSetup({ ...complete, epicContext: '', platform: '' }).epicContext).toBeUndefined()
+    })
+
+    it('trims on the way to the task state, like the other free-text fields', () => {
+      expect(normaliseSetup({ ...complete, epicContext: '  fetched text  ' }).epicContext).toBe(
+        'fetched text',
+      )
     })
   })
 })

@@ -159,6 +159,61 @@ describe('buildWorkflowDescriptor', () => {
   it('surfaces errors on the active step', async () => {
     expect((await build({}, { question: 'required' })).steps[1]!.errors).toEqual({ question: 'required' })
   })
+
+  describe('a taskType offering initialValues', () => {
+    const ctxWithEpicContext = context({
+      order: workflow.order,
+      inputs: { ...ctx.inputs, epicContext: 'fetched from the ticket' },
+    })
+
+    it('shows them when nothing has been typed and nothing is stored yet', async () => {
+      const onRequirement = await buildWorkflowDescriptor({
+        workflow,
+        state: taskState({ currentStepId: 'requirement' }),
+        registry,
+        ctx: ctxWithEpicContext,
+        values: {},
+        errors: {},
+      })
+      expect(onRequirement.steps[0]!.values).toEqual({ story: 'fetched from the ticket' })
+    })
+
+    it('are overridden by what the developer has actually typed', async () => {
+      const onRequirement = await buildWorkflowDescriptor({
+        workflow,
+        state: taskState({ currentStepId: 'requirement' }),
+        registry,
+        ctx: ctxWithEpicContext,
+        values: { story: 'typed over the fetch' },
+        errors: {},
+      })
+      expect(onRequirement.steps[0]!.values).toEqual({ story: 'typed over the fetch' })
+    })
+
+    it('are overridden by a stored answer when re-editing a completed step', async () => {
+      const editing = await buildWorkflowDescriptor({
+        workflow,
+        state: taskState({ ...state, currentStepId: 'requirement' }),
+        registry,
+        ctx: ctxWithEpicContext,
+        values: {},
+        errors: {},
+      })
+      expect(editing.steps[0]!.values).toEqual({ story: 'why is checkout slow' })
+    })
+
+    it('are absent for an ordinary manual-entry task, unchanged from before this feature existed', async () => {
+      const onRequirement = await buildWorkflowDescriptor({
+        workflow,
+        state: taskState({ currentStepId: 'requirement' }),
+        registry,
+        ctx,
+        values: {},
+        errors: {},
+      })
+      expect(onRequirement.steps[0]!.values).toEqual({})
+    })
+  })
 })
 
 describe('badgeFor', () => {

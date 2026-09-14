@@ -253,6 +253,7 @@ export class SetupView implements vscode.WebviewViewProvider {
     return {
       platform: String(this.values.platform ?? ''),
       epic: String(this.values.epic ?? ''),
+      epicContext: String(this.values.epicContext ?? ''),
       workflowId: String(this.values.workflowId ?? ''),
       featureStory: String(this.values.featureStory ?? ''),
       baseBranch: String(this.values.baseBranch ?? ''),

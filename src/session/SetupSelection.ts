@@ -5,6 +5,8 @@
 export interface SetupSelection {
   platform: string
   epic: string
+  /** Fetched from the epic's Jira ticket, if Fetch from browser was used. Free entry either way. */
+  epicContext: string
   workflowId: string
   featureStory: string
   baseBranch: string
@@ -76,6 +78,7 @@ export function normaliseSetup(selection: SetupSelection): SetupSelection {
   return {
     ...selection,
     epic: selection.epic.trim(),
+    epicContext: selection.epicContext.trim(),
     baseBranch: selection.baseBranch.trim(),
     workDir: selection.workDir.trim(),
     featureStory: needsFeatureStory(selection.workflowId) ? selection.featureStory.trim() : '',

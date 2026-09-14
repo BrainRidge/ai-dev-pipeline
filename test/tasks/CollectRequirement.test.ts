@@ -53,6 +53,25 @@ describe('CollectRequirement', () => {
     const values = { story: 'PLAT-1 body', notes: 'from refinement' }
     expect(await task.execute(requirement, ctx, values)).toEqual(values)
   })
+
+  describe('when Fetch from browser was used in the sidebar', () => {
+    it('offers the fetched text as the story field’s starting value', async () => {
+      const fetched = context({ inputs: { epicContext: 'Given/When/Then from the ticket' } })
+      const view = await task.describe(requirement, fetched, {})
+      expect(view.initialValues).toEqual({ story: 'Given/When/Then from the ticket' })
+    })
+
+    it('offers nothing when the sidebar never fetched anything, unchanged from before', async () => {
+      const view = await task.describe(requirement, ctx, {})
+      expect(view.initialValues).toBeUndefined()
+    })
+
+    it('trusts inputs verbatim — trimming already happened in SetupSelection', async () => {
+      const untrimmed = context({ inputs: { epicContext: '  spaced  ' } })
+      const view = await task.describe(requirement, untrimmed, {})
+      expect(view.initialValues).toEqual({ story: '  spaced  ' })
+    })
+  })
 })
 
 /**

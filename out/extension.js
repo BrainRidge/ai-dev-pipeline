@@ -39268,7 +39268,11 @@ async function buildWorkflowDescriptor(args) {
       fields: view.fields,
       text: view.text,
       commands: view.commands,
-      values: prefill,
+      // Lowest priority: visible only on the one render where prefill is
+      // still empty. The moment the developer types anything, or the step is
+      // submitted and revisited, prefill carries real values and wins. See
+      // spec Section 19.
+      values: { ...view.initialValues, ...prefill },
       errors: Object.keys(errors).length > 0 ? errors : void 0,
       actions: view.actions
     };
@@ -43919,6 +43923,7 @@ function normaliseSetup(selection) {
   return {
     ...selection,
     epic: selection.epic.trim(),
+    epicContext: selection.epicContext.trim(),
     baseBranch: selection.baseBranch.trim(),
     workDir: selection.workDir.trim(),
     featureStory: needsFeatureStory(selection.workflowId) ? selection.featureStory.trim() : ""
@@ -44674,9 +44679,11 @@ var CollectRequirement = class {
     },
     { id: "notes", type: "textarea", label: "Meeting notes from call or conversation" }
   ];
-  async describe(_step, _ctx, _values) {
+  async describe(_step, ctx, _values) {
+    const epicContext = String(ctx.inputs.epicContext ?? "");
     return {
       fields: await Promise.all(this.fields.map((field) => this.offer(field))),
+      initialValues: epicContext ? { story: epicContext } : void 0,
       actions: [
         { id: "back", label: "Back" },
         { id: "submit", label: "Continue", primary: true }
@@ -45760,6 +45767,8 @@ var TaskSession = class _TaskSession {
     const selection = normaliseSetup({
       platform,
       epic: epic.trim(),
+      // Only the sidebar's Fetch from browser action can set this.
+      epicContext: "",
       workflowId,
       featureStory,
       baseBranch,
@@ -45797,6 +45806,7 @@ var TaskSession = class _TaskSession {
       workDir: selection.workDir
     };
     if (selection.featureStory) inputs.featureStory = selection.featureStory;
+    if (selection.epicContext) inputs.epicContext = selection.epicContext;
     const state = {
       schemaVersion: 1,
       taskId: ws.taskId,
@@ -46586,6 +46596,7 @@ var SetupView = class {
     return {
       platform: String(this.values.platform ?? ""),
       epic: String(this.values.epic ?? ""),
+      epicContext: String(this.values.epicContext ?? ""),
       workflowId: String(this.values.workflowId ?? ""),
       featureStory: String(this.values.featureStory ?? ""),
       baseBranch: String(this.values.baseBranch ?? ""),
