@@ -1,3 +1,4 @@
+import { access } from 'node:fs/promises'
 import { join } from 'node:path'
 import * as vscode from 'vscode'
 import { WorkflowCatalog } from '../engine/WorkflowCatalog'
@@ -10,11 +11,34 @@ import { PROTOCOL_VERSION } from '../engine/StepDescriptor'
 import { WebviewBridge } from '../bridge/WebviewBridge'
 import type { RenderField } from '../tasks/context'
 import {
+  chromiumLauncher,
+  findBrowser,
+  profileDir,
+  type BrowserLauncher,
+  type ExecutableProbe,
+} from '../browser/CdpSession'
+import { fetchEpic } from '../browser/BrowserEpicFetcher'
+import {
   needsFeatureStory,
   normaliseSetup,
   validateSetup,
   type SetupSelection,
 } from './SetupSelection'
+
+/** Exists on disk, tried in the order given. Used to locate an installed browser. */
+const nodeExecutableProbe: ExecutableProbe = {
+  async firstExisting(candidates) {
+    for (const candidate of candidates) {
+      try {
+        await access(candidate)
+        return candidate
+      } catch {
+        continue
+      }
+    }
+    return undefined
+  },
+}
 
 export type { SetupDescriptor, SetupSelection }
 
@@ -34,6 +58,7 @@ export class SetupView implements vscode.WebviewViewProvider {
   private bridge: WebviewBridge<SetupDescriptor> | undefined
   private values: Record<string, unknown> = {}
   private errors: Record<string, string> = {}
+  private launcher: BrowserLauncher | undefined
 
   constructor(
     private readonly context: vscode.ExtensionContext,
@@ -102,7 +127,64 @@ export class SetupView implements vscode.WebviewViewProvider {
       return
     }
 
+    if (actionId === 'fetchEpic') {
+      await this.fetchEpic()
+      return
+    }
+
     if (actionId === 'start') await this.start()
+  }
+
+  /** Found and launched at most once per pane, and only when actually used. */
+  private async browserLauncher(): Promise<BrowserLauncher> {
+    if (!this.launcher) {
+      const executable = await findBrowser(process.platform, nodeExecutableProbe)
+      this.launcher = chromiumLauncher(executable, profileDir(this.context.globalStorageUri.fsPath))
+    }
+    return this.launcher
+  }
+
+  /**
+   * Fetches the epic currently typed into the field, over the developer's own
+   * signed-in Chrome or Edge, and offers the result as the story field's
+   * starting text two screens from now (`CollectRequirement.describe`). Every
+   * outcome is either `this.values.epicContext` or a field error on `epic` —
+   * never silent. See spec Section 19.
+   */
+  private async fetchEpic(): Promise<void> {
+    const epic = String(this.values.epic ?? '').trim()
+    delete this.errors.epic
+
+    if (!epic) {
+      this.errors.epic = 'Enter an epic key before fetching.'
+      await this.render()
+      return
+    }
+
+    const jiraBaseUrl = vscode.workspace.getConfiguration('aiDevWorkflow').get<string>('jiraBaseUrl')
+
+    let launcher: BrowserLauncher
+    try {
+      launcher = await this.browserLauncher()
+    } catch (err) {
+      this.errors.epic = err instanceof Error ? err.message : String(err)
+      await this.render()
+      return
+    }
+
+    const result = await fetchEpic(epic, jiraBaseUrl, launcher)
+    if (!result.ok) {
+      this.errors.epic = result.message
+      await this.render()
+      return
+    }
+
+    // The story field the developer will see two screens from now still gets
+    // to be edited or ignored entirely — this only sets a starting point.
+    this.values.epicContext = [result.ticket.description, result.ticket.acceptanceCriteria]
+      .filter(Boolean)
+      .join('\n\n')
+    await this.render()
   }
 
   private mode(): Mode {
@@ -308,7 +390,13 @@ export class SetupView implements vscode.WebviewViewProvider {
         label: 'Platform',
         options: platforms.map((p) => ({ value: p.id, label: p.label })),
       },
-      { id: 'epic', type: 'text', label: 'Epic', required: true },
+      {
+        id: 'epic',
+        type: 'text',
+        label: 'Epic',
+        required: true,
+        action: { id: 'fetchEpic', label: 'Fetch from browser' },
+      },
       {
         id: 'workflowId',
         type: 'select',
