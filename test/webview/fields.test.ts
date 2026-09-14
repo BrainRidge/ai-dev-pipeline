@@ -67,6 +67,31 @@ describe('renderField', () => {
     el.querySelector<HTMLButtonElement>('.field-action')!.click()
     expect(seen).toEqual(['fetchEpic'])
   })
+
+  it('leaves the action button enabled by default', () => {
+    const el = renderField(
+      { id: 'epic', type: 'text', label: 'Epic', action: { id: 'fetchEpic', label: 'Fetch from browser' } },
+      '',
+    )
+    expect(el.querySelector<HTMLButtonElement>('.field-action')!.disabled).toBe(false)
+  })
+
+  // The signal a fetch already in flight — e.g. waiting on a browser sign-in
+  // — is under way, so a second click cannot start an overlapping one.
+  it('disables the action button while the host marks it disabled', () => {
+    const el = renderField(
+      {
+        id: 'epic',
+        type: 'text',
+        label: 'Epic',
+        action: { id: 'fetchEpic', label: 'Fetching…', disabled: true },
+      },
+      '',
+    )
+    const button = el.querySelector<HTMLButtonElement>('.field-action')!
+    expect(button.disabled).toBe(true)
+    expect(button.textContent).toBe('Fetching…')
+  })
 })
 
 describe('collectValues', () => {

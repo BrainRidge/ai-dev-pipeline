@@ -10,7 +10,7 @@ export interface RenderField {
   required?: boolean
   options?: { value: string; label: string }[]
   /** A single button drawn inline beside the field. Fires like any step action. */
-  action?: { id: string; label: string }
+  action?: { id: string; label: string; disabled?: boolean }
 }
 
 export interface StepDescriptor {
@@ -70,6 +70,7 @@ export function renderField(
   if (field.action) {
     const button = el('button', 'field-action', field.action.label)
     button.type = 'button'
+    button.disabled = Boolean(field.action.disabled)
     button.addEventListener('click', () => onFieldAction?.(field.action!.id))
     labelRow.append(button)
   }

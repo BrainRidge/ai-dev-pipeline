@@ -46510,6 +46510,8 @@ var SetupView = class {
   values = {};
   errors = {};
   launcher;
+  /** True while fetchEpic() is in flight, including a wait on sign-in. */
+  fetching = false;
   async resolveWebviewView(view) {
     view.webview.options = {
       enableScripts: true,
@@ -46555,7 +46557,7 @@ var SetupView = class {
       return;
     }
     if (actionId === "fetchEpic") {
-      await this.fetchEpic();
+      if (!this.fetching) await this.fetchEpic();
       return;
     }
     if (actionId === "start") await this.start();
@@ -46583,23 +46585,27 @@ var SetupView = class {
       await this.render();
       return;
     }
-    const jiraBaseUrl = vscode4.workspace.getConfiguration("aiDevWorkflow").get("jiraBaseUrl");
-    let launcher;
-    try {
-      launcher = await this.browserLauncher();
-    } catch (err) {
-      this.errors.epic = err instanceof Error ? err.message : String(err);
-      await this.render();
-      return;
-    }
-    const result = await fetchEpic(epic, jiraBaseUrl, launcher);
-    if (!result.ok) {
-      this.errors.epic = result.message;
-      await this.render();
-      return;
-    }
-    this.values.epicContext = [result.ticket.description, result.ticket.acceptanceCriteria].filter(Boolean).join("\n\n");
+    this.fetching = true;
     await this.render();
+    try {
+      const jiraBaseUrl = vscode4.workspace.getConfiguration("aiDevWorkflow").get("jiraBaseUrl");
+      let launcher;
+      try {
+        launcher = await this.browserLauncher();
+      } catch (err) {
+        this.errors.epic = err instanceof Error ? err.message : String(err);
+        return;
+      }
+      const result = await fetchEpic(epic, jiraBaseUrl, launcher);
+      if (!result.ok) {
+        this.errors.epic = result.message;
+        return;
+      }
+      this.values.epicContext = [result.ticket.description, result.ticket.acceptanceCriteria].filter(Boolean).join("\n\n");
+    } finally {
+      this.fetching = false;
+      await this.render();
+    }
   }
   mode() {
     return this.values.mode === "existing" ? "existing" : "new";
@@ -46766,7 +46772,11 @@ var SetupView = class {
         type: "text",
         label: "Epic",
         required: true,
-        action: { id: "fetchEpic", label: "Fetch from browser" }
+        action: {
+          id: "fetchEpic",
+          label: this.fetching ? "Fetching\u2026" : "Fetch from browser",
+          disabled: this.fetching
+        }
       },
       {
         id: "workflowId",

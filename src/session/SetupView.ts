@@ -59,6 +59,8 @@ export class SetupView implements vscode.WebviewViewProvider {
   private values: Record<string, unknown> = {}
   private errors: Record<string, string> = {}
   private launcher: BrowserLauncher | undefined
+  /** True while fetchEpic() is in flight, including a wait on sign-in. */
+  private fetching = false
 
   constructor(
     private readonly context: vscode.ExtensionContext,
@@ -128,7 +130,10 @@ export class SetupView implements vscode.WebviewViewProvider {
     }
 
     if (actionId === 'fetchEpic') {
-      await this.fetchEpic()
+      // The button disables itself while a fetch is in flight, but a click
+      // can still land in the gap before a disabled re-render reaches the
+      // webview — this is the guard against starting a second one under it.
+      if (!this.fetching) await this.fetchEpic()
       return
     }
 
@@ -161,30 +166,40 @@ export class SetupView implements vscode.WebviewViewProvider {
       return
     }
 
-    const jiraBaseUrl = vscode.workspace.getConfiguration('aiDevWorkflow').get<string>('jiraBaseUrl')
-
-    let launcher: BrowserLauncher
-    try {
-      launcher = await this.browserLauncher()
-    } catch (err) {
-      this.errors.epic = err instanceof Error ? err.message : String(err)
-      await this.render()
-      return
-    }
-
-    const result = await fetchEpic(epic, jiraBaseUrl, launcher)
-    if (!result.ok) {
-      this.errors.epic = result.message
-      await this.render()
-      return
-    }
-
-    // The story field the developer will see two screens from now still gets
-    // to be edited or ignored entirely — this only sets a starting point.
-    this.values.epicContext = [result.ticket.description, result.ticket.acceptanceCriteria]
-      .filter(Boolean)
-      .join('\n\n')
+    // A sign-in wait can run for minutes (see BrowserEpicFetcher), so the
+    // button says so and disables itself rather than leaving the pane
+    // looking frozen with no explanation. One render() at the end, via
+    // finally, covers every way out of the block below.
+    this.fetching = true
     await this.render()
+
+    try {
+      const jiraBaseUrl = vscode.workspace.getConfiguration('aiDevWorkflow').get<string>('jiraBaseUrl')
+
+      let launcher: BrowserLauncher
+      try {
+        launcher = await this.browserLauncher()
+      } catch (err) {
+        this.errors.epic = err instanceof Error ? err.message : String(err)
+        return
+      }
+
+      const result = await fetchEpic(epic, jiraBaseUrl, launcher)
+      if (!result.ok) {
+        this.errors.epic = result.message
+        return
+      }
+
+      // The story field the developer will see two screens from now still
+      // gets to be edited or ignored entirely — this only sets a starting
+      // point.
+      this.values.epicContext = [result.ticket.description, result.ticket.acceptanceCriteria]
+        .filter(Boolean)
+        .join('\n\n')
+    } finally {
+      this.fetching = false
+      await this.render()
+    }
   }
 
   private mode(): Mode {
@@ -396,7 +411,11 @@ export class SetupView implements vscode.WebviewViewProvider {
         type: 'text',
         label: 'Epic',
         required: true,
-        action: { id: 'fetchEpic', label: 'Fetch from browser' },
+        action: {
+          id: 'fetchEpic',
+          label: this.fetching ? 'Fetching…' : 'Fetch from browser',
+          disabled: this.fetching,
+        },
       },
       {
         id: 'workflowId',

@@ -14,6 +14,7 @@
     if (field.action) {
       const button = el("button", "field-action", field.action.label);
       button.type = "button";
+      button.disabled = Boolean(field.action.disabled);
       button.addEventListener("click", () => onFieldAction?.(field.action.id));
       labelRow.append(button);
     }
