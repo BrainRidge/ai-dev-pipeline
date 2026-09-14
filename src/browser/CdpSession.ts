@@ -81,6 +81,42 @@ async function isReachable(port: number): Promise<boolean> {
   }
 }
 
+/**
+ * A client-side auth redirect (e.g. a Jira page bouncing, signed out, to its
+ * identity provider on another origin) can land some time after the page's
+ * own load event fires — found by testing against a real signed-out ticket,
+ * where the URL sat unchanged for over half a second before the redirect
+ * actually happened. Two things follow from that measurement:
+ *
+ * - A second `Page.loadEventFired()` does not reliably correspond to it, so
+ *   is not a signal to wait on at all — tried first, and it fired too early.
+ * - Polling `location.href` until two *consecutive* reads agree is not
+ *   enough either: two reads taken a normal poll interval apart can both
+ *   land inside that same pre-redirect pause and read as "already stable".
+ *   `minDelayMs` rules that out by not taking the first reading until after
+ *   the observed pause has had time to end.
+ */
+async function waitForStableUrl(
+  client: CDP.Client,
+  { minDelayMs = 1_200, timeoutMs = 4_000, intervalMs = 300 } = {},
+): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, minDelayMs))
+
+  let previous: unknown
+  let first = true
+  const start = Date.now()
+  while (Date.now() - start < timeoutMs) {
+    const { result } = await client.Runtime.evaluate({
+      expression: 'location.href',
+      returnByValue: true,
+    })
+    if (!first && result.value === previous) return
+    previous = result.value
+    first = false
+    await new Promise((resolve) => setTimeout(resolve, intervalMs))
+  }
+}
+
 async function waitForPort(port: number, timeoutMs = 15_000): Promise<void> {
   const start = Date.now()
   while (Date.now() - start < timeoutMs) {
@@ -131,6 +167,7 @@ export function chromiumLauncher(
             async navigate(url) {
               await client.Page.navigate({ url })
               await client.Page.loadEventFired()
+              await waitForStableUrl(client)
             },
             async extract<T>(script: string): Promise<T> {
               const { result } = await client.Runtime.evaluate({

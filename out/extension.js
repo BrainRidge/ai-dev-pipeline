@@ -46317,6 +46317,22 @@ async function isReachable(port) {
     return false;
   }
 }
+async function waitForStableUrl(client, { minDelayMs = 1200, timeoutMs = 4e3, intervalMs = 300 } = {}) {
+  await new Promise((resolve) => setTimeout(resolve, minDelayMs));
+  let previous;
+  let first = true;
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const { result } = await client.Runtime.evaluate({
+      expression: "location.href",
+      returnByValue: true
+    });
+    if (!first && result.value === previous) return;
+    previous = result.value;
+    first = false;
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+}
 async function waitForPort(port, timeoutMs = 15e3) {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
@@ -46351,6 +46367,7 @@ function chromiumLauncher(executable, userDataDir, port = DEFAULT_PORT) {
             async navigate(url) {
               await client.Page.navigate({ url });
               await client.Page.loadEventFired();
+              await waitForStableUrl(client);
             },
             async extract(script) {
               const { result } = await client.Runtime.evaluate({
