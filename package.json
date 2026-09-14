@@ -85,29 +85,35 @@
           "order": 5,
           "markdownDescription": "Optional. Absolute path to a JSON file listing the tools the System Check step looks for on a developer's machine. If you supply none, a default list is used — git, a JDK, Maven and Gradle — and the step's report says which list it used. Copy `examples/content-template/config/tools.json` for the expected shape."
         },
+        "aiDevWorkflow.jiraBaseUrl": {
+          "type": "string",
+          "default": "",
+          "order": 6,
+          "markdownDescription": "Base URL of your Jira instance, e.g. `https://yourteam.atlassian.net`. Required for the sidebar's **Fetch from browser** action beside the Epic field; leave unset and that button reports what to set instead of fetching."
+        },
         "aiDevWorkflow.tasksRoot": {
           "type": "string",
           "default": "",
           "description": "Where task folders are created. Defaults to ~/ai-dev-workflow/tasks.",
-          "order": 6
+          "order": 7
         },
         "aiDevWorkflow.codeRoot": {
           "type": "string",
           "default": "",
           "description": "Where repositories are cloned. Defaults to ~/ai-dev-workflow/code.",
-          "order": 7
+          "order": 8
         },
         "aiDevWorkflow.updateManifestUrl": {
           "type": "string",
           "default": "",
           "description": "URL of a JSON manifest stating the latest published version. Empty disables the check.",
-          "order": 8
+          "order": 9
         },
         "aiDevWorkflow.taskId": {
           "type": "string",
           "default": "",
           "description": "Set automatically in generated workspace files. Do not edit.",
-          "order": 9
+          "order": 10
         }
       }
     }
