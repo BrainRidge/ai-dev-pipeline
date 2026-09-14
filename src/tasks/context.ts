@@ -10,6 +10,8 @@ export interface ActionDef {
 
 export interface RenderField extends FieldDef {
   options?: { value: string; label: string }[]
+  /** A single button drawn inline beside the field. Fires like any step action. */
+  action?: { id: string; label: string }
 }
 
 /** A copyable block of text the developer acts on by hand: commands, a prompt. */

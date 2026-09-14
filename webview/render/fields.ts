@@ -9,6 +9,8 @@ export interface RenderField {
   label: string
   required?: boolean
   options?: { value: string; label: string }[]
+  /** A single button drawn inline beside the field. Fires like any step action. */
+  action?: { id: string; label: string }
 }
 
 export interface StepDescriptor {
@@ -55,9 +57,23 @@ function el<K extends keyof HTMLElementTagNameMap>(
   return node
 }
 
-export function renderField(field: RenderField, value: unknown, error?: string): HTMLElement {
+export function renderField(
+  field: RenderField,
+  value: unknown,
+  error?: string,
+  onFieldAction?: (actionId: string) => void,
+): HTMLElement {
   const wrap = el('div', 'field')
-  wrap.append(el('label', 'field-label', field.label))
+
+  const labelRow = el('div', 'field-label-row')
+  labelRow.append(el('label', 'field-label', field.label))
+  if (field.action) {
+    const button = el('button', 'field-action', field.action.label)
+    button.type = 'button'
+    button.addEventListener('click', () => onFieldAction?.(field.action!.id))
+    labelRow.append(button)
+  }
+  wrap.append(labelRow)
 
   switch (field.type) {
     case 'textarea': {
@@ -468,7 +484,11 @@ export function renderStep(
   const body = el('div', 'step-body')
   if (d.step.text) body.append(el('p', 'step-text', d.step.text))
   for (const f of d.step.fields ?? []) {
-    body.append(renderField(f, d.step.values[f.id], d.step.errors?.[f.id]))
+    body.append(
+      renderField(f, d.step.values[f.id], d.step.errors?.[f.id], (actionId) =>
+        onAction?.(actionId, collect()),
+      ),
+    )
   }
   root.append(body)
 

@@ -399,6 +399,8 @@ h1{font-size:1rem;margin:0 0 .5rem}
 .task-meta,.progress{display:none}
 .field{margin:.75rem 0;display:flex;flex-direction:column;gap:.25rem}
 .field-label{font-weight:600;font-size:.9em}
+.field-label-row{display:flex;align-items:center;justify-content:space-between;gap:.5rem}
+.field-action{width:auto;padding:.15rem .5rem;font-size:.8em;background:var(--vscode-button-secondaryBackground,rgba(127,127,127,.2));color:var(--vscode-button-secondaryForeground,inherit)}
 .options{display:flex;flex-direction:column;gap:.15rem;max-height:14rem;overflow-y:auto}
 .option{display:flex;align-items:center;gap:.4rem;font-weight:400}
 input[type=text],select,.option-filter{background:var(--vscode-input-background);color:var(--vscode-input-foreground);border:1px solid var(--vscode-input-border,transparent);padding:.3rem;font:inherit;width:100%;box-sizing:border-box}

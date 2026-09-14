@@ -7,9 +7,17 @@
     if (text) node.textContent = text;
     return node;
   }
-  function renderField(field, value, error) {
+  function renderField(field, value, error, onFieldAction) {
     const wrap = el("div", "field");
-    wrap.append(el("label", "field-label", field.label));
+    const labelRow = el("div", "field-label-row");
+    labelRow.append(el("label", "field-label", field.label));
+    if (field.action) {
+      const button = el("button", "field-action", field.action.label);
+      button.type = "button";
+      button.addEventListener("click", () => onFieldAction?.(field.action.id));
+      labelRow.append(button);
+    }
+    wrap.append(labelRow);
     switch (field.type) {
       case "textarea": {
         const t = el("textarea");

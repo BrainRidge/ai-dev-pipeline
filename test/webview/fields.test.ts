@@ -42,6 +42,31 @@ describe('renderField', () => {
     const el = renderField({ id: 'r', type: 'repo-picker', label: 'Repo' }, 'payments')
     expect(el.querySelector('input')!.value).toBe('payments')
   })
+
+  it('draws no inline button when the field carries no action', () => {
+    const el = renderField({ id: 'q', type: 'text', label: 'Q' }, '')
+    expect(el.querySelector('.field-action')).toBeNull()
+  })
+
+  it('draws an inline button labelled from the field action', () => {
+    const el = renderField(
+      { id: 'epic', type: 'text', label: 'Epic', action: { id: 'fetchEpic', label: 'Fetch from browser' } },
+      '',
+    )
+    expect(el.querySelector('.field-action')!.textContent).toBe('Fetch from browser')
+  })
+
+  it('reports the action id on click, without needing the step action pressed', () => {
+    const seen: string[] = []
+    const el = renderField(
+      { id: 'epic', type: 'text', label: 'Epic', action: { id: 'fetchEpic', label: 'Fetch from browser' } },
+      '',
+      undefined,
+      (actionId) => seen.push(actionId),
+    )
+    el.querySelector<HTMLButtonElement>('.field-action')!.click()
+    expect(seen).toEqual(['fetchEpic'])
+  })
 })
 
 describe('collectValues', () => {
@@ -110,6 +135,24 @@ describe('renderStep', () => {
     root.querySelector<HTMLInputElement>('input[name=q]')!.value = 'typed'
     root.querySelector('button')!.click()
     expect(seen).toEqual([{ id: 'submit', values: { q: 'typed' } }])
+  })
+
+  it('reports a field action with the current form values, not the primary action', () => {
+    const withFieldAction: StepDescriptor = {
+      ...descriptor,
+      step: {
+        ...descriptor.step,
+        fields: [
+          { id: 'q', type: 'text', label: 'Q', action: { id: 'fetchEpic', label: 'Fetch from browser' } },
+        ],
+      },
+    }
+    const root = document.createElement('div')
+    const seen: { id: string; values: Record<string, unknown> }[] = []
+    renderStep(withFieldAction, root, (id, values) => seen.push({ id, values }))
+    root.querySelector<HTMLInputElement>('input[name=q]')!.value = 'PLAT-1'
+    root.querySelector<HTMLButtonElement>('.field-action')!.click()
+    expect(seen).toEqual([{ id: 'fetchEpic', values: { q: 'PLAT-1' } }])
   })
 
   it('clears previous content on re-render', () => {
